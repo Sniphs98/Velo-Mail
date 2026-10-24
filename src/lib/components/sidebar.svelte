@@ -7,7 +7,6 @@
 		Folder,
 		Inbox,
 		Mails,
-		PenLine,
 		Plus,
 		Send,
 		Settings2,
@@ -16,11 +15,11 @@
 	} from '@lucide/svelte';
 	import { accounts } from '#lib/accounts.svelte.ts';
 	import { velo, type AppInfo, type MailboxRole } from '#lib/api.ts';
-	import { compose } from '#lib/compose.svelte.ts';
 	import { mail } from '#lib/mail.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import UpdateNotice from './update-notice.svelte';
 
 	let { onaddaccount, onsettings }: { onaddaccount: () => void; onsettings: () => void } = $props();
 
@@ -43,39 +42,21 @@
 		all: Mails
 	};
 
-	/** The account of the open folder, else the first one. */
-	function defaultAccount() {
-		const view = mail.view;
-		const box =
-			'mailboxId' in view ? mail.mailboxes.find((m) => m.id === view.mailboxId) : undefined;
-		return box?.accountId ?? accounts.list[0].id;
-	}
-
-	const itemClass = 'h-9 justify-start gap-2.5 font-normal aria-[current=page]:font-medium';
+	const itemClass = 'h-8 justify-start gap-2 font-normal aria-[current=page]:font-medium';
 </script>
 
 <nav
 	aria-label="Konten und Ordner"
-	class="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto rounded-2xl border bg-card p-3.5"
+	class="flex w-52 shrink-0 flex-col gap-px overflow-y-auto rounded-xl border bg-card p-2"
 >
-	<Button
-		disabled={accounts.list.length === 0}
-		size="lg"
-		class="mb-3 h-11 shrink-0 rounded-xl"
-		onclick={() => compose.start(defaultAccount())}
-	>
-		<PenLine aria-hidden="true" />
-		Neue Nachricht
-	</Button>
-
 	<Button
 		variant={mail.isShowing({ inboxes: true }) ? 'secondary' : 'ghost'}
 		aria-current={mail.isShowing({ inboxes: true }) ? 'page' : undefined}
-		size="lg"
-		class="{itemClass} h-10"
+		size="sm"
+		class={itemClass}
 		onclick={() => mail.show({ inboxes: true })}
 	>
-		<Inbox class="size-[18px]" aria-hidden="true" />
+		<Inbox class="size-4" aria-hidden="true" />
 		<span class="flex-1 text-left">Alle Posteingänge</span>
 		{#if mail.unreadInboxes > 0}
 			<span class="text-xs font-semibold">{mail.unreadInboxes}</span>
@@ -85,7 +66,7 @@
 	{#each accounts.list as account (account.id)}
 		{@const status = mail.status[account.id]}
 		<section aria-label={account.name} class="flex flex-col gap-0.5">
-			<div class="flex items-center gap-2.5 pt-4 pr-0.5 pb-1 pl-2.5">
+			<div class="flex items-center gap-2 pt-3 pr-0.5 pb-0.5 pl-2">
 				<span class="size-2.5 shrink-0 rounded-full" style:background={account.color}></span>
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="truncate text-[13px] font-semibold">{account.name}</span>
@@ -127,8 +108,8 @@
 				<Button
 					variant={active ? 'secondary' : 'ghost'}
 					aria-current={active ? 'page' : undefined}
-					size="lg"
-					class="{itemClass} pl-7"
+					size="sm"
+					class="{itemClass} pl-6"
 					onclick={() => mail.show({ mailboxId: box.id })}
 				>
 					<Icon class="size-4" aria-hidden="true" />
@@ -143,25 +124,17 @@
 
 	<div class="min-h-4 flex-1"></div>
 
-	<Button
-		variant="ghost"
-		size="lg"
-		class="h-10 shrink-0 justify-start gap-2.5 font-normal"
-		onclick={onaddaccount}
-	>
-		<Plus class="size-[18px]" aria-hidden="true" />
+	<UpdateNotice />
+
+	<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onaddaccount}>
+		<Plus class="size-4" aria-hidden="true" />
 		Konto hinzufügen
 	</Button>
-	<Button
-		variant="ghost"
-		size="lg"
-		class="h-10 shrink-0 justify-start gap-2.5 font-normal"
-		onclick={onsettings}
-	>
-		<Settings2 class="size-[18px]" aria-hidden="true" />
+	<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onsettings}>
+		<Settings2 class="size-4" aria-hidden="true" />
 		Einstellungen
 	</Button>
 	{#if info}
-		<p class="px-2.5 pt-2 text-xs text-muted-foreground">{info.name} {info.version}</p>
+		<p class="px-2 pt-1.5 text-[11px] text-muted-foreground">{info.name} {info.version}</p>
 	{/if}
 </nav>

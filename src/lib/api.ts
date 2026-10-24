@@ -68,6 +68,18 @@ export interface Settings {
 	tray: boolean;
 	/** Load sender pictures (logos, Gravatar) from the internet. */
 	avatars: boolean;
+	/** Look for a newer release on start. */
+	updates: boolean;
+}
+
+/** A newer release than the running one. */
+export interface UpdateInfo {
+	/** Without the leading "v", e.g. "0.2.0". */
+	version: string;
+	/** The release page, to download it by hand. */
+	url: string;
+	/** Whether this copy can install it itself (Windows installer, AppImage). */
+	canSelfUpdate: boolean;
 }
 
 /** A sender's logo or photo, as a data: URL. */
@@ -199,6 +211,14 @@ export interface SyncStatus {
 export interface VeloApi {
 	app: {
 		info(): Promise<AppInfo>;
+		/** A newer release, or null when up to date (or offline). */
+		checkUpdate(): Promise<UpdateInfo | null>;
+		/** Downloads the newer release; reports progress through onUpdateProgress. */
+		installUpdate(): Promise<void>;
+		/** Quits and installs the downloaded release; the app starts again on it. */
+		restartToUpdate(): Promise<void>;
+		/** Download progress in percent. */
+		onUpdateProgress(listener: (percent: number) => void): () => void;
 	};
 	accounts: {
 		list(): Promise<Account[]>;
@@ -268,6 +288,11 @@ declare global {
 /** IPC channel names, one per API call. */
 export const IPC = {
 	appInfo: 'app:info',
+	appCheckUpdate: 'app:check-update',
+	appInstallUpdate: 'app:install-update',
+	appRestartToUpdate: 'app:restart-to-update',
+	/** Main → renderer. */
+	appUpdateProgress: 'app:update-progress',
 	accountsList: 'accounts:list',
 	accountsDiscover: 'accounts:discover',
 	accountsTest: 'accounts:test',

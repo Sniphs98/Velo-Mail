@@ -108,7 +108,7 @@
 			></iframe>
 		</div>
 	{:else if body.text}
-		<div class="text-[15px] leading-relaxed break-words whitespace-pre-wrap">{body.text}</div>
+		<div class="text-sm leading-relaxed break-words whitespace-pre-wrap">{body.text}</div>
 	{:else}
 		<p class="text-sm text-muted-foreground">Diese Nachricht hat keinen Text.</p>
 	{/if}

@@ -27,6 +27,10 @@ describe('SettingsDialog', () => {
 		expect(api.settings.set).toHaveBeenCalledWith({ tray: true });
 		await page.getByRole('switch', { name: 'Absenderbilder' }).click();
 		expect(api.settings.set).toHaveBeenCalledWith({ avatars: false });
+		await page.getByRole('switch', { name: 'Nach Updates suchen' }).click();
+		expect(api.settings.set).toHaveBeenCalledWith({ updates: false });
+		await page.getByRole('button', { name: 'Jetzt suchen' }).click();
+		await expect.element(page.getByText('Velo Mail ist auf dem neuesten Stand.')).toBeVisible();
 	});
 
 	it('saves the name and signature of an account', async () => {

@@ -38,9 +38,12 @@ linux:
 win:
   target: [nsis]
 
+# The installer is also how in-app updates arrive (electron-updater reads
+# latest.yml next to it); resources/installer.nsh keeps updates quiet.
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  perMachine: false
 
 mac:
   # The zip is what the auto-updater downloads on macOS.

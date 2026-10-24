@@ -64,6 +64,25 @@ describe('MessageList', () => {
 			onselect: () => {}
 		});
 		await expect.element(page.getByText('Keine E-Mails')).toBeVisible();
+		// Without accounts there is nothing to write from.
+		await expect
+			.element(page.getByRole('button', { name: /Neue Nachricht/ }))
+			.not.toBeInTheDocument();
+	});
+
+	it('starts a new message from the header', async () => {
+		const oncompose = vi.fn();
+		render(MessageList, {
+			title: 'Posteingang',
+			messages: [],
+			accounts,
+			selectedId: null,
+			showAccount: false,
+			onselect: () => {},
+			oncompose
+		});
+		await page.getByRole('button', { name: 'Neue Nachricht (C)' }).click();
+		expect(oncompose).toHaveBeenCalledOnce();
 	});
 });
 

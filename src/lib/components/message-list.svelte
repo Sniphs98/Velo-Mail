@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Paperclip, Search, X } from '@lucide/svelte';
+	import { Paperclip, PenLine, Search, X } from '@lucide/svelte';
 	import type { Account, MessageSummary } from '#lib/api.ts';
 	import { listDate } from '#lib/format.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
@@ -17,7 +17,8 @@
 		onselect,
 		query = '',
 		onsearch = () => {},
-		onsearchserver
+		onsearchserver,
+		oncompose
 	}: {
 		title: string;
 		subtitle?: string;
@@ -32,6 +33,8 @@
 		onsearch?: (query: string) => void;
 		/** Searches the servers for older messages; resolves with how many. */
 		onsearchserver?: () => Promise<number>;
+		/** Starts a new message; the button is hidden without it. */
+		oncompose?: () => void;
 	} = $props();
 
 	let typed = $state('');
@@ -64,24 +67,36 @@
 
 <section
 	aria-label="Nachrichtenliste"
-	class="flex w-96 shrink-0 flex-col gap-3 rounded-2xl border bg-card p-4"
+	class="flex w-80 shrink-0 flex-col gap-2 rounded-xl border bg-card p-2.5"
 >
-	<div class="flex flex-col gap-0.5">
-		<h1 class="font-heading text-xl font-semibold">{title}</h1>
-		{#if subtitle}
-			<span class="text-[13px] text-muted-foreground">{subtitle}</span>
+	<div class="flex items-start gap-2 pl-1">
+		<div class="flex min-w-0 flex-1 flex-col">
+			<h1 class="truncate font-heading text-base font-semibold">{title}</h1>
+			{#if subtitle}
+				<span class="truncate text-xs text-muted-foreground">{subtitle}</span>
+			{/if}
+		</div>
+		{#if oncompose}
+			<Button
+				size="icon-sm"
+				aria-label="Neue Nachricht (C)"
+				title="Neue Nachricht (C)"
+				onclick={oncompose}
+			>
+				<PenLine />
+			</Button>
 		{/if}
 	</div>
 	<div class="relative">
 		<Search
-			class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+			class="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
 			aria-hidden="true"
 		/>
 		<Input
 			type="search"
 			placeholder="Suchen"
 			aria-label="Suchen"
-			class="h-10 rounded-full border-transparent bg-muted pr-10 pl-10"
+			class="h-8 rounded-lg border-transparent bg-muted pr-9 pl-8 text-sm"
 			value={typed}
 			oninput={(event) => input(event.currentTarget.value)}
 			onkeydown={(event) => {
@@ -94,8 +109,8 @@
 		{#if typed}
 			<Button
 				variant="ghost"
-				size="icon-sm"
-				class="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-full"
+				size="icon-xs"
+				class="absolute top-1/2 right-1 -translate-y-1/2"
 				aria-label="Suche löschen"
 				onclick={() => input('')}
 			>
@@ -109,21 +124,22 @@
 			{query ? 'Keine Treffer' : 'Keine E-Mails'}
 		</p>
 	{:else}
-		<ul class="-mx-1 flex flex-col gap-0.5 overflow-y-auto px-1">
+		<ul class="-mx-1 flex flex-col gap-px overflow-y-auto px-1">
 			{#each messages as message (message.id)}
 				<li>
 					<button
 						type="button"
 						aria-current={message.id === selectedId ? 'true' : undefined}
-						class="flex w-full gap-3 rounded-xl p-3 text-left hover:bg-muted/60 aria-[current=true]:bg-muted"
+						class="flex w-full gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-muted/60 aria-[current=true]:bg-muted"
 						onclick={() => onselect(message.id)}
 					>
 						<SenderAvatar
 							name={message.fromName}
 							address={message.fromAddress}
+							size={32}
 							badge={showAccount ? colors.get(message.accountId) : undefined}
 						/>
-						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span class="flex min-w-0 flex-1 flex-col">
 							<span class="flex items-center justify-between gap-2">
 								<span class="flex min-w-0 items-center gap-1.5">
 									<span class="truncate text-sm" class:font-semibold={!message.seen}>
@@ -147,11 +163,11 @@
 									{/if}
 								</span>
 							</span>
-							<span class="truncate text-[13px]" class:font-semibold={!message.seen}>
+							<span class="truncate text-xs" class:font-semibold={!message.seen}>
 								{message.subject || '(Kein Betreff)'}
 							</span>
 							{#if message.snippet}
-								<span class="truncate text-[13px] text-muted-foreground">{message.snippet}</span>
+								<span class="truncate text-xs text-muted-foreground">{message.snippet}</span>
 							{/if}
 						</span>
 					</button>

@@ -5,6 +5,7 @@
 	import type { Account, Theme } from '#lib/api.ts';
 	import { pictures } from '#lib/pictures.svelte.ts';
 	import { settings } from '#lib/settings.svelte.ts';
+	import { update } from '#lib/update.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as Dialog from '#lib/components/ui/dialog/index.ts';
 	import * as Field from '#lib/components/ui/field/index.ts';
@@ -24,6 +25,15 @@
 	/** What is being edited per account, until it is saved. */
 	let edits = $state<Record<number, { name: string; signature: string }>>({});
 	let saved = $state<number>();
+	let updateStatus = $state<string>();
+
+	async function checkNow() {
+		updateStatus = 'Suche …';
+		const found = await update.check();
+		updateStatus = found
+			? `Version ${found.version} ist verfügbar – siehe links unten.`
+			: 'Velo Mail ist auf dem neuesten Stand.';
+	}
 	let error = $state<string>();
 
 	$effect(() => {
@@ -34,6 +44,7 @@
 		);
 		saved = undefined;
 		error = undefined;
+		updateStatus = undefined;
 	});
 
 	const changed = (account: Account) =>
@@ -114,6 +125,24 @@
 								pictures.clear();
 							}}
 						/>
+					</Field.Field>
+
+					<Field.Field orientation="horizontal">
+						<Field.Content>
+							<Field.Label for="setting-updates">Nach Updates suchen</Field.Label>
+							<Field.Description>
+								Beim Start fragt Velo Mail bei GitHub nach einer neueren Version.
+								{#if updateStatus}<span role="status" class="block pt-1">{updateStatus}</span>{/if}
+							</Field.Description>
+						</Field.Content>
+						<div class="flex items-center gap-2">
+							<Button variant="outline" size="xs" onclick={checkNow}>Jetzt suchen</Button>
+							<Switch
+								id="setting-updates"
+								checked={settings.value.updates}
+								onCheckedChange={(checked) => settings.set({ updates: checked })}
+							/>
+						</div>
 					</Field.Field>
 
 					<Field.Field orientation="horizontal">
