@@ -183,8 +183,10 @@ App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
 - [x] Archivieren und Löschen (Papierkorb), fehlende Ordner werden angelegt
 - [x] Tastenkürzel: c = neu, r/a/f = antworten/allen/weiterleiten,
       e = archivieren, Entf/# = löschen, Strg/⌘+Enter = senden
-- [ ] Formatierung (fett, kursiv, Listen, Links) – vorerst reiner Text
-- [ ] Anhänge der Originalmail beim Weiterleiten mitschicken
+- [x] Formatierung (fett, kursiv, Listen, Links) mit TipTap; gesendet wird
+      HTML mit einer Textfassung
+- [x] Anhänge der Originalmail beim Weiterleiten mitschicken (einzeln
+      entfernbar, auch in Entwürfen)
 - [x] Ordnernamen einheitlich auf Deutsch anzeigen (Sonderordner nach ihrer
       Rolle, egal wie sie auf dem Server heißen)
 
