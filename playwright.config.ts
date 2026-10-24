@@ -6,5 +6,7 @@ export default defineConfig({
 	testDir: 'e2e',
 	globalSetup: './e2e/global-setup.ts',
 	testMatch: '**/*.e2e.ts',
+	// The tests share one mail server.
+	workers: 1,
 	reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list'
 });

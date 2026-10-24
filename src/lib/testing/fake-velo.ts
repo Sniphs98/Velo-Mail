@@ -34,6 +34,15 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			})),
 			remove: vi.fn(async () => {}),
 			...overrides.accounts
+		},
+		mail: {
+			mailboxes: vi.fn(async () => []),
+			messages: vi.fn(async () => []),
+			setSeen: vi.fn(async () => {}),
+			sync: vi.fn(async () => {}),
+			onChanged: vi.fn(() => () => {}),
+			onStatus: vi.fn(() => () => {}),
+			...overrides.mail
 		}
 	};
 	window.velo = api;

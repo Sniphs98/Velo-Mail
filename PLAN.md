@@ -133,13 +133,22 @@ App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
 - [x] Mehrere Konten mit eigener Farbe in der Seitenleiste, Konto entfernen
 - [ ] OAuth2 für Gmail/Outlook (Phase 8)
 
-### Phase 4 – Synchronisierung
+### Phase 4 – Synchronisierung _(erledigt)_
 
-- Ordnerliste holen, Spezialordner erkennen.
-- Erster Sync: Kopfzeilen der letzten X Tage, ältere Mails beim Scrollen.
-- Danach inkrementell (UID + CONDSTORE/MODSEQ), IDLE für neue Mails sofort.
-- Flags (gelesen, markiert, gelöscht, verschoben) in beide Richtungen.
-- Events vom Main zum Renderer, damit die Liste live aktualisiert.
+- [x] Ordnerliste holen, Spezialordner erkennen (RFC 6154), verschwundene
+      Ordner lokal entfernen
+- [x] Erster Sync: die neuesten 500 Mails je Ordner (Kopfzeilen, Flags,
+      Anhang ja/nein); danach nur Neues per UID
+- [x] Flags per CONDSTORE, wo der Server es kann, sonst Abgleich aller Flags;
+      auf dem Server gelöschte Mails verschwinden lokal; neue UIDVALIDITY →
+      Ordner neu laden
+- [x] IDLE auf dem Posteingang: neue Mails erscheinen sofort, alle 5 Minuten
+      ein kompletter Durchlauf, Wiederverbinden nach 5 s / 30 s / 2 min / 5 min
+- [x] Gelesen-Markierung beim Öffnen, auch auf dem Server
+- [x] Ordner je Konto mit Ungelesen-Zähler, „Alle Posteingänge“, Mailliste
+      mit Initialen-Avataren und Kontofarbe, Sync-Status je Konto
+- [ ] Ältere Mails beim Scrollen nachladen
+- [ ] Vorschautext in der Liste (kommt mit den Inhalten in Phase 5)
 
 ### Phase 5 – Lesen
 

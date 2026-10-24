@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { openDatabase, type Database } from './db';
 import { registerIpc } from './ipc';
+import type { SyncManager } from './mail/manager';
 import { rendererPath } from './renderer-path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -15,6 +16,7 @@ const appOrigin = 'app://velo';
 if (process.env.VELO_USER_DATA) app.setPath('userData', process.env.VELO_USER_DATA);
 
 let db: Database | undefined;
+let sync: SyncManager | undefined;
 
 protocol.registerSchemesAsPrivileged([
 	{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
@@ -93,7 +95,7 @@ if (!app.requestSingleInstanceLock()) {
 			app.exit(1);
 			return;
 		}
-		registerIpc(db);
+		sync = registerIpc(db);
 		serveRenderer();
 		createWindow();
 		app.on('activate', () => {
@@ -101,6 +103,20 @@ if (!app.requestSingleInstanceLock()) {
 		});
 	});
 
+	// Log out of the servers first (at most 2 s), then close the database.
+	let loggedOut = false;
+	app.on('before-quit', (event) => {
+		if (loggedOut || !sync) return;
+		event.preventDefault();
+		const quit = () => {
+			loggedOut = true;
+			app.quit();
+		};
+		Promise.race([sync.stopAll(), new Promise((resolve) => setTimeout(resolve, 2000))]).then(
+			quit,
+			quit
+		);
+	});
 	app.on('will-quit', () => db?.$client.close());
 
 	app.on('window-all-closed', () => {

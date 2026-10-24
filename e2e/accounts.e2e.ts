@@ -1,28 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { greenMail } from '../scripts/greenmail.mjs';
-import { launchApp } from './app';
+import { addTestAccount, launchApp } from './app';
 
 test('adds an account against a real mail server and keeps it after a restart', async () => {
 	const { app, window: page, userData } = await launchApp();
 
-	await page.getByRole('button', { name: 'Konto hinzufügen' }).first().click();
-	const dialog = page.getByRole('dialog', { name: 'Konto hinzufügen' });
-	await dialog.getByLabel('Name').fill('Test');
-	await dialog.getByLabel('E-Mail-Adresse').fill(greenMail.user.email);
-	await dialog.getByLabel('Passwort').fill('falsch');
-	await dialog.getByRole('button', { name: 'Manuell einrichten' }).click();
-
-	for (const [kind, port] of [
-		['Empfang (IMAP)', greenMail.imapPort],
-		['Versand (SMTP)', greenMail.smtpPort]
-	] as const) {
-		await dialog.getByLabel(`${kind} Server`).fill(greenMail.host);
-		await dialog.getByLabel(`${kind} Port`).fill(String(port));
-		await dialog.getByLabel(`${kind} Verschlüsselung`).selectOption('none');
-	}
-
 	// A wrong password is reported and nothing is saved.
-	await dialog.getByRole('button', { name: 'Speichern' }).click();
+	const dialog = await addTestAccount(page, 'falsch');
 	await expect(
 		dialog.getByText('Benutzername oder Passwort wurden abgelehnt.').first()
 	).toBeVisible();

@@ -1,50 +1,60 @@
 <script lang="ts">
-	import { MailOpen, Search } from '@lucide/svelte';
-	import AddAccountDialog from '#lib/components/add-account-dialog.svelte';
-	import Sidebar from '#lib/components/sidebar.svelte';
+	import { MailOpen } from '@lucide/svelte';
 	import { accounts } from '#lib/accounts.svelte.ts';
+	import { mail } from '#lib/mail.svelte.ts';
+	import AddAccountDialog from '#lib/components/add-account-dialog.svelte';
+	import MessageList from '#lib/components/message-list.svelte';
+	import ReadingPane from '#lib/components/reading-pane.svelte';
+	import Sidebar from '#lib/components/sidebar.svelte';
 	import { Button } from '#lib/components/ui/button/index.ts';
-	import { Input } from '#lib/components/ui/input/index.ts';
 
 	let addingAccount = $state(false);
+
+	$effect(() => mail.connect());
+
+	const mailbox = $derived.by(() => {
+		const view = mail.view;
+		return 'mailboxId' in view ? mail.mailboxes.find((m) => m.id === view.mailboxId) : undefined;
+	});
+	const mailboxAccount = $derived(accounts.list.find((a) => a.id === mailbox?.accountId));
 </script>
 
 <div class="flex h-full gap-3 p-3">
 	<Sidebar onaddaccount={() => (addingAccount = true)} />
 
-	<section
-		aria-label="Nachrichtenliste"
-		class="flex w-96 shrink-0 flex-col gap-3 rounded-2xl border bg-card p-4"
-	>
-		<h1 class="font-heading text-xl font-semibold">Alle Posteingänge</h1>
-		<div class="relative">
-			<Search
-				class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
-				aria-hidden="true"
-			/>
-			<Input
-				type="search"
-				placeholder="Suchen"
-				aria-label="Suchen"
-				class="h-10 rounded-full border-transparent bg-muted pl-10"
-			/>
-		</div>
-		<p class="py-10 text-center text-sm text-muted-foreground">Noch keine E-Mails</p>
-	</section>
+	<MessageList
+		title={mailbox?.name ?? 'Alle Posteingänge'}
+		subtitle={mailboxAccount?.email}
+		messages={mail.messages}
+		accounts={accounts.list}
+		selectedId={mail.selectedId}
+		showAccount={!mailbox && accounts.list.length > 1}
+		onselect={(id) => mail.open(id)}
+	/>
 
 	<article
 		aria-label="Nachricht"
-		class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-6 text-center"
+		class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-2xl border bg-card p-6 text-center"
+		class:justify-start={mail.selected}
 	>
-		<MailOpen class="size-10 text-muted-foreground/40" aria-hidden="true" />
-		{#if accounts.list.length === 0}
-			<h2 class="font-heading text-lg font-semibold">Willkommen bei Velo Mail</h2>
-			<p class="max-w-sm text-sm text-muted-foreground">
-				Füge ein E-Mail-Konto hinzu, um deine Nachrichten hier zu lesen.
-			</p>
-			<Button class="mt-2" onclick={() => (addingAccount = true)}>Konto hinzufügen</Button>
+		{#if mail.selected}
+			<ReadingPane
+				message={mail.selected}
+				account={accounts.list.length > 1
+					? accounts.list.find((a) => a.id === mail.selected?.accountId)
+					: undefined}
+			/>
 		{:else}
-			<p class="text-sm text-muted-foreground">Keine Nachricht ausgewählt</p>
+			<MailOpen class="size-10 text-muted-foreground/40" aria-hidden="true" />
+			{#if accounts.list.length === 0}
+				<h2 class="font-heading text-lg font-semibold">Willkommen bei Velo Mail</h2>
+				<p class="max-w-sm text-sm text-muted-foreground">
+					Füge ein E-Mail-Konto hinzu, um deine Nachrichten hier zu lesen.
+				</p>
+				<Button class="mt-2" onclick={() => (addingAccount = true)}>Konto hinzufügen</Button>
+			{:else}
+				<p class="text-sm text-muted-foreground">Keine Nachricht ausgewählt</p>
+			{/if}
 		{/if}
 	</article>
 </div>

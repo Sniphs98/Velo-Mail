@@ -1,6 +1,12 @@
 import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Account, AddAccountResult, ConnectionResult, NewAccount } from '../../src/lib/api';
+import type {
+	Account,
+	AddAccountResult,
+	ConnectionResult,
+	NewAccount,
+	ServerSettings
+} from '../../src/lib/api';
 import type { Database } from '../db';
 import { accounts } from '../db/schema';
 
@@ -90,6 +96,17 @@ export class AccountService {
 				color: accounts.color
 			});
 		return { ok: true, account };
+	}
+
+	/** Server settings and decrypted password, for connecting. */
+	async credentials(id: number): Promise<{ settings: ServerSettings; password: string } | null> {
+		const [row] = await this.db.select().from(accounts).where(eq(accounts.id, id));
+		if (!row?.secret) return null;
+		const { imapHost, imapPort, imapSecurity, smtpHost, smtpPort, smtpSecurity, username } = row;
+		return {
+			settings: { imapHost, imapPort, imapSecurity, smtpHost, smtpPort, smtpSecurity, username },
+			password: await this.secrets.decrypt(row.secret)
+		};
 	}
 
 	async remove(id: number): Promise<void> {

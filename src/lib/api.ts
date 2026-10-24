@@ -55,6 +55,42 @@ export type AddAccountResult =
 	| { ok: true; account: Account }
 	| { ok: false; reason: 'exists' | 'connection'; connection?: ConnectionResult };
 
+export type MailboxRole = 'inbox' | 'sent' | 'drafts' | 'trash' | 'archive' | 'junk' | 'all';
+
+export interface Mailbox {
+	id: number;
+	accountId: number;
+	name: string;
+	role: MailboxRole | null;
+	unread: number;
+}
+
+export interface MessageSummary {
+	id: number;
+	accountId: number;
+	mailboxId: number;
+	fromName: string | null;
+	fromAddress: string | null;
+	to: { name?: string; address: string }[];
+	subject: string;
+	snippet: string;
+	/** Milliseconds since the epoch. */
+	date: number;
+	seen: boolean;
+	flagged: boolean;
+	hasAttachments: boolean;
+}
+
+/** Which messages to list: one mailbox, or the inboxes of all accounts. */
+export type MessageQuery = { mailboxId: number } | { inboxes: true };
+
+export interface SyncStatus {
+	accountId: number;
+	state: 'syncing' | 'ready' | 'error';
+	/** Set with state "error". */
+	error?: string;
+}
+
 export interface VeloApi {
 	app: {
 		info(): Promise<AppInfo>;
@@ -68,6 +104,16 @@ export interface VeloApi {
 		/** Tests the connection, then saves the account with its password encrypted. */
 		add(account: NewAccount): Promise<AddAccountResult>;
 		remove(id: number): Promise<void>;
+	};
+	mail: {
+		mailboxes(): Promise<Mailbox[]>;
+		messages(query: MessageQuery): Promise<MessageSummary[]>;
+		setSeen(messageId: number, seen: boolean): Promise<void>;
+		/** Syncs an account (or all) now instead of waiting for the next round. */
+		sync(accountId?: number): Promise<void>;
+		/** Called whenever the cache changed; returns a function that unsubscribes. */
+		onChanged(listener: () => void): () => void;
+		onStatus(listener: (status: SyncStatus) => void): () => void;
 	};
 }
 
@@ -85,7 +131,14 @@ export const IPC = {
 	accountsDiscover: 'accounts:discover',
 	accountsTest: 'accounts:test',
 	accountsAdd: 'accounts:add',
-	accountsRemove: 'accounts:remove'
+	accountsRemove: 'accounts:remove',
+	mailMailboxes: 'mail:mailboxes',
+	mailMessages: 'mail:messages',
+	mailSetSeen: 'mail:set-seen',
+	mailSync: 'mail:sync',
+	/** Main → renderer. */
+	mailChanged: 'mail:changed',
+	mailStatus: 'mail:status'
 } as const;
 
 /** The API, or undefined outside Electron (plain browser, component tests). */

@@ -45,7 +45,7 @@ test('keeps Node out of the renderer', async () => {
 	expect(exposed).toEqual({
 		require: 'undefined',
 		process: 'undefined',
-		velo: ['app', 'accounts']
+		velo: ['app', 'accounts', 'mail']
 	});
 });
 
