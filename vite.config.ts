@@ -13,7 +13,24 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			// SPA: one index.html, routing happens in the renderer.
+			adapter: adapter({ fallback: 'index.html' }),
+			// The renderer's own code only; SvelteKit adds hashes for its inline
+			// script. Mail content will render in sandboxed iframes with a policy of
+			// its own.
+			csp: {
+				mode: 'hash',
+				directives: {
+					'default-src': ['self'],
+					'script-src': ['self'],
+					'style-src': ['self', 'unsafe-inline'],
+					'img-src': ['self', 'data:', 'blob:'],
+					'font-src': ['self', 'data:'],
+					'object-src': ['none'],
+					'base-uri': ['none'],
+					'form-action': ['none']
+				}
+			}
 		})
 	],
 	test: {
@@ -38,7 +55,7 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
-					include: ['src/**/*.{test,spec}.{js,ts}'],
+					include: ['src/**/*.{test,spec}.{js,ts}', 'electron/**/*.{test,spec}.ts'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}
 			}
