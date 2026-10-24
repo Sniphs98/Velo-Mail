@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, nativeTheme, net, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme, net, protocol, session, shell } from 'electron';
 import { statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -132,7 +132,12 @@ if (!app.requestSingleInstanceLock()) {
 			app.exit(1);
 			return;
 		}
-		sync = registerIpc(db, desktop);
+		// The app needs no camera, location or the like; Electron would grant them.
+		session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) =>
+			callback(false)
+		);
+		session.defaultSession.setPermissionCheckHandler(() => false);
+		sync = registerIpc(db, desktop, isOwnUrl);
 		serveRenderer();
 		createWindow();
 		app.on('activate', () => showWindow());
