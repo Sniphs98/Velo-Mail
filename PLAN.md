@@ -185,13 +185,21 @@ App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
       e = archivieren, Entf/# = löschen, Strg/⌘+Enter = senden
 - [ ] Formatierung (fett, kursiv, Listen, Links) – vorerst reiner Text
 - [ ] Anhänge der Originalmail beim Weiterleiten mitschicken
-- [ ] Ordnernamen einheitlich auf Deutsch anzeigen (selbst angelegte heißen
-      „Sent“, „Drafts“, …)
+- [x] Ordnernamen einheitlich auf Deutsch anzeigen (Sonderordner nach ihrer
+      Rolle, egal wie sie auf dem Server heißen)
 
 ### Phase 7 – Suche
 
 Lokale Volltextsuche über FTS5 (Absender, Betreff, Inhalt), Fallback auf IMAP
 `SEARCH` für noch nicht geladene Mails.
+
+- [x] Suchfeld über der Liste (Strg/⌘+K), Treffer aus allen Konten, neueste
+      zuerst; Escape oder ✕ beendet die Suche
+- [x] Wörter treffen als Präfix („angeb“ findet „Angebot“), Filter `von:` und
+      `betreff:`
+- [x] „Auf dem Server weitersuchen“: IMAP `SEARCH` in allen Ordnern außer
+      Papierkorb und Spam, holt nur Mails, die älter sind als der Cache
+- [ ] Suche in Anhängen (PDF-Text)
 
 ### Phase 8 – Feinschliff
 
