@@ -110,6 +110,8 @@ export const messageBodies = sqliteTable('message_bodies', {
 		.references(() => messages.id, { onDelete: 'cascade' }),
 	text: text(),
 	html: text(),
+	/** Attachment names and the text of PDF attachments, for search only. */
+	attachmentText: text(),
 	fetchedAt: createdAt()
 });
 

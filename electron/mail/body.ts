@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import type { ImapFlow } from 'imapflow';
 import PostalMime from 'postal-mime';
 import type { Database } from '../db';
+import { attachmentText, type AttachmentContent } from './attachment-text';
 import { attachments, mailboxes, messageBodies, messages } from '../db/schema';
 import { threadKey } from './sync';
 
@@ -30,6 +31,8 @@ export interface ParsedMessage {
 	snippet: string;
 	references: string[];
 	attachments: ParsedAttachment[];
+	/** For the search index (attachment-text.ts). */
+	attachmentText: string | null;
 }
 
 function bytes(content: ArrayBuffer | string | Uint8Array): Buffer {
@@ -41,6 +44,7 @@ export async function parseMessage(source: Buffer): Promise<ParsedMessage> {
 
 	let html = email.html ?? null;
 	const list: ParsedAttachment[] = [];
+	const contents: AttachmentContent[] = [];
 	email.attachments.forEach((attachment, index) => {
 		const content = bytes(attachment.content);
 		const contentId = attachment.contentId?.replace(/^<|>$/g, '') ?? null;
@@ -57,6 +61,12 @@ export async function parseMessage(source: Buffer): Promise<ParsedMessage> {
 			const url = `data:${attachment.mimeType};base64,${content.toString('base64')}`;
 			html = html.replaceAll(`cid:${contentId}`, url);
 		}
+		contents.push({
+			filename: attachment.filename,
+			contentType: attachment.mimeType,
+			content,
+			inline
+		});
 		list.push({
 			index,
 			filename: attachment.filename,
@@ -73,7 +83,8 @@ export async function parseMessage(source: Buffer): Promise<ParsedMessage> {
 		html,
 		snippet: snippet(text ?? ''),
 		references: (email.references ?? '').match(/<[^>]+>/g) ?? [],
-		attachments: list
+		attachments: list,
+		attachmentText: await attachmentText(contents)
 	};
 }
 
@@ -162,10 +173,20 @@ export async function fetchBody(
 	// node:sqlite is synchronous, so the transaction body is too (run()).
 	db.transaction((tx) => {
 		tx.insert(messageBodies)
-			.values({ messageId: message.id, text: parsed.text, html: parsed.html })
+			.values({
+				messageId: message.id,
+				text: parsed.text,
+				html: parsed.html,
+				attachmentText: parsed.attachmentText
+			})
 			.onConflictDoUpdate({
 				target: messageBodies.messageId,
-				set: { text: parsed.text, html: parsed.html, fetchedAt: new Date() }
+				set: {
+					text: parsed.text,
+					html: parsed.html,
+					attachmentText: parsed.attachmentText,
+					fetchedAt: new Date()
+				}
 			})
 			.run();
 		tx.update(messages)
