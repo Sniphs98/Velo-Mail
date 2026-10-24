@@ -150,13 +150,20 @@ App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
 - [ ] Ältere Mails beim Scrollen nachladen
 - [ ] Vorschautext in der Liste (kommt mit den Inhalten in Phase 5)
 
-### Phase 5 – Lesen
+### Phase 5 – Lesen _(Teil 1 erledigt)_
 
-- Drei-Spalten-Layout nach Design, virtuelle Liste für große Ordner.
-- Leseansicht: HTML bereinigt im sandboxed iframe, externe Bilder erst nach
-  Klick, Anhänge öffnen/speichern.
-- Konversationsansicht (Threading über `References`/`In-Reply-To`).
-- Tastenkürzel (j/k, e = archivieren, r = antworten, Strg+K = Suche).
+- [x] Inhalt beim Öffnen laden (postal-mime), für die neuesten 30 Mails im
+      Posteingang vorab, daraus der Vorschautext in der Liste
+- [x] HTML bereinigt (DOMPurify) in einem iframe ohne Skripte; eigene
+      Content-Security-Policy blockiert alles aus dem Internet
+- [x] Externe Bilder erst nach Klick („Bilder laden“), eingebettete Bilder
+      (cid:) werden direkt angezeigt
+- [x] Anhänge öffnen oder speichern; ausführbare Dateien werden nur
+      gespeichert, nie geöffnet
+- [x] Volltextindex enthält jetzt auch den Inhalt
+- [ ] Konversationsansicht (Threading über `References`/`In-Reply-To`)
+- [ ] Tastenkürzel (j/k, e = archivieren, r = antworten, Strg+K = Suche)
+- [ ] Externe Bilder pro Absender dauerhaft erlauben
 
 ### Phase 6 – Schreiben & Senden
 
