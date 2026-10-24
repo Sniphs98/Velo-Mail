@@ -32,6 +32,13 @@ export function parseRecipients(value: string): Recipient[] {
 	});
 }
 
+/** An attachment taken from a stored message (forwarding, a continued draft). */
+export interface StoredFile {
+	filename: string | null;
+	contentType: string;
+	content: Buffer;
+}
+
 export interface Built {
 	raw: Buffer;
 	envelope: { from: string; to: string[] };
@@ -45,7 +52,7 @@ export interface Built {
 export async function buildMessage(
 	from: Recipient,
 	message: OutgoingMessage,
-	{ draft = false } = {}
+	{ draft = false, stored = [] as StoredFile[] } = {}
 ): Promise<Built> {
 	const to = parseRecipients(message.to);
 	const cc = parseRecipients(message.cc);
@@ -60,9 +67,17 @@ export async function buildMessage(
 		bcc,
 		subject: message.subject,
 		text: message.text,
+		html: message.html || undefined,
 		inReplyTo: message.inReplyTo,
 		references: message.references,
-		attachments: message.attachments.map((file) => ({ filename: file.name, path: file.path })),
+		attachments: [
+			...stored.map((file) => ({
+				filename: file.filename ?? 'Anhang',
+				content: file.content,
+				contentType: file.contentType
+			})),
+			...message.attachments.map((file) => ({ filename: file.name, path: file.path }))
+		],
 		date: new Date()
 	}).compile();
 	mail.keepBcc = draft;

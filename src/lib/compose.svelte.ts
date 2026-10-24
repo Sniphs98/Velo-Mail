@@ -1,7 +1,9 @@
 import { ipcErrorMessage } from '#lib/account-messages.ts';
 import { velo, type PickedFile } from '#lib/api.ts';
 import { accounts } from '#lib/accounts.svelte.ts';
-import { replyDraft, swapSignature, withSignature, type Draft } from '#lib/compose.ts';
+import DOMPurify from 'dompurify';
+import { replyDraft, type Draft } from '#lib/compose.ts';
+import { htmlToText, swapSignature, textToHtml, withSignature } from '#lib/mail-text.ts';
 
 const signatureOf = (accountId: number) =>
 	accounts.list.find((account) => account.id === accountId)?.signature ?? '';
@@ -15,6 +17,8 @@ class Compose {
 	error = $state<string>();
 	/** Whether anything changed since the last save. */
 	dirty = $state(false);
+	/** The account whose signature the text holds. */
+	private signedAs = 0;
 
 	/** Starts a new message, or a reply/forward of a message. */
 	async start(
@@ -26,16 +30,20 @@ class Compose {
 			const source = await velo()?.mail.replySource(from.messageId);
 			if (source) draft = replyDraft(source, from.kind, from.messageId);
 		}
-		draft.text = withSignature(draft.text, signatureOf(draft.accountId));
+		draft.html = withSignature(draft.html, signatureOf(draft.accountId));
 		this.show(draft);
 	}
 
-	/** Sends from another account, with its signature. */
-	changeAccount(accountId: number) {
-		const previous = this.draft.accountId;
-		if (accountId === previous) return;
-		this.draft.text = swapSignature(this.draft.text, signatureOf(previous), signatureOf(accountId));
-		this.draft.accountId = accountId;
+	/** After choosing another sender account: exchanges the signature. */
+	accountChanged() {
+		const { accountId } = this.draft;
+		if (accountId === this.signedAs) return;
+		this.draft.html = swapSignature(
+			this.draft.html,
+			signatureOf(this.signedAs),
+			signatureOf(accountId)
+		);
+		this.signedAs = accountId;
 		this.changed();
 	}
 
@@ -51,7 +59,9 @@ class Compose {
 			cc: list(source.cc),
 			bcc: '',
 			subject: source.subject,
-			text: source.text,
+			// Drafts written here have HTML; others get it from their text.
+			html: source.html ? DOMPurify.sanitize(source.html) : textToHtml(source.text),
+			forwarded: source.attachments,
 			references: source.references,
 			draftUid: source.uid
 		});
@@ -59,6 +69,7 @@ class Compose {
 
 	private show(draft: Draft) {
 		this.draft = draft;
+		this.signedAs = draft.accountId;
 		this.attachments = [];
 		this.status = 'idle';
 		this.error = undefined;
@@ -82,8 +93,23 @@ class Compose {
 		this.changed();
 	}
 
+	/** Drops an attachment of the forwarded message or the draft. */
+	unforward(id: number) {
+		this.draft.forwarded = this.draft.forwarded.filter((a) => a.id !== id);
+		this.changed();
+	}
+
 	private message() {
-		return { ...$state.snapshot(this.draft), attachments: $state.snapshot(this.attachments) };
+		const { forwarded, ...draft } = $state.snapshot(this.draft);
+		// The editor keeps an empty line at the end to type into.
+		const html = draft.html.replace(/(<p><\/p>)+$/, '');
+		return {
+			...draft,
+			html,
+			text: htmlToText(html),
+			attachments: $state.snapshot(this.attachments),
+			forwardAttachments: forwarded.map((a) => a.id)
+		};
 	}
 
 	/** Saves to the drafts folder; called while typing and when closing. */
@@ -92,9 +118,17 @@ class Compose {
 		if (!api || !this.dirty || this.status === 'sending') return;
 		this.status = 'saving';
 		this.dirty = false;
+		const message = this.message();
 		try {
-			const uid = await api.mail.saveDraft(this.message());
-			this.draft.draftUid = uid ?? undefined;
+			const saved = await api.mail.saveDraft(message);
+			this.draft.draftUid = saved.uid ?? undefined;
+			// The files are in the saved draft now, with new ids; files picked
+			// while saving stay picked.
+			if (saved.uid) {
+				const sent = new Set(message.attachments.map((file) => file.path));
+				this.draft.forwarded = saved.attachments;
+				this.attachments = this.attachments.filter((file) => !sent.has(file.path));
+			}
 			this.status = 'saved';
 		} catch (error) {
 			this.dirty = true;
@@ -128,14 +162,14 @@ class Compose {
 
 	/** Closes, keeping what was written as a draft. */
 	async close() {
-		const hasContent = this.draft.to || this.draft.subject || this.draft.text.trim();
+		const hasContent = this.draft.to || this.draft.subject || htmlToText(this.draft.html).trim();
 		this.open = false;
 		if (hasContent) await this.save();
 	}
 }
 
 function empty(accountId: number): Draft {
-	return { accountId, to: '', cc: '', bcc: '', subject: '', text: '' };
+	return { accountId, to: '', cc: '', bcc: '', subject: '', html: '', forwarded: [] };
 }
 
 export const compose = new Compose();

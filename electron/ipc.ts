@@ -87,6 +87,8 @@ const outgoingSchema = z.object({
 	bcc: z.string().max(10_000),
 	subject: z.string().max(1000),
 	text: z.string().max(10_000_000),
+	html: z.string().max(20_000_000).optional(),
+	forwardAttachments: z.array(z.number().int()).max(100).optional(),
 	attachments: z.array(
 		z.object({
 			path: z.string().refine((file) => pickedFiles.has(file), 'Datei wurde nicht ausgewählt'),

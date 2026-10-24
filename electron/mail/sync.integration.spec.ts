@@ -335,15 +335,73 @@ describe('writing against GreenMail', () => {
 	it('saves a draft, replaces it, and deletes it', async () => {
 		const drafts = async () => (await pathOf('drafts')) ?? 'Drafts';
 		const first = await manager.saveDraft(outgoing({ subject: 'Entwurf', to: '' }));
-		expect(first).toBeTypeOf('number');
+		expect(first).toEqual({ uid: expect.any(Number), attachments: [] });
 		const before = await count(await drafts());
 
-		const second = await manager.saveDraft(outgoing({ subject: 'Entwurf 2', draftUid: first! }));
+		const second = await manager.saveDraft(
+			outgoing({ subject: 'Entwurf 2', draftUid: first.uid! })
+		);
 		expect(await count(await drafts())).toBe(before);
 		expect(await count(await drafts(), { subject: 'Entwurf 2', draft: true })).toBe(1);
 
-		await manager.deleteDraft(accountId, second!);
+		await manager.deleteDraft(accountId, second.uid!);
 		expect(await count(await drafts())).toBe(before - 1);
+	});
+
+	it('forwards attachments, in drafts and when sending, with a formatted version', async () => {
+		await sendTestMail({
+			subject: 'Mit Plan',
+			attachments: [{ filename: 'plan.txt', content: 'Der Plan' }]
+		});
+		await manager.syncNow(accountId);
+		const [original] = await listMessages(db, { inboxes: true });
+		const source = await manager.replySource(original.id);
+		expect(source.attachments).toEqual([expect.objectContaining({ filename: 'plan.txt' })]);
+
+		const draft = await manager.saveDraft(
+			outgoing({
+				subject: 'Fwd: Mit Plan',
+				to: '',
+				forwardAttachments: source.attachments.map((a) => a.id)
+			})
+		);
+		expect(draft.attachments).toEqual([expect.objectContaining({ filename: 'plan.txt' })]);
+		// Saving again takes the attachments from the draft itself.
+		const again = await manager.saveDraft(
+			outgoing({
+				subject: 'Fwd: Mit Plan',
+				to: '',
+				draftUid: draft.uid!,
+				forwardAttachments: draft.attachments.map((a) => a.id)
+			})
+		);
+		expect(again.attachments).toHaveLength(1);
+
+		await manager.send(
+			outgoing({
+				subject: 'Fwd: Mit Plan',
+				text: 'Schau mal',
+				html: '<p>Schau <strong>mal</strong></p>',
+				draftUid: again.uid!,
+				forwardAttachments: again.attachments.map((a) => a.id)
+			})
+		);
+		await manager.syncNow(accountId);
+		const forwarded = (await listMessages(db, { inboxes: true })).find(
+			(m) => m.subject === 'Fwd: Mit Plan'
+		)!;
+		expect(forwarded.hasAttachments).toBe(true);
+		const body = await manager.body(forwarded.id);
+		expect(body.html).toContain('<strong>mal</strong>');
+		expect(body.text).toContain('Schau mal');
+		expect(body.attachments.map((a) => a.filename)).toEqual(['plan.txt']);
+		expect((await manager.attachment(body.attachments[0].id)).content.toString()).toBe('Der Plan');
+	});
+
+	it('refuses to forward attachments of another account', async () => {
+		await expect(
+			manager.send(outgoing({ accountId: accountId + 1, forwardAttachments: [1] }))
+		).rejects.toThrow();
 	});
 
 	it('finds older messages on the server that the cache does not have', async () => {

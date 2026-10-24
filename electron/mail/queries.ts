@@ -173,6 +173,24 @@ export async function findBody(db: Database, messageId: number): Promise<Message
 	};
 }
 
+/** Attachments (not inline images) of the message with that UID in a folder. */
+export async function attachmentsOf(db: Database, mailboxId: number, uid: number) {
+	const rows = await db
+		.select({
+			id: attachments.id,
+			filename: attachments.filename,
+			contentType: attachments.contentType,
+			size: attachments.size
+		})
+		.from(attachments)
+		.innerJoin(messages, eq(messages.id, attachments.messageId))
+		.where(
+			and(eq(messages.mailboxId, mailboxId), eq(messages.uid, uid), eq(attachments.inline, false))
+		)
+		.orderBy(asc(attachments.id));
+	return rows.map((row) => ({ ...row, size: row.size ?? 0 }));
+}
+
 /** The attachment with its message and folder, for downloading it again. */
 export async function findAttachment(db: Database, id: number) {
 	const [row] = await db
