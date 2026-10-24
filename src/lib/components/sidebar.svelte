@@ -19,6 +19,7 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import UpdateNotice from './update-notice.svelte';
 
 	let { onaddaccount, onsettings }: { onaddaccount: () => void; onsettings: () => void } = $props();
 
@@ -122,6 +123,8 @@
 	{/each}
 
 	<div class="min-h-4 flex-1"></div>
+
+	<UpdateNotice />
 
 	<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onaddaccount}>
 		<Plus class="size-4" aria-hidden="true" />

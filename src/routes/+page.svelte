@@ -11,11 +11,20 @@
 	import Sidebar from '#lib/components/sidebar.svelte';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { velo } from '#lib/api.ts';
+	import { settings } from '#lib/settings.svelte.ts';
+	import { update } from '#lib/update.svelte.ts';
 
 	let addingAccount = $state(false);
 	let showSettings = $state(false);
 
 	$effect(() => mail.connect());
+
+	// Looks for a newer release once on start, unless switched off.
+	$effect(() => {
+		settings.load().then(() => {
+			if (settings.value.updates) update.check();
+		});
+	});
 
 	// From a notification or the tray.
 	$effect(() => velo()?.mail.onOpen((id) => mail.open(id)));
