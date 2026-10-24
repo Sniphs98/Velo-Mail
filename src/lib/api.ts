@@ -66,6 +66,15 @@ export interface Settings {
 	notifications: boolean;
 	/** An icon in the tray (menu bar on macOS); closing the window keeps the app running. */
 	tray: boolean;
+	/** Load sender pictures (logos, Gravatar) from the internet. */
+	avatars: boolean;
+}
+
+/** A sender's logo or photo, as a data: URL. */
+export interface SenderPicture {
+	url: string;
+	/** "icon": a website icon, shown smaller on white; "photo" fills the circle. */
+	kind: 'photo' | 'icon';
 }
 
 /** Result of accounts.add: the saved account, or why it was not saved. */
@@ -221,6 +230,8 @@ export interface VeloApi {
 		search(query: string): Promise<MessageSummary[]>;
 		/** Searches on the servers for older messages; returns how many were added. */
 		searchServer(query: string): Promise<number>;
+		/** The sender's picture, looked up once and cached; null shows initials. */
+		avatar(address: string): Promise<SenderPicture | null>;
 		/** Syncs an account (or all) now instead of waiting for the next round. */
 		sync(accountId?: number): Promise<void>;
 		/** Called whenever the cache changed; returns a function that unsubscribes. */
@@ -266,6 +277,7 @@ export const IPC = {
 	mailSearch: 'mail:search',
 	mailSearchServer: 'mail:search-server',
 	mailTrustSender: 'mail:trust-sender',
+	mailAvatar: 'mail:avatar',
 	mailOpenAttachment: 'mail:open-attachment',
 	mailSaveAttachment: 'mail:save-attachment',
 	/** Main → renderer. */

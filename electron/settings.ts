@@ -8,10 +8,16 @@ import { settings } from './db/schema';
 export const settingsSchema = z.object({
 	theme: z.enum(['system', 'light', 'dark']),
 	notifications: z.boolean(),
-	tray: z.boolean()
+	tray: z.boolean(),
+	avatars: z.boolean()
 });
 
-export const defaultSettings: Settings = { theme: 'system', notifications: true, tray: false };
+export const defaultSettings: Settings = {
+	theme: 'system',
+	notifications: true,
+	tray: false,
+	avatars: true
+};
 
 export async function readSettings(db: Database): Promise<Settings> {
 	const result: Settings = { ...defaultSettings };

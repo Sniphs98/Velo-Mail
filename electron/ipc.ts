@@ -3,12 +3,13 @@
 import { app, BrowserWindow, dialog, ipcMain, net, safeStorage, shell } from 'electron';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { resolveMx, resolveSrv } from 'node:dns/promises';
+import { resolveMx, resolveSrv, resolveTxt } from 'node:dns/promises';
 import { z } from 'zod';
 import { IPC, type AppInfo } from '../src/lib/api';
 import { discoverSettings } from './accounts/autoconfig';
 import { testConnection } from './accounts/connection';
 import { AccountService, serverSettingsSchema, type SecretBox } from './accounts/service';
+import { Avatars, type Fetched } from './avatars';
 import type { Database } from './db';
 import type { Desktop } from './desktop';
 import { readSettings, writeSettings } from './settings';
@@ -38,6 +39,33 @@ async function fetchText(url: string): Promise<string | null> {
 	try {
 		const response = await net.fetch(url, { signal: AbortSignal.timeout(8000) });
 		return response.ok ? await response.text() : null;
+	} catch {
+		return null;
+	}
+}
+
+/** Downloads at most `maxBytes` over https; null otherwise. */
+async function fetchBytes(url: string, maxBytes: number): Promise<Fetched | null> {
+	try {
+		const response = await net.fetch(url, {
+			signal: AbortSignal.timeout(6000),
+			credentials: 'omit',
+			headers: { accept: 'image/*,text/html;q=0.8' }
+		});
+		// Redirects must stay on https.
+		if (!response.ok || !response.url.startsWith('https://') || !response.body) return null;
+		if (Number(response.headers.get('content-length') ?? 0) > maxBytes) return null;
+		const chunks: Uint8Array[] = [];
+		let size = 0;
+		for await (const chunk of response.body) {
+			size += chunk.length;
+			if (size > maxBytes) return null;
+			chunks.push(chunk);
+		}
+		return {
+			contentType: response.headers.get('content-type') ?? '',
+			data: Buffer.concat(chunks)
+		};
 	} catch {
 		return null;
 	}
@@ -95,6 +123,8 @@ export function registerIpc(db: Database, desktop: Desktop) {
 		}
 	});
 
+	const avatars = new Avatars({ db, fetchBytes, resolveTxt });
+
 	readSettings(db).then((settings) => desktop.apply(settings));
 	ipcMain.handle(IPC.settingsGet, () => readSettings(db));
 	ipcMain.handle(IPC.settingsSet, async (_event, changes: unknown) => {
@@ -146,6 +176,11 @@ export function registerIpc(db: Database, desktop: Desktop) {
 	ipcMain.handle(IPC.mailTrustSender, (_event, address: unknown) =>
 		trustSender(db, z.email().parse(address))
 	);
+	ipcMain.handle(IPC.mailAvatar, async (_event, address: unknown) => {
+		const valid = z.email().safeParse(address);
+		if (!valid.success || !(await readSettings(db)).avatars) return null;
+		return avatars.find(valid.data);
+	});
 	ipcMain.handle(IPC.mailReplySource, (_event, id: unknown) =>
 		sync.replySource(z.number().int().parse(id))
 	);

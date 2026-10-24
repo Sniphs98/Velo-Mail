@@ -34,6 +34,7 @@ const api: VeloApi = {
 		setSeen: (id, seen) => ipcRenderer.invoke(IPC.mailSetSeen, id, seen),
 		thread: (id) => ipcRenderer.invoke(IPC.mailThread, id),
 		trustSender: (address) => ipcRenderer.invoke(IPC.mailTrustSender, address),
+		avatar: (address) => ipcRenderer.invoke(IPC.mailAvatar, address),
 		replySource: (id) => ipcRenderer.invoke(IPC.mailReplySource, id),
 		pickFiles: () => ipcRenderer.invoke(IPC.mailPickFiles),
 		send: (message) => ipcRenderer.invoke(IPC.mailSend, message),
