@@ -1,6 +1,15 @@
 // The main-process side of src/lib/api.ts. Everything arriving here comes from
 // the renderer and is validated before use.
-import { app, BrowserWindow, dialog, ipcMain, net, safeStorage, shell } from 'electron';
+import {
+	app,
+	BrowserWindow,
+	dialog,
+	ipcMain,
+	net,
+	safeStorage,
+	shell,
+	type IpcMainInvokeEvent
+} from 'electron';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveMx, resolveSrv, resolveTxt } from 'node:dns/promises';
@@ -14,7 +23,7 @@ import type { Database } from './db';
 import type { Desktop } from './desktop';
 import { readSettings, writeSettings } from './settings';
 import { SyncManager } from './mail/manager';
-import { isRunnable, safeFilename } from './mail/files';
+import { canOpen, markFromInternet, safeFilename } from './mail/files';
 import {
 	listMailboxes,
 	listMessages,
@@ -107,8 +116,25 @@ const messageQuerySchema = z.union([
 	z.object({ inboxes: z.literal(true) })
 ]);
 
-/** Registers the handlers and starts syncing; returns the sync manager. */
-export function registerIpc(db: Database, desktop: Desktop) {
+/**
+ * Registers the handlers and starts syncing; returns the sync manager.
+ * `isAppUrl` tells the app's own page from anything else.
+ */
+export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: string) => boolean) {
+	/** Like ipcMain.handle, but only for the app's page itself, not a frame in it. */
+	const handle = (
+		channel: string,
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any -- each handler validates its own arguments
+		listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown
+	) =>
+		ipcMain.handle(channel, (event, ...args) => {
+			const frame = event.senderFrame;
+			if (!frame || frame !== event.sender.mainFrame || !isAppUrl(frame.url)) {
+				throw new Error('Diese Anfrage ist nicht erlaubt.');
+			}
+			return listener(event, ...args);
+		});
+
 	const accounts = new AccountService(db, secrets, testConnection);
 	const changed = () => {
 		broadcast(IPC.mailChanged);
@@ -128,65 +154,63 @@ export function registerIpc(db: Database, desktop: Desktop) {
 	const avatars = new Avatars({ db, fetchBytes, resolveTxt });
 
 	readSettings(db).then((settings) => desktop.apply(settings));
-	ipcMain.handle(IPC.settingsGet, () => readSettings(db));
-	ipcMain.handle(IPC.settingsSet, async (_event, changes: unknown) => {
+	handle(IPC.settingsGet, () => readSettings(db));
+	handle(IPC.settingsSet, async (_event, changes: unknown) => {
 		const settings = await writeSettings(db, changes);
 		desktop.apply(settings);
 		return settings;
 	});
 
-	ipcMain.handle(IPC.appInfo, (): AppInfo => ({
+	handle(IPC.appInfo, (): AppInfo => ({
 		name: app.getName(),
 		version: app.getVersion(),
 		platform: process.platform,
 		keyring: hasKeyring()
 	}));
 
-	ipcMain.handle(IPC.accountsList, () => accounts.list());
-	ipcMain.handle(IPC.accountsDiscover, (_event, email: unknown) =>
+	handle(IPC.accountsList, () => accounts.list());
+	handle(IPC.accountsDiscover, (_event, email: unknown) =>
 		discoverSettings(z.email().parse(email), { fetchText, resolveMx, resolveSrv })
 	);
-	ipcMain.handle(IPC.accountsTest, (_event, settings: unknown, password: unknown) =>
+	handle(IPC.accountsTest, (_event, settings: unknown, password: unknown) =>
 		testConnection(serverSettingsSchema.parse(settings), z.string().parse(password))
 	);
 	// AccountService validates the rest.
-	ipcMain.handle(IPC.accountsAdd, async (_event, account) => {
+	handle(IPC.accountsAdd, async (_event, account) => {
 		const result = await accounts.add(account);
 		if (result.ok) sync.start(result.account.id);
 		return result;
 	});
-	ipcMain.handle(IPC.accountsUpdate, (_event, id: unknown, changes) =>
+	handle(IPC.accountsUpdate, (_event, id: unknown, changes) =>
 		accounts.update(z.number().int().parse(id), changes)
 	);
-	ipcMain.handle(IPC.accountsRemove, async (_event, id: unknown) => {
+	handle(IPC.accountsRemove, async (_event, id: unknown) => {
 		const accountId = z.number().int().parse(id);
 		await sync.stop(accountId);
 		await accounts.remove(accountId);
 		changed();
 	});
 
-	ipcMain.handle(IPC.mailMailboxes, () => listMailboxes(db));
-	ipcMain.handle(IPC.mailMessages, (_event, query: unknown) =>
+	handle(IPC.mailMailboxes, () => listMailboxes(db));
+	handle(IPC.mailMessages, (_event, query: unknown) =>
 		listMessages(db, messageQuerySchema.parse(query))
 	);
-	ipcMain.handle(IPC.mailSetSeen, (_event, id: unknown, seen: unknown) =>
+	handle(IPC.mailSetSeen, (_event, id: unknown, seen: unknown) =>
 		sync.setSeen(z.number().int().parse(id), z.boolean().parse(seen))
 	);
-	ipcMain.handle(IPC.mailThread, (_event, id: unknown) =>
-		listThread(db, z.number().int().parse(id))
-	);
-	ipcMain.handle(IPC.mailTrustSender, (_event, address: unknown) =>
+	handle(IPC.mailThread, (_event, id: unknown) => listThread(db, z.number().int().parse(id)));
+	handle(IPC.mailTrustSender, (_event, address: unknown) =>
 		trustSender(db, z.email().parse(address))
 	);
-	ipcMain.handle(IPC.mailAvatar, async (_event, address: unknown) => {
+	handle(IPC.mailAvatar, async (_event, address: unknown) => {
 		const valid = z.email().safeParse(address);
 		if (!valid.success || !(await readSettings(db)).avatars) return null;
 		return avatars.find(valid.data);
 	});
-	ipcMain.handle(IPC.mailReplySource, (_event, id: unknown) =>
+	handle(IPC.mailReplySource, (_event, id: unknown) =>
 		sync.replySource(z.number().int().parse(id))
 	);
-	ipcMain.handle(IPC.mailPickFiles, async (event) => {
+	handle(IPC.mailPickFiles, async (event) => {
 		const window = BrowserWindow.fromWebContents(event.sender);
 		const options = {
 			properties: ['openFile', 'multiSelections'] as ('openFile' | 'multiSelections')[]
@@ -201,41 +225,40 @@ export function registerIpc(db: Database, desktop: Desktop) {
 			})
 		);
 	});
-	ipcMain.handle(IPC.mailSend, (_event, message: unknown) =>
-		sync.send(outgoingSchema.parse(message))
-	);
-	ipcMain.handle(IPC.mailSaveDraft, (_event, message: unknown) =>
+	handle(IPC.mailSend, (_event, message: unknown) => sync.send(outgoingSchema.parse(message)));
+	handle(IPC.mailSaveDraft, (_event, message: unknown) =>
 		sync.saveDraft(outgoingSchema.parse(message))
 	);
-	ipcMain.handle(IPC.mailDeleteDraft, (_event, accountId: unknown, uid: unknown) =>
+	handle(IPC.mailDeleteDraft, (_event, accountId: unknown, uid: unknown) =>
 		sync.deleteDraft(z.number().int().parse(accountId), z.number().int().parse(uid))
 	);
-	ipcMain.handle(IPC.mailMove, (_event, ids: unknown, to: unknown) =>
+	handle(IPC.mailMove, (_event, ids: unknown, to: unknown) =>
 		sync.move(
 			z.array(z.number().int()).max(1000).parse(ids),
 			z.enum(['archive', 'trash']).parse(to)
 		)
 	);
-	ipcMain.handle(IPC.mailSearch, (_event, query: unknown) =>
+	handle(IPC.mailSearch, (_event, query: unknown) =>
 		searchMessages(db, z.string().max(1000).parse(query))
 	);
-	ipcMain.handle(IPC.mailSearchServer, (_event, query: unknown) =>
+	handle(IPC.mailSearchServer, (_event, query: unknown) =>
 		sync.searchServer(z.string().trim().min(1).max(1000).parse(query))
 	);
-	ipcMain.handle(IPC.mailBody, (_event, id: unknown) => sync.body(z.number().int().parse(id)));
-	ipcMain.handle(IPC.mailOpenAttachment, async (_event, id: unknown) => {
+	handle(IPC.mailBody, (_event, id: unknown) => sync.body(z.number().int().parse(id)));
+	handle(IPC.mailOpenAttachment, async (_event, id: unknown) => {
 		const file = await sync.attachment(z.number().int().parse(id));
 		const filename = safeFilename(file.filename, file.contentType);
-		if (isRunnable(filename)) return false;
+		if (!canOpen(filename)) return false;
 		const dir = path.join(app.getPath('temp'), 'velo-mail', String(id));
 		await mkdir(dir, { recursive: true });
 		const target = path.join(dir, filename);
 		await writeFile(target, file.content);
+		await markFromInternet(target);
 		const error = await shell.openPath(target);
 		if (error) throw new Error(error);
 		return true;
 	});
-	ipcMain.handle(IPC.mailSaveAttachment, async (event, id: unknown) => {
+	handle(IPC.mailSaveAttachment, async (event, id: unknown) => {
 		const file = await sync.attachment(z.number().int().parse(id));
 		const window = BrowserWindow.fromWebContents(event.sender);
 		const options = {
@@ -249,9 +272,10 @@ export function registerIpc(db: Database, desktop: Desktop) {
 			: await dialog.showSaveDialog(options);
 		if (result.canceled || !result.filePath) return false;
 		await writeFile(result.filePath, file.content);
+		await markFromInternet(result.filePath);
 		return true;
 	});
-	ipcMain.handle(IPC.mailSync, async (_event, id: unknown) => {
+	handle(IPC.mailSync, async (_event, id: unknown) => {
 		const ids =
 			id === undefined
 				? (await accounts.list()).map((account) => account.id)

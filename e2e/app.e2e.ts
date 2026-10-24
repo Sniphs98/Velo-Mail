@@ -49,6 +49,17 @@ test('keeps Node out of the renderer', async () => {
 	});
 });
 
+test('grants the page no permissions', async () => {
+	const states = await page.evaluate(async () =>
+		Promise.all(
+			(['geolocation', 'camera', 'microphone', 'notifications'] as PermissionName[]).map(
+				async (name) => (await navigator.permissions.query({ name })).state
+			)
+		)
+	);
+	expect(states).toEqual(['denied', 'denied', 'denied', 'denied']);
+});
+
 test('serves the renderer with a content security policy', async () => {
 	const violation = await page.evaluate(
 		() =>

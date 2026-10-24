@@ -23,7 +23,15 @@ const isPdf = (file: AttachmentContent) =>
 export async function pdfText(content: Buffer): Promise<string> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const read = async () => {
-		const doc = await getDocumentProxy(new Uint8Array(content), { verbosity: 0 });
+		const doc = await getDocumentProxy(new Uint8Array(content), {
+			verbosity: 0,
+			// PDFs come from strangers and this is the main process: nothing from
+			// the system or the network, and give up on the first broken part.
+			// (pdf.js 5 no longer compiles fonts with eval, see CVE-2024-4367.)
+			useSystemFonts: false,
+			useWorkerFetch: false,
+			stopAtErrors: true
+		});
 		try {
 			const { text } = await extractText(doc, { mergePages: true });
 			return text;
