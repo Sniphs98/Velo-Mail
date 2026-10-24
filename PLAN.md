@@ -120,13 +120,18 @@ ist: kein natives Modul, nichts neu zu bauen, gleiches SQLite in Tests und
 App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
 `1.0.0-rc.5` (fest gepinnt, bis 1.0 erscheint).
 
-### Phase 3 – Konten
+### Phase 3 – Konten _(erledigt)_
 
-- Dialog „Konto hinzufügen“: E-Mail + Passwort, Servereinstellungen werden
-  automatisch ermittelt (Mozilla-Autoconfig/ISPDB, DNS-SRV), manuell
-  überschreibbar.
-- Verbindungstest vor dem Speichern, Zugangsdaten via `safeStorage`.
-- Mehrere Konten, einheitlicher Posteingang optional.
+- [x] Dialog „Konto hinzufügen“: Name, E-Mail, Passwort; Servereinstellungen
+      werden automatisch ermittelt (Autoconfig des Anbieters, Mozilla-ISPDB auch
+      über die MX-Domain, DNS-SRV, sonst übliche Hostnamen), manuell
+      überschreibbar
+- [x] Verbindungstest (IMAP + SMTP) vor dem Speichern, verständliche
+      Fehlermeldungen, Hinweis auf App-Passwörter
+- [x] Passwort verschlüsselt über `safeStorage`; unter Linux ohne Schlüsselbund
+      nur verschleiert, darauf weist der Dialog hin
+- [x] Mehrere Konten mit eigener Farbe in der Seitenleiste, Konto entfernen
+- [ ] OAuth2 für Gmail/Outlook (Phase 8)
 
 ### Phase 4 – Synchronisierung
 

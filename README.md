@@ -7,7 +7,8 @@ Der Projektplan steht in [PLAN.md](PLAN.md).
 
 ## Entwicklung
 
-Voraussetzung: Node.js 22 oder neuer.
+Voraussetzung: Node.js 22 oder neuer, für die Integrations- und E2E-Tests
+zusätzlich Java 17 oder neuer (für den Test-Mailserver).
 
 ```sh
 npm install
@@ -26,6 +27,10 @@ npm run dev        # App mit Hot-Reload starten
 | `npm run test:unit`   | Unit- und Komponententests (Vitest)                      |
 | `npm run test:e2e`    | baut die App und testet sie mit Playwright               |
 | `npm run db:generate` | Migration aus Änderungen an `electron/db/schema.ts`      |
+
+Integrations- und E2E-Tests starten [GreenMail](https://greenmail-mail-test.github.io/greenmail/)
+als IMAP-/SMTP-Server (`scripts/greenmail.mjs`); das Programm wird beim ersten
+Lauf nach `.cache/` geladen. Docker ist nicht nötig.
 
 Unter Linux ohne Bildschirm (Server, Container) die E2E-Tests mit
 `xvfb-run -a npm run test:e2e` starten.

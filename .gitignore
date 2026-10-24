@@ -28,3 +28,6 @@ test-results
 /out
 /release
 playwright-report
+
+# Test downloads (GreenMail)
+/.cache
