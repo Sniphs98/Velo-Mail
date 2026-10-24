@@ -8,6 +8,7 @@ const runnable =
 export function safeFilename(name: string | null, contentType: string) {
 	const base = path
 		.basename(name ?? '')
+		// eslint-disable-next-line no-control-regex -- control characters are what it removes
 		.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')
 		.replace(/^\.+/, '')
 		.slice(0, 200);

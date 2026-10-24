@@ -105,7 +105,7 @@ export function htmlToText(html: string): string {
 			if (entity.startsWith('#')) return String.fromCodePoint(parseInt(entity.slice(1), 10));
 			return entities[entity] ?? match;
 		})
-		.replace(/[ \t\f\v ]+/g, ' ')
+		.replace(/[ \t\f\v\u00a0]+/g, ' ')
 		.replace(/ *\n */g, '\n')
 		.replace(/\n{3,}/g, '\n\n')
 		.trim();
