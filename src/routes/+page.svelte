@@ -72,13 +72,18 @@
 	<Sidebar onaddaccount={() => (addingAccount = true)} />
 
 	<MessageList
-		title={mailbox?.name ?? 'Alle Posteingänge'}
-		subtitle={mailboxAccount?.email}
+		title={mail.query.trim() ? 'Suche' : (mailbox?.name ?? 'Alle Posteingänge')}
+		subtitle={mail.query.trim()
+			? `${mail.messages.length} Treffer in allen Konten`
+			: mailboxAccount?.email}
 		messages={mail.messages}
 		accounts={accounts.list}
 		selectedId={mail.selectedId}
-		showAccount={!mailbox && accounts.list.length > 1}
+		showAccount={(!mailbox || !!mail.query.trim()) && accounts.list.length > 1}
 		onselect={select}
+		query={mail.query}
+		onsearch={(query) => mail.search(query)}
+		onsearchserver={() => mail.searchServer()}
 	/>
 
 	<article

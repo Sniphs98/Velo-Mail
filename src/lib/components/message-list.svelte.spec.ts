@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { MessageSummary } from '#lib/api.ts';
 import MessageList from './message-list.svelte';
@@ -64,5 +64,37 @@ describe('MessageList', () => {
 			onselect: () => {}
 		});
 		await expect.element(page.getByText('Keine E-Mails')).toBeVisible();
+	});
+});
+
+describe('MessageList search', () => {
+	it('searches as you type, clears with Escape and searches the server on request', async () => {
+		const onsearch = vi.fn();
+		const onsearchserver = vi.fn(async () => 2);
+		const { rerender } = render(MessageList, {
+			title: 'Posteingang',
+			messages: [],
+			accounts,
+			selectedId: null,
+			showAccount: false,
+			onselect: () => {},
+			onsearch,
+			onsearchserver
+		});
+		const field = page.getByRole('searchbox', { name: 'Suchen' });
+		await field.fill('angebot');
+		await vi.waitFor(() => expect(onsearch).toHaveBeenLastCalledWith('angebot'));
+
+		await rerender({ query: 'angebot' });
+		await expect.element(page.getByText('Keine Treffer')).toBeVisible();
+		await page.getByRole('button', { name: 'Auf dem Server weitersuchen' }).click();
+		await expect
+			.element(page.getByRole('status'))
+			.toHaveTextContent('2 ältere Nachrichten vom Server geholt');
+
+		await field.click();
+		await userEvent.keyboard('{Escape}');
+		await vi.waitFor(() => expect(onsearch).toHaveBeenLastCalledWith(''));
+		await expect.element(field).toHaveValue('');
 	});
 });
