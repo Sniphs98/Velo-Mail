@@ -193,6 +193,10 @@ export interface VeloApi {
 		deleteDraft(accountId: number, uid: number): Promise<void>;
 		/** Moves messages (whole conversations) to the archive or the trash. */
 		move(messageIds: number[], to: 'archive' | 'trash'): Promise<void>;
+		/** Local full-text search over subject, sender and content, newest first. */
+		search(query: string): Promise<MessageSummary[]>;
+		/** Searches on the servers for older messages; returns how many were added. */
+		searchServer(query: string): Promise<number>;
 		/** Syncs an account (or all) now instead of waiting for the next round. */
 		sync(accountId?: number): Promise<void>;
 		/** Called whenever the cache changed; returns a function that unsubscribes. */
@@ -228,6 +232,8 @@ export const IPC = {
 	mailSaveDraft: 'mail:save-draft',
 	mailDeleteDraft: 'mail:delete-draft',
 	mailMove: 'mail:move',
+	mailSearch: 'mail:search',
+	mailSearchServer: 'mail:search-server',
 	mailTrustSender: 'mail:trust-sender',
 	mailOpenAttachment: 'mail:open-attachment',
 	mailSaveAttachment: 'mail:save-attachment',

@@ -12,7 +12,13 @@ import { AccountService, serverSettingsSchema, type SecretBox } from './accounts
 import type { Database } from './db';
 import { SyncManager } from './mail/manager';
 import { isRunnable, safeFilename } from './mail/files';
-import { listMailboxes, listMessages, listThread, trustSender } from './mail/queries';
+import {
+	listMailboxes,
+	listMessages,
+	listThread,
+	searchMessages,
+	trustSender
+} from './mail/queries';
 
 // Keychain on macOS, DPAPI on Windows, the desktop's keyring on Linux. Without
 // a keyring Linux falls back to a fixed key (see AppInfo.keyring).
@@ -150,6 +156,12 @@ export function registerIpc(db: Database) {
 			z.array(z.number().int()).max(1000).parse(ids),
 			z.enum(['archive', 'trash']).parse(to)
 		)
+	);
+	ipcMain.handle(IPC.mailSearch, (_event, query: unknown) =>
+		searchMessages(db, z.string().max(1000).parse(query))
+	);
+	ipcMain.handle(IPC.mailSearchServer, (_event, query: unknown) =>
+		sync.searchServer(z.string().trim().min(1).max(1000).parse(query))
 	);
 	ipcMain.handle(IPC.mailBody, (_event, id: unknown) => sync.body(z.number().int().parse(id)));
 	ipcMain.handle(IPC.mailOpenAttachment, async (_event, id: unknown) => {
