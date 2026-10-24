@@ -5,19 +5,19 @@ und runden Ecken.
 
 ## Stack
 
-| Bereich       | Wahl                                   | Bemerkung                                                       |
-| ------------- | -------------------------------------- | --------------------------------------------------------------- |
-| UI            | SvelteKit (Svelte 5), `adapter-static` | läuft als SPA im Electron-Fenster, kein eigener Server          |
-| Komponenten   | shadcn-svelte, Preset `b3XngymDea`     | `npx shadcn-svelte@latest init --preset b3XngymDea`             |
-| Desktop       | Electron                               | Main-Prozess macht Mail, DB und Dateisystem                     |
-| Datenbank     | SQLite (`better-sqlite3`) + Drizzle    | lokaler Cache der Mails, Migrationen laufen beim App-Start      |
-| IMAP          | `imapflow`                             | Sync, IDLE (Push für neue Mails), CONDSTORE                     |
-| SMTP          | `nodemailer`                           | Versand                                                         |
-| Mail-Parsing  | `postal-mime` oder `mailparser`        | MIME, Anhänge, Zeichensätze                                     |
-| HTML-Mails    | DOMPurify + `<iframe sandbox>`         | externe Bilder standardmäßig blockiert (Tracking-Schutz)        |
-| Zugangsdaten  | Electron `safeStorage`                 | Passwörter/Tokens verschlüsselt über den OS-Schlüsselbund       |
-| Paketierung   | electron-builder + electron-updater    | AppImage/deb, Windows-Installer, dmg; Auto-Update über Releases |
-| Tests         | Vitest, Playwright (`_electron`)       | dazu ein echter Test-Mailserver (GreenMail) in CI               |
+| Bereich      | Wahl                                   | Bemerkung                                                       |
+| ------------ | -------------------------------------- | --------------------------------------------------------------- |
+| UI           | SvelteKit (Svelte 5), `adapter-static` | läuft als SPA im Electron-Fenster, kein eigener Server          |
+| Komponenten  | shadcn-svelte, Preset `b3XngymDea`     | `npx shadcn-svelte@latest init --preset b3XngymDea`             |
+| Desktop      | Electron                               | Main-Prozess macht Mail, DB und Dateisystem                     |
+| Datenbank    | SQLite (`better-sqlite3`) + Drizzle    | lokaler Cache der Mails, Migrationen laufen beim App-Start      |
+| IMAP         | `imapflow`                             | Sync, IDLE (Push für neue Mails), CONDSTORE                     |
+| SMTP         | `nodemailer`                           | Versand                                                         |
+| Mail-Parsing | `postal-mime` oder `mailparser`        | MIME, Anhänge, Zeichensätze                                     |
+| HTML-Mails   | DOMPurify + `<iframe sandbox>`         | externe Bilder standardmäßig blockiert (Tracking-Schutz)        |
+| Zugangsdaten | Electron `safeStorage`                 | Passwörter/Tokens verschlüsselt über den OS-Schlüsselbund       |
+| Paketierung  | electron-builder + electron-updater    | AppImage/deb, Windows-Installer, dmg; Auto-Update über Releases |
+| Tests        | Vitest, Playwright (`_electron`)       | dazu ein echter Test-Mailserver (GreenMail) in CI               |
 
 ### Better Auth – brauchen wir das?
 
@@ -155,13 +155,13 @@ Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
 
 ## Tests
 
-| Ebene       | Werkzeug                         | Was                                                                                |
-| ----------- | -------------------------------- | ---------------------------------------------------------------------------------- |
-| Unit        | Vitest                           | Parser, Threading, Autoconfig, Zitat-Erzeugung, DB-Abfragen (In-Memory-SQLite)     |
-| Komponenten | Vitest + `vitest-browser-svelte` | Mailliste, Leseansicht, Verfassen-Dialog                                           |
-| Integration | Vitest + GreenMail (Docker)      | echter IMAP/SMTP-Server: Konto anlegen, Sync, Senden, Flags, IDLE                  |
-| E2E         | Playwright `_electron.launch()`  | gebaute App starten, Konto gegen GreenMail anlegen, Mail lesen, antworten, suchen  |
-| Sicherheit  | Unit-Tests                       | bösartiges HTML wird entschärft, externe Bilder bleiben blockiert                  |
+| Ebene       | Werkzeug                         | Was                                                                               |
+| ----------- | -------------------------------- | --------------------------------------------------------------------------------- |
+| Unit        | Vitest                           | Parser, Threading, Autoconfig, Zitat-Erzeugung, DB-Abfragen (In-Memory-SQLite)    |
+| Komponenten | Vitest + `vitest-browser-svelte` | Mailliste, Leseansicht, Verfassen-Dialog                                          |
+| Integration | Vitest + GreenMail (Docker)      | echter IMAP/SMTP-Server: Konto anlegen, Sync, Senden, Flags, IDLE                 |
+| E2E         | Playwright `_electron.launch()`  | gebaute App starten, Konto gegen GreenMail anlegen, Mail lesen, antworten, suchen |
+| Sicherheit  | Unit-Tests                       | bösartiges HTML wird entschärft, externe Bilder bleiben blockiert                 |
 
 GreenMail läuft in CI als Service-Container, lokal über `docker compose up`.
 
@@ -181,12 +181,12 @@ Aufbau wie bei ownWiki, damit beide Projekte gleich funktionieren.
 
 Version wird über das Label am Pull Request bestimmt:
 
-| Label          | Version             |
-| -------------- | ------------------- |
+| Label          | Version              |
+| -------------- | -------------------- |
 | _(keins)_      | Patch, 1.2.3 → 1.2.4 |
 | `feature`      | Minor, 1.2.3 → 1.3.0 |
 | `breaking`     | Major, 1.2.3 → 2.0.0 |
-| `kein-release` | kein Release        |
+| `kein-release` | kein Release         |
 
 **`release.yml`** – nach dem Auto-Release oder bei einem Tag `v*.*.*`
 
