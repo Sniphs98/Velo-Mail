@@ -10,6 +10,8 @@ import { discoverSettings } from './accounts/autoconfig';
 import { testConnection } from './accounts/connection';
 import { AccountService, serverSettingsSchema, type SecretBox } from './accounts/service';
 import type { Database } from './db';
+import type { Desktop } from './desktop';
+import { readSettings, writeSettings } from './settings';
 import { SyncManager } from './mail/manager';
 import { isRunnable, safeFilename } from './mail/files';
 import {
@@ -17,7 +19,8 @@ import {
 	listMessages,
 	listThread,
 	searchMessages,
-	trustSender
+	trustSender,
+	unreadInInboxes
 } from './mail/queries';
 
 // Keychain on macOS, DPAPI on Windows, the desktop's keyring on Linux. Without
@@ -75,13 +78,29 @@ const messageQuerySchema = z.union([
 ]);
 
 /** Registers the handlers and starts syncing; returns the sync manager. */
-export function registerIpc(db: Database) {
+export function registerIpc(db: Database, desktop: Desktop) {
 	const accounts = new AccountService(db, secrets, testConnection);
+	const changed = () => {
+		broadcast(IPC.mailChanged);
+		unreadInInboxes(db).then((count) => desktop.setUnread(count));
+	};
 	const sync = new SyncManager({
 		db,
 		credentials: (id) => accounts.credentials(id),
-		onChanged: () => broadcast(IPC.mailChanged),
-		onStatus: (status) => broadcast(IPC.mailStatus, status)
+		onChanged: changed,
+		onStatus: (status) => broadcast(IPC.mailStatus, status),
+		onNewMail: async (accountId, mails) => {
+			const account = (await accounts.list()).find((a) => a.id === accountId);
+			if (account) desktop.notify(account.name, mails);
+		}
+	});
+
+	readSettings(db).then((settings) => desktop.apply(settings));
+	ipcMain.handle(IPC.settingsGet, () => readSettings(db));
+	ipcMain.handle(IPC.settingsSet, async (_event, changes: unknown) => {
+		const settings = await writeSettings(db, changes);
+		desktop.apply(settings);
+		return settings;
 	});
 
 	ipcMain.handle(IPC.appInfo, (): AppInfo => ({
@@ -104,11 +123,14 @@ export function registerIpc(db: Database) {
 		if (result.ok) sync.start(result.account.id);
 		return result;
 	});
+	ipcMain.handle(IPC.accountsUpdate, (_event, id: unknown, changes) =>
+		accounts.update(z.number().int().parse(id), changes)
+	);
 	ipcMain.handle(IPC.accountsRemove, async (_event, id: unknown) => {
 		const accountId = z.number().int().parse(id);
 		await sync.stop(accountId);
 		await accounts.remove(accountId);
-		broadcast(IPC.mailChanged);
+		changed();
 	});
 
 	ipcMain.handle(IPC.mailMailboxes, () => listMailboxes(db));

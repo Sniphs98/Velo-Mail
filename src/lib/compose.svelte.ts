@@ -1,6 +1,10 @@
 import { ipcErrorMessage } from '#lib/account-messages.ts';
 import { velo, type PickedFile } from '#lib/api.ts';
-import { replyDraft, type Draft } from '#lib/compose.ts';
+import { accounts } from '#lib/accounts.svelte.ts';
+import { replyDraft, swapSignature, withSignature, type Draft } from '#lib/compose.ts';
+
+const signatureOf = (accountId: number) =>
+	accounts.list.find((account) => account.id === accountId)?.signature ?? '';
 
 /** The message being written; one at a time. */
 class Compose {
@@ -22,7 +26,17 @@ class Compose {
 			const source = await velo()?.mail.replySource(from.messageId);
 			if (source) draft = replyDraft(source, from.kind, from.messageId);
 		}
+		draft.text = withSignature(draft.text, signatureOf(draft.accountId));
 		this.show(draft);
+	}
+
+	/** Sends from another account, with its signature. */
+	changeAccount(accountId: number) {
+		const previous = this.draft.accountId;
+		if (accountId === previous) return;
+		this.draft.text = swapSignature(this.draft.text, signatureOf(previous), signatureOf(accountId));
+		this.draft.accountId = accountId;
+		this.changed();
 	}
 
 	/** Continues a saved draft. */

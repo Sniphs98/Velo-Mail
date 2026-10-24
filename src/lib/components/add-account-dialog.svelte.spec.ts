@@ -56,7 +56,13 @@ describe('AddAccountDialog', () => {
 
 		add.mockResolvedValueOnce({
 			ok: true,
-			account: { id: 1, name: 'Persönlich', email: 'du@beispiel.de', color: '#2563eb' }
+			account: {
+				id: 1,
+				name: 'Persönlich',
+				email: 'du@beispiel.de',
+				color: '#2563eb',
+				signature: ''
+			}
 		});
 		await page.getByLabelText('Empfang (IMAP) Server').fill('mail.beispiel.de');
 		await page.getByRole('button', { name: 'Speichern' }).click();

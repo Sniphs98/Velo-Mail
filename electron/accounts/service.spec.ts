@@ -48,7 +48,13 @@ describe('AccountService', () => {
 		const added = await service.add(input('Du@Beispiel.de'));
 		expect(added).toEqual({
 			ok: true,
-			account: { id: 1, name: 'Persönlich', email: 'du@beispiel.de', color: accountColors[0] }
+			account: {
+				id: 1,
+				name: 'Persönlich',
+				email: 'du@beispiel.de',
+				color: accountColors[0],
+				signature: ''
+			}
 		});
 		expect(tested).toHaveLength(1);
 
@@ -104,6 +110,22 @@ describe('AccountService', () => {
 			password: 'geheim'
 		});
 		expect(await service.credentials(99)).toBeNull();
+	});
+
+	it('changes the name and the signature', async () => {
+		await service.add(input('du@beispiel.de'));
+		expect(await service.update(1, { signature: 'Grüße\nDu' })).toMatchObject({
+			name: 'Persönlich',
+			signature: 'Grüße\nDu'
+		});
+		expect(await service.update(1, { name: ' Privat ' })).toMatchObject({
+			name: 'Privat',
+			signature: 'Grüße\nDu'
+		});
+		expect((await service.credentials(1))?.name).toBe('Privat');
+		await expect(service.update(1, { name: '' })).rejects.toThrow();
+		await expect(service.update(1, { email: 'x@y.de' } as never)).rejects.toThrow();
+		await expect(service.update(2, { name: 'Weg' })).rejects.toThrow('gibt es nicht mehr');
 	});
 
 	it('removes an account', async () => {

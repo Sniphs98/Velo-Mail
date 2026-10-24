@@ -8,8 +8,11 @@ import {
 	listMailboxes,
 	listMessages,
 	listThread,
+	newestUid,
 	searchMessages,
-	trustSender
+	trustSender,
+	unreadInInboxes,
+	unseenAbove
 } from './queries';
 import { parseReferences, threadKey, toRow } from './sync';
 
@@ -113,6 +116,27 @@ describe('listMessages', () => {
 		expect((await listMessages(db, { mailboxId: sentA })).map((m) => m.subject)).toEqual([
 			'gesendet'
 		]);
+	});
+});
+
+describe('new mail', () => {
+	it('finds unread messages above a UID and counts unread inbox mail', async () => {
+		const a = await account('a@beispiel.de');
+		const b = await account('b@firma.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		const sent = await mailbox(a, 'Sent', 'sent');
+		const other = await mailbox(b, 'INBOX', 'inbox');
+		expect(await newestUid(db, inbox)).toBe(0);
+		await message(inbox, 4, 'alt');
+		expect(await newestUid(db, inbox)).toBe(4);
+		await message(inbox, 5, 'neu');
+		await message(inbox, 6, 'schon gelesen', true);
+		await message(inbox, 7, 'neuer');
+		await message(sent, 8, 'gesendet');
+		await message(other, 9, 'anderes Konto');
+
+		expect((await unseenAbove(db, inbox, 4)).map((m) => m.subject)).toEqual(['neuer', 'neu']);
+		expect(await unreadInInboxes(db)).toBe(4);
 	});
 });
 

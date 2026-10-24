@@ -12,6 +12,9 @@ files:
   - out/**
   - build/**
   - drizzle/**
+  # Window and tray icons, loaded at runtime (electron/main.ts, desktop.ts).
+  - resources/icon.png
+  - resources/tray/**
   - package.json
 
 linux:

@@ -35,6 +35,8 @@ export const accounts = sqliteTable('accounts', {
 		.default('password'),
 	/** Password or tokens, encrypted with Electron's safeStorage; never plain text. */
 	secret: blob({ mode: 'buffer' }),
+	/** Added below new messages and replies, after "-- ". */
+	signature: text().notNull().default(''),
 	createdAt: createdAt()
 });
 
@@ -151,4 +153,10 @@ export const senderAvatars = sqliteTable(
 export const trustedSenders = sqliteTable('trusted_senders', {
 	address: text().primaryKey(),
 	createdAt: createdAt()
+});
+
+/** App settings as JSON values, one row per key (see electron/settings.ts). */
+export const settings = sqliteTable('settings', {
+	key: text().primaryKey(),
+	value: text({ mode: 'json' }).notNull()
 });

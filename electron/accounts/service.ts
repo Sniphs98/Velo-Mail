@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type {
 	Account,
+	AccountChanges,
 	AddAccountResult,
 	ConnectionResult,
 	NewAccount,
@@ -40,12 +41,28 @@ export const serverSettingsSchema = z.object({
 	username: z.string().trim().min(1).max(320)
 });
 
+export const accountChangesSchema = z
+	.object({
+		name: z.string().trim().min(1).max(100),
+		signature: z.string().max(10_000)
+	})
+	.partial()
+	.strict();
+
 export const newAccountSchema = z.object({
 	name: z.string().trim().min(1).max(100),
 	email: z.email().max(320),
 	password: z.string().min(1).max(4096),
 	settings: serverSettingsSchema
 });
+
+const accountFields = {
+	id: accounts.id,
+	name: accounts.name,
+	email: accounts.email,
+	color: accounts.color,
+	signature: accounts.signature
+};
 
 export class AccountService {
 	constructor(
@@ -59,12 +76,7 @@ export class AccountService {
 
 	async list(): Promise<Account[]> {
 		return this.db
-			.select({
-				id: accounts.id,
-				name: accounts.name,
-				email: accounts.email,
-				color: accounts.color
-			})
+			.select(accountFields)
 			.from(accounts)
 			.orderBy(asc(accounts.position), asc(accounts.id));
 	}
@@ -96,13 +108,20 @@ export class AccountService {
 				...settings,
 				secret: await this.secrets.encrypt(password)
 			})
-			.returning({
-				id: accounts.id,
-				name: accounts.name,
-				email: accounts.email,
-				color: accounts.color
-			});
+			.returning(accountFields);
 		return { ok: true, account };
+	}
+
+	/** Changes the name (shown as the sender) or the signature. */
+	async update(id: number, input: AccountChanges): Promise<Account> {
+		const changes = accountChangesSchema.parse(input);
+		const [account] = await this.db
+			.update(accounts)
+			.set(changes)
+			.where(eq(accounts.id, z.number().int().parse(id)))
+			.returning(accountFields);
+		if (!account) throw new Error('Das Konto gibt es nicht mehr.');
+		return account;
 	}
 
 	/** Server settings and decrypted password, for connecting and sending. */

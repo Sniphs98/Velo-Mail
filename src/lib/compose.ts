@@ -94,3 +94,34 @@ export function replyDraft(
 		references: source.messageId ? [...source.references, source.messageId] : source.references
 	};
 }
+
+/** The signature after the "-- " line that mail apps recognise (RFC 3676). */
+export function signatureBlock(signature: string) {
+	const text = signature.trimEnd();
+	return text ? `-- \n${text}` : '';
+}
+
+/** Puts the signature where you write: above a quote or forwarded message. */
+export function withSignature(text: string, signature: string) {
+	const block = signatureBlock(signature);
+	return block ? `\n\n${block}${text}` : text;
+}
+
+/**
+ * Exchanges the signature when the sender account changes. Only a signature
+ * still in the text as inserted is replaced; edited ones stay as they are.
+ */
+export function swapSignature(text: string, from: string, to: string) {
+	const old = signatureBlock(from);
+	const next = signatureBlock(to);
+	if (old) {
+		const at = text.indexOf(old);
+		const after = text.slice(at + old.length);
+		// Missing, or something was typed onto its last line.
+		if (at === -1 || (after && !after.startsWith('\n'))) return text;
+		const start = text.slice(at - 2, at) === '\n\n' ? at - 2 : at;
+		return text.slice(0, next ? at : start) + next + after;
+	}
+	// No signature yet: add one if nothing was written above a quote.
+	return next && text.startsWith('\n\n') ? withSignature(text, to) : text;
+}

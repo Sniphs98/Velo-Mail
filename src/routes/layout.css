@@ -131,9 +131,10 @@ body {
 	* {
 		@apply border-border outline-ring/50;
 	}
-	/* The window is a muted ground; panes sit on it as cards (design A). */
+	/* The window is a muted ground; panes sit on it as cards (design A). In
+	   dark mode the ground is darker than the cards. */
 	body {
-		@apply bg-muted text-foreground;
+		@apply bg-muted text-foreground dark:bg-background;
 	}
 	html {
 		@apply font-sans;

@@ -71,6 +71,7 @@ describe('openDatabase', () => {
 			'messages',
 			'messages_fts',
 			'sender_avatars',
+			'settings',
 			'trusted_senders'
 		]);
 	});

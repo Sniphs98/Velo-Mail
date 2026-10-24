@@ -1,5 +1,5 @@
 // Reads for the UI: folders with unread counts and message lists.
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import type { Mailbox, MessageBody, MessageQuery, MessageSummary } from '../../src/lib/api';
 import { hasRemoteContent } from './body';
 import { toFtsQuery } from './search';
@@ -218,4 +218,37 @@ export async function searchMessages(
 		.orderBy(desc(messages.date), desc(messages.id))
 		.limit(limit);
 	return rows.map((row) => ({ ...row, date: row.date.getTime(), threadSize: 1 }));
+}
+
+/** The highest UID cached for a mailbox; 0 if it has none. */
+export async function newestUid(db: Database, mailboxId: number) {
+	const [row] = await db
+		.select({ uid: sql<number | null>`max(${messages.uid})` })
+		.from(messages)
+		.where(eq(messages.mailboxId, mailboxId));
+	return row?.uid ?? 0;
+}
+
+/** Unread messages above a UID, newest first: the new mail to announce. */
+export async function unseenAbove(db: Database, mailboxId: number, uid: number) {
+	return db
+		.select({
+			id: messages.id,
+			fromName: messages.fromName,
+			fromAddress: messages.fromAddress,
+			subject: messages.subject
+		})
+		.from(messages)
+		.where(and(eq(messages.mailboxId, mailboxId), gt(messages.uid, uid), eq(messages.seen, false)))
+		.orderBy(desc(messages.uid));
+}
+
+/** Unread messages in all inboxes, for the badge on the app icon. */
+export async function unreadInInboxes(db: Database) {
+	const [row] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(messages)
+		.innerJoin(mailboxes, eq(mailboxes.id, messages.mailboxId))
+		.where(and(eq(mailboxes.role, 'inbox'), eq(messages.seen, false)));
+	return row?.count ?? 0;
 }

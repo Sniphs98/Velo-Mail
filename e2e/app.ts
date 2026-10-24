@@ -13,7 +13,12 @@ export async function launchApp(userData = mkdtempSync(path.join(tmpdir(), 'velo
 	const args = ['.'];
 	// Chromium refuses its sandbox as root (containers, CI).
 	if (process.getuid?.() === 0) args.push('--no-sandbox');
-	const app = await electron.launch({ args, env: { ...process.env, VELO_USER_DATA: userData } });
+	const app = await electron.launch({
+		args,
+		env: { ...process.env, VELO_USER_DATA: userData },
+		// Playwright would pin prefers-color-scheme; the app's theme setting decides.
+		colorScheme: null
+	});
 	const window = await app.firstWindow();
 	return { app, window, userData };
 }
