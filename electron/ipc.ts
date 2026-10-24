@@ -1,7 +1,7 @@
 // The main-process side of src/lib/api.ts. Everything arriving here comes from
 // the renderer and is validated before use.
 import { app, BrowserWindow, dialog, ipcMain, net, safeStorage, shell } from 'electron';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveMx, resolveSrv } from 'node:dns/promises';
 import { z } from 'zod';
@@ -38,6 +38,30 @@ async function fetchText(url: string): Promise<string | null> {
 function broadcast(channel: string, ...args: unknown[]) {
 	for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, ...args);
 }
+
+// Only files the user picked in the file dialog may be attached, so the page
+// cannot mail arbitrary files from the disk.
+const pickedFiles = new Set<string>();
+
+const outgoingSchema = z.object({
+	accountId: z.number().int(),
+	to: z.string().max(10_000),
+	cc: z.string().max(10_000),
+	bcc: z.string().max(10_000),
+	subject: z.string().max(1000),
+	text: z.string().max(10_000_000),
+	attachments: z.array(
+		z.object({
+			path: z.string().refine((file) => pickedFiles.has(file), 'Datei wurde nicht ausgewählt'),
+			name: z.string().max(255),
+			size: z.number()
+		})
+	),
+	replyTo: z.number().int().optional(),
+	inReplyTo: z.string().max(1000).optional(),
+	references: z.array(z.string().max(1000)).max(200).optional(),
+	draftUid: z.number().int().optional()
+});
 
 const messageQuerySchema = z.union([
 	z.object({ mailboxId: z.number().int() }),
@@ -93,6 +117,39 @@ export function registerIpc(db: Database) {
 	);
 	ipcMain.handle(IPC.mailTrustSender, (_event, address: unknown) =>
 		trustSender(db, z.email().parse(address))
+	);
+	ipcMain.handle(IPC.mailReplySource, (_event, id: unknown) =>
+		sync.replySource(z.number().int().parse(id))
+	);
+	ipcMain.handle(IPC.mailPickFiles, async (event) => {
+		const window = BrowserWindow.fromWebContents(event.sender);
+		const options = {
+			properties: ['openFile', 'multiSelections'] as ('openFile' | 'multiSelections')[]
+		};
+		const result = window
+			? await dialog.showOpenDialog(window, options)
+			: await dialog.showOpenDialog(options);
+		return Promise.all(
+			result.filePaths.map(async (file) => {
+				pickedFiles.add(file);
+				return { path: file, name: path.basename(file), size: (await stat(file)).size };
+			})
+		);
+	});
+	ipcMain.handle(IPC.mailSend, (_event, message: unknown) =>
+		sync.send(outgoingSchema.parse(message))
+	);
+	ipcMain.handle(IPC.mailSaveDraft, (_event, message: unknown) =>
+		sync.saveDraft(outgoingSchema.parse(message))
+	);
+	ipcMain.handle(IPC.mailDeleteDraft, (_event, accountId: unknown, uid: unknown) =>
+		sync.deleteDraft(z.number().int().parse(accountId), z.number().int().parse(uid))
+	);
+	ipcMain.handle(IPC.mailMove, (_event, ids: unknown, to: unknown) =>
+		sync.move(
+			z.array(z.number().int()).max(1000).parse(ids),
+			z.enum(['archive', 'trash']).parse(to)
+		)
 	);
 	ipcMain.handle(IPC.mailBody, (_event, id: unknown) => sync.body(z.number().int().parse(id)));
 	ipcMain.handle(IPC.mailOpenAttachment, async (_event, id: unknown) => {
