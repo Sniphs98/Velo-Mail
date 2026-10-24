@@ -55,7 +55,8 @@ Sync-Dienst (z. B. Einstellungen über mehrere Geräte) bauen.
 
 ### Datenbankschema (erster Entwurf)
 
-- `accounts` – Name, Adresse, IMAP-/SMTP-Host, Port, Sicherheit, Auth-Typ
+- `accounts` – Name, Adresse, Farbe, Reihenfolge, IMAP-/SMTP-Host, Port,
+  Sicherheit, Auth-Typ
 - `mailboxes` – Ordner je Konto, Spezialordner (Inbox, Sent, Drafts, Trash,
   Archive), `uidValidity`, `highestModseq`
 - `messages` – UID, Message-ID, Thread-ID, Absender, Empfänger, Betreff,
@@ -63,17 +64,33 @@ Sync-Dienst (z. B. Einstellungen über mehrere Geräte) bauen.
 - `message_bodies` – Text-/HTML-Inhalt (getrennt, damit die Liste klein bleibt)
 - `attachments` – Metadaten, Inhalt wird erst beim Öffnen geladen
 - `messages_fts` – FTS5-Index für die Suche
+- `sender_avatars` – Domain/Adresse → Bildquelle, Bild, Abrufdatum
 
 ## Phasen
 
 Jede Phase endet mit atomaren Commits, damit man jederzeit zurückspringen kann.
 Nach jeder Phase stimmen wir uns kurz ab.
 
-### Phase 0 – Design festlegen _(jetzt)_
+### Phase 0 – Design festlegen _(erledigt)_
 
-Drei Varianten liegen als Entwürfe vor: **A Klar**, **B Fokus**, **C Dunkel**,
-dazu das Fenster „Neue Nachricht“. Du wählst eine (oder einen Mix), daraus
-werden die Theme-Tokens (Farben, Radius) für shadcn-svelte.
+Gewählt: **Variante A „Klar“** (hell, drei Spalten, Karten mit runden Ecken)
+mit den **Absender-Avataren aus Variante B** und **mehreren Konten**
+(„Alle Posteingänge“ plus Ordner je Konto, Kontofarbe als Punkt am Avatar).
+Daraus werden die Theme-Tokens (Farben, Radius) für shadcn-svelte.
+
+**Absender-Avatare** – Reihenfolge, in der das Bild gesucht wird:
+
+1. Kontaktfoto aus dem eigenen Adressbuch (später, mit CardDAV)
+2. **BIMI**: offizielles Markenlogo, das die Absenderdomain per DNS
+   veröffentlicht (`default._bimi.<domain>`), so kommt z. B. das Google-„G“
+3. Favicon bzw. Apple-Touch-Icon der Absenderdomain
+4. Gravatar (über den Hash der E-Mail-Adresse)
+5. Fallback: Initialen auf einer Farbe, die fest aus der Adresse berechnet wird
+
+Geholt wird im Main-Prozess, Ergebnisse werden in der DB gecacht (auch
+„nichts gefunden“, mit Ablaufdatum). Bei Freemail-Domains (gmail.com, web.de,
+…) wird kein Domain-Logo genommen, sonst hätte jede Privatperson das Google-
+Logo. Das Nachladen lässt sich in den Einstellungen abschalten (Datenschutz).
 
 ### Phase 1 – Grundgerüst
 
@@ -188,11 +205,10 @@ die Secrets.
 
 ## Offene Fragen an dich
 
-1. **Design:** A, B, C oder ein Mix?
-2. **Plattformen:** Windows, macOS und Linux – oder erstmal nur eine?
-3. **Anbieter:** Reicht anfangs IMAP/SMTP mit (App-)Passwort, oder ist Gmail/
+1. **Plattformen:** Windows, macOS und Linux – oder erstmal nur eine?
+2. **Anbieter:** Reicht anfangs IMAP/SMTP mit (App-)Passwort, oder ist Gmail/
    Outlook per OAuth von Anfang an wichtig? (Google verlangt für OAuth eine
    Prüfung der App, das dauert.)
-4. **Sprache der Oberfläche:** Nur Deutsch, oder gleich mit i18n (Deutsch +
+3. **Sprache der Oberfläche:** Nur Deutsch, oder gleich mit i18n (Deutsch +
    Englisch)?
-5. **Code-Signierung:** Später, oder hast du schon Zertifikate/Apple-Konto?
+4. **Code-Signierung:** Später, oder hast du schon Zertifikate/Apple-Konto?
