@@ -21,7 +21,8 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "npm run build && playwright test"
+		"test:e2e": "npm run build && playwright test",
+		"db:generate": "drizzle-kit generate"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -38,6 +39,7 @@
 		"@vitest/browser-playwright": "^4.1.8",
 		"bits-ui": "^2.20.2",
 		"cn": "^0.5.0",
+		"drizzle-kit": "1.0.0-rc.5",
 		"electron": "^45.0.0",
 		"electron-builder": "^26.18.0",
 		"esbuild": "^0.28.2",
@@ -64,5 +66,8 @@
 	"imports": {
 		"#lib": "./src/lib/index.js",
 		"#lib/*": "./src/lib/*"
+	},
+	"dependencies": {
+		"drizzle-orm": "1.0.0-rc.5"
 	}
 }
