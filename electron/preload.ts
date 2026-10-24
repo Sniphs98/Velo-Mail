@@ -14,7 +14,11 @@ function on<T extends unknown[]>(channel: string, listener: (...args: T) => void
 
 const api: VeloApi = {
 	app: {
-		info: () => ipcRenderer.invoke(IPC.appInfo)
+		info: () => ipcRenderer.invoke(IPC.appInfo),
+		checkUpdate: () => ipcRenderer.invoke(IPC.appCheckUpdate),
+		installUpdate: () => ipcRenderer.invoke(IPC.appInstallUpdate),
+		restartToUpdate: () => ipcRenderer.invoke(IPC.appRestartToUpdate),
+		onUpdateProgress: (listener) => on<[number]>(IPC.appUpdateProgress, listener)
 	},
 	accounts: {
 		list: () => ipcRenderer.invoke(IPC.accountsList),

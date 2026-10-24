@@ -6,7 +6,8 @@ class AppSettings {
 		theme: 'system',
 		notifications: true,
 		tray: false,
-		avatars: true
+		avatars: true,
+		updates: true
 	});
 
 	async load() {

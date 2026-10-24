@@ -9,14 +9,16 @@ export const settingsSchema = z.object({
 	theme: z.enum(['system', 'light', 'dark']),
 	notifications: z.boolean(),
 	tray: z.boolean(),
-	avatars: z.boolean()
+	avatars: z.boolean(),
+	updates: z.boolean()
 });
 
 export const defaultSettings: Settings = {
 	theme: 'system',
 	notifications: true,
 	tray: false,
-	avatars: true
+	avatars: true,
+	updates: true
 };
 
 export async function readSettings(db: Database): Promise<Settings> {

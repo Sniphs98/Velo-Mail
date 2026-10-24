@@ -11,6 +11,10 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 				platform: 'linux',
 				keyring: true
 			})),
+			checkUpdate: vi.fn(async () => null),
+			installUpdate: vi.fn(async () => {}),
+			restartToUpdate: vi.fn(async () => {}),
+			onUpdateProgress: vi.fn(() => () => {}),
 			...overrides.app
 		},
 		accounts: {
@@ -53,13 +57,15 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 				theme: 'system' as const,
 				notifications: true,
 				tray: false,
-				avatars: true
+				avatars: true,
+				updates: true
 			})),
 			set: vi.fn(async (changes: Partial<Settings>) => ({
 				theme: 'system' as const,
 				notifications: true,
 				tray: false,
 				avatars: true,
+				updates: true,
 				...changes
 			})),
 			...overrides.settings

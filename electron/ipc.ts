@@ -22,6 +22,7 @@ import { Avatars, type Fetched } from './avatars';
 import type { Database } from './db';
 import type { Desktop } from './desktop';
 import { readSettings, writeSettings } from './settings';
+import { Updater } from './update/updater';
 import { SyncManager } from './mail/manager';
 import { canOpen, markFromInternet, safeFilename } from './mail/files';
 import {
@@ -152,6 +153,10 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	});
 
 	const avatars = new Avatars({ db, fetchBytes, resolveTxt });
+	const updater = new Updater((percent) => broadcast(IPC.appUpdateProgress, percent));
+	handle(IPC.appCheckUpdate, () => updater.check());
+	handle(IPC.appInstallUpdate, () => updater.install());
+	handle(IPC.appRestartToUpdate, () => updater.restart());
 
 	readSettings(db).then((settings) => desktop.apply(settings));
 	handle(IPC.settingsGet, () => readSettings(db));
