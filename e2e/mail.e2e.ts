@@ -93,7 +93,7 @@ test('shows conversations and moves through them with the keyboard', async () =>
 	const list = page.getByRole('region', { name: 'Nachrichtenliste' });
 	const conversation = list.getByRole('button', { name: /Jonas Weber/ });
 	await expect(conversation).toContainText('2 Nachrichten');
-	await expect(list.getByRole('button')).toHaveCount(2);
+	await expect(list.getByRole('listitem')).toHaveCount(2);
 
 	await conversation.click();
 	const pane = page.getByRole('article', { name: 'Nachricht' });

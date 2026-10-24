@@ -34,6 +34,11 @@
 		if (latest) compose.start(latest.accountId, { kind, messageId: latest.id });
 	}
 
+	/** From the open folder's account, else the first. */
+	function newMessage() {
+		if (accounts.list[0]) compose.start(mailbox?.accountId ?? accounts.list[0].id);
+	}
+
 	/** Drafts open in the composer, everything else in the reading pane. */
 	function select(id: number) {
 		if (mailbox?.role === 'drafts') compose.edit(id);
@@ -63,7 +68,7 @@
 			r: () => reply('reply'),
 			a: () => reply('replyAll'),
 			f: () => reply('forward'),
-			c: () => accounts.list[0] && compose.start(mailbox?.accountId ?? accounts.list[0].id),
+			c: newMessage,
 			e: () => mail.thread.length > 0 && mail.moveOpen('archive'),
 			'#': () => mail.thread.length > 0 && mail.moveOpen('trash'),
 			Delete: () => mail.thread.length > 0 && mail.moveOpen('trash')
@@ -77,7 +82,7 @@
 
 <svelte:window onkeydown={shortcut} />
 
-<div class="flex h-full gap-3 p-3">
+<div class="flex h-full gap-2 p-2">
 	<Sidebar onaddaccount={() => (addingAccount = true)} onsettings={() => (showSettings = true)} />
 
 	<MessageList
@@ -93,11 +98,12 @@
 		query={mail.query}
 		onsearch={(query) => mail.search(query)}
 		onsearchserver={() => mail.searchServer()}
+		oncompose={accounts.list.length > 0 ? newMessage : undefined}
 	/>
 
 	<article
 		aria-label="Nachricht"
-		class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-2xl border bg-card p-6 text-center"
+		class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-xl border bg-card p-4 text-center"
 		class:justify-start={mail.thread.length > 0}
 	>
 		{#if mail.thread.length > 0}
