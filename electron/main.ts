@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, net, protocol, shell } from 'electron';
 import { statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { IPC, type AppInfo } from '../src/lib/api';
 import { openDatabase, type Database } from './db';
+import { registerIpc } from './ipc';
 import { rendererPath } from './renderer-path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -70,12 +70,6 @@ app.on('web-contents-created', (_event, contents) => {
 	});
 });
 
-ipcMain.handle(IPC.appInfo, (): AppInfo => ({
-	name: app.getName(),
-	version: app.getVersion(),
-	platform: process.platform
-}));
-
 if (!app.requestSingleInstanceLock()) {
 	app.quit();
 } else {
@@ -99,6 +93,7 @@ if (!app.requestSingleInstanceLock()) {
 			app.exit(1);
 			return;
 		}
+		registerIpc(db);
 		serveRenderer();
 		createWindow();
 		app.on('activate', () => {
