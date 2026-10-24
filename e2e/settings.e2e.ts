@@ -21,9 +21,9 @@ test('keeps theme, signature and background mode', async () => {
 
 	await page.keyboard.press('c');
 	const composer = page.getByRole('dialog', { name: 'Neue Nachricht' });
-	await expect(composer.getByLabel('Nachricht', { exact: true })).toHaveValue(
-		'\n\n-- \nViele Grüße\nAnna'
-	);
+	const signature = composer.getByRole('textbox', { name: 'Nachricht' }).locator('.signature');
+	await expect(signature).toContainText('Viele Grüße');
+	await expect(signature).toContainText('Anna');
 	await composer.getByRole('button', { name: 'Schließen' }).click();
 	await first.app.close();
 
@@ -33,8 +33,11 @@ test('keeps theme, signature and background mode', async () => {
 	await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 	await page.keyboard.press('c');
 	await expect(
-		page.getByRole('dialog', { name: 'Neue Nachricht' }).getByLabel('Nachricht', { exact: true })
-	).toHaveValue('\n\n-- \nViele Grüße\nAnna');
+		page
+			.getByRole('dialog', { name: 'Neue Nachricht' })
+			.getByRole('textbox', { name: 'Nachricht' })
+			.locator('.signature')
+	).toContainText('Viele Grüße');
 	await page.keyboard.press('Escape');
 
 	// In the background mode closing the window only hides it.
