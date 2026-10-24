@@ -16,6 +16,7 @@ describe('MailBody', () => {
 					html: '<p>Hallo <b>Welt</b></p><img src="https://tracker.example/p.gif"><script>parent.hacked=1</script>',
 					text: 'Hallo Welt',
 					remoteContent: true,
+					trusted: false,
 					attachments: []
 				}))
 			}
@@ -38,6 +39,42 @@ describe('MailBody', () => {
 		expect((frame.element() as HTMLIFrameElement).srcdoc).toContain('img-src data: https:');
 	});
 
+	it('loads remote images right away for a trusted sender, and can trust one', async () => {
+		const api = fakeVelo({
+			mail: {
+				body: vi
+					.fn()
+					.mockResolvedValueOnce({
+						html: '<img src="https://x.example/a.png">',
+						text: null,
+						remoteContent: true,
+						trusted: false,
+						attachments: []
+					})
+					.mockResolvedValueOnce({
+						html: '<img src="https://x.example/a.png">',
+						text: null,
+						remoteContent: true,
+						trusted: true,
+						attachments: []
+					})
+			}
+		});
+		const { rerender } = render(MailBody, { messageId: 1, sender: 'news@shop.example' });
+		await page.getByRole('button', { name: 'Immer von diesem Absender' }).click();
+		expect(api.mail.trustSender).toHaveBeenCalledWith('news@shop.example');
+		await expect.element(page.getByText('Externe Bilder wurden blockiert')).not.toBeInTheDocument();
+
+		await rerender({ messageId: 2, sender: 'news@shop.example' });
+		await expect.element(page.getByTitle('Inhalt der Nachricht')).toBeVisible();
+		expect(
+			(page.getByTitle('Inhalt der Nachricht').element() as HTMLIFrameElement).srcdoc
+		).toContain('img-src data: https:');
+		await expect
+			.element(page.getByRole('button', { name: 'Bilder laden' }))
+			.not.toBeInTheDocument();
+	});
+
 	it('shows plain text as text', async () => {
 		fakeVelo();
 		render(MailBody, { messageId: 1 });
@@ -52,6 +89,7 @@ describe('MailBody', () => {
 					html: null,
 					text: 'Anbei',
 					remoteContent: false,
+					trusted: false,
 					attachments: [
 						{ id: 5, filename: 'setup.exe', contentType: 'application/x-msdownload', size: 2048 }
 					]

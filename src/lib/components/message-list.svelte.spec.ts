@@ -17,6 +17,7 @@ const message = (over: Partial<MessageSummary>): MessageSummary => ({
 	seen: false,
 	flagged: false,
 	hasAttachments: false,
+	threadSize: 1,
 	...over
 });
 
@@ -31,7 +32,7 @@ describe('MessageList', () => {
 		render(MessageList, {
 			title: 'Alle Posteingänge',
 			messages: [
-				message({ id: 1 }),
+				message({ id: 1, threadSize: 3 }),
 				message({ id: 2, fromName: null, fromAddress: 'info@shop.de', subject: '', seen: true })
 			],
 			accounts,
@@ -42,6 +43,7 @@ describe('MessageList', () => {
 
 		const first = page.getByRole('button', { name: /Anna Becker/ });
 		await expect.element(first).toHaveTextContent('AB');
+		await expect.element(first).toHaveTextContent('3 Nachrichten');
 		await expect.element(first).toHaveTextContent('Ungelesen');
 		const second = page.getByRole('button', { name: /info@shop.de/ });
 		await expect.element(second).toHaveTextContent('(Kein Betreff)');

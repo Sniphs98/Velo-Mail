@@ -17,7 +17,33 @@
 		return 'mailboxId' in view ? mail.mailboxes.find((m) => m.id === view.mailboxId) : undefined;
 	});
 	const mailboxAccount = $derived(accounts.list.find((a) => a.id === mailbox?.accountId));
+
+	/** j/k or arrows: next/previous conversation, u: unread, Ctrl/Cmd+K: search. */
+	function shortcut(event: KeyboardEvent) {
+		const target = event.target as HTMLElement | null;
+		if (event.defaultPrevented || document.querySelector('[role="dialog"]')) return;
+		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+			event.preventDefault();
+			document.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
+			return;
+		}
+		if (event.ctrlKey || event.metaKey || event.altKey) return;
+		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+		const actions: Record<string, () => void> = {
+			j: () => mail.move(1),
+			ArrowDown: () => mail.move(1),
+			k: () => mail.move(-1),
+			ArrowUp: () => mail.move(-1),
+			u: () => mail.markUnread()
+		};
+		const action = actions[event.key];
+		if (!action) return;
+		event.preventDefault();
+		action();
+	}
 </script>
+
+<svelte:window onkeydown={shortcut} />
 
 <div class="flex h-full gap-3 p-3">
 	<Sidebar onaddaccount={() => (addingAccount = true)} />
@@ -35,15 +61,17 @@
 	<article
 		aria-label="Nachricht"
 		class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-2xl border bg-card p-6 text-center"
-		class:justify-start={mail.selected}
+		class:justify-start={mail.thread.length > 0}
 	>
-		{#if mail.selected}
-			<ReadingPane
-				message={mail.selected}
-				account={accounts.list.length > 1
-					? accounts.list.find((a) => a.id === mail.selected?.accountId)
-					: undefined}
-			/>
+		{#if mail.thread.length > 0}
+			{#key mail.selectedId}
+				<ReadingPane
+					thread={mail.thread}
+					account={accounts.list.length > 1
+						? accounts.list.find((a) => a.id === mail.thread[0]?.accountId)
+						: undefined}
+				/>
+			{/key}
 		{:else}
 			<MailOpen class="size-10 text-muted-foreground/40" aria-hidden="true" />
 			{#if accounts.list.length === 0}

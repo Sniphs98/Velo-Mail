@@ -7,7 +7,7 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 
-	let { messageId }: { messageId: number } = $props();
+	let { messageId, sender = null }: { messageId: number; sender?: string | null } = $props();
 
 	let body = $state<MessageBody>();
 	let error = $state<string>();
@@ -24,7 +24,9 @@
 		velo()
 			?.mail.body(id)
 			.then((result) => {
-				if (id === messageId) body = result;
+				if (id !== messageId) return;
+				body = result;
+				remote = result.trusted;
 			})
 			.catch((e) => {
 				if (id === messageId) error = ipcErrorMessage(e);
@@ -42,6 +44,12 @@
 		measure();
 		// Images arriving later change the height.
 		for (const image of doc.images) image.addEventListener('load', measure);
+	}
+
+	async function trust() {
+		if (!sender) return;
+		remote = true;
+		await velo()?.mail.trustSender(sender);
 	}
 
 	async function open(id: number) {
@@ -81,6 +89,9 @@
 				Externe Bilder wurden blockiert, damit der Absender nicht sieht, wann du die Mail liest.
 			</span>
 			<Button variant="outline" size="sm" onclick={() => (remote = true)}>Bilder laden</Button>
+			{#if sender}
+				<Button variant="ghost" size="sm" onclick={trust}>Immer von diesem Absender</Button>
+			{/if}
 		</div>
 	{/if}
 

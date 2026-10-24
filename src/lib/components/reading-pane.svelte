@@ -1,31 +1,24 @@
 <script lang="ts">
 	import type { Account, MessageSummary } from '#lib/api.ts';
-	import { fullDate } from '#lib/format.ts';
+	import { fullDate, listDate } from '#lib/format.ts';
 	import MailBody from './mail-body.svelte';
 	import SenderAvatar from './sender-avatar.svelte';
 
-	let { message, account }: { message: MessageSummary; account?: Account } = $props();
+	let { thread, account }: { thread: MessageSummary[]; account?: Account } = $props();
 
-	const recipients = $derived(message.to.map((r) => r.name || r.address).join(', '));
+	/** Messages opened or closed by hand; otherwise only the newest is open. */
+	let toggled = $state<Record<number, boolean>>({});
+	const open = (message: MessageSummary) => toggled[message.id] ?? message.id === thread.at(-1)?.id;
+
+	const recipients = (message: MessageSummary) =>
+		message.to.map((r) => r.name || r.address).join(', ');
 </script>
 
-<div class="flex w-full flex-col gap-5 self-stretch text-left">
-	<h2 class="font-heading text-[22px] leading-tight font-semibold">
-		{message.subject || '(Kein Betreff)'}
-	</h2>
-	<div class="flex flex-wrap items-center gap-3">
-		<SenderAvatar name={message.fromName} address={message.fromAddress} size={44} />
-		<div class="flex min-w-0 flex-1 flex-col">
-			<span class="text-sm font-semibold">
-				{message.fromName || message.fromAddress}
-				{#if message.fromName && message.fromAddress}
-					<span class="font-normal text-muted-foreground">&lt;{message.fromAddress}&gt;</span>
-				{/if}
-			</span>
-			<span class="text-[13px] text-muted-foreground">
-				an {recipients || 'unbekannt'} · {fullDate(message.date)}
-			</span>
-		</div>
+<div class="flex w-full flex-col gap-4 self-stretch text-left">
+	<div class="flex flex-wrap items-start gap-3">
+		<h2 class="flex-1 font-heading text-[22px] leading-tight font-semibold">
+			{thread[0]?.subject || '(Kein Betreff)'}
+		</h2>
 		{#if account}
 			<span
 				class="flex h-7 items-center gap-1.5 rounded-full bg-muted px-2.5 text-xs font-medium text-muted-foreground"
@@ -35,5 +28,49 @@
 			</span>
 		{/if}
 	</div>
-	<MailBody messageId={message.id} />
+
+	{#each thread as message (message.id)}
+		{#if open(message)}
+			<article
+				aria-label="Nachricht von {message.fromName || message.fromAddress}"
+				class="flex flex-col gap-4 rounded-2xl border p-4"
+				class:border-transparent={thread.length === 1}
+				class:p-0={thread.length === 1}
+			>
+				<button
+					type="button"
+					class="flex items-center gap-3 text-left disabled:cursor-default"
+					disabled={thread.length === 1}
+					onclick={() => (toggled[message.id] = false)}
+				>
+					<SenderAvatar name={message.fromName} address={message.fromAddress} size={44} />
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="text-sm font-semibold">
+							{message.fromName || message.fromAddress}
+							{#if message.fromName && message.fromAddress}
+								<span class="font-normal text-muted-foreground">&lt;{message.fromAddress}&gt;</span>
+							{/if}
+						</span>
+						<span class="text-[13px] text-muted-foreground">
+							an {recipients(message) || 'unbekannt'} · {fullDate(message.date)}
+						</span>
+					</span>
+				</button>
+				<MailBody messageId={message.id} sender={message.fromAddress} />
+			</article>
+		{:else}
+			<button
+				type="button"
+				class="flex items-center gap-3 rounded-2xl border px-4 py-3 text-left hover:bg-muted/60"
+				onclick={() => (toggled[message.id] = true)}
+			>
+				<SenderAvatar name={message.fromName} address={message.fromAddress} size={32} />
+				<span class="w-36 shrink-0 truncate text-sm font-medium">
+					{message.fromName || message.fromAddress}
+				</span>
+				<span class="min-w-0 flex-1 truncate text-sm text-muted-foreground">{message.snippet}</span>
+				<span class="shrink-0 text-xs text-muted-foreground">{listDate(message.date)}</span>
+			</button>
+		{/if}
+	{/each}
 </div>
