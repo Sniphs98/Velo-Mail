@@ -8,6 +8,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<title>Velo Mail</title>
 </svelte:head>
 
 {@render children()}
