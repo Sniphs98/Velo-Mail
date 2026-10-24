@@ -113,7 +113,15 @@ async function fetchNew(db: Database, client: ImapFlow, mailboxId: number, exist
 	const rows: (typeof messages.$inferInsert)[] = [];
 	for await (const message of client.fetch(
 		range,
-		{ uid: true, flags: true, envelope: true, internalDate: true, size: true, bodyStructure: true },
+		{
+			uid: true,
+			flags: true,
+			envelope: true,
+			internalDate: true,
+			size: true,
+			bodyStructure: true,
+			headers: ['references']
+		},
 		{ uid: Boolean(last) }
 	)) {
 		// "n:*" always returns the last message, even if it is older than n.
@@ -204,11 +212,34 @@ function hasAttachment(part: Part | undefined): boolean {
 	return (part.childNodes ?? []).some(hasAttachment);
 }
 
+/** Message-IDs in a References header, oldest first. */
+export function parseReferences(headers: Buffer | undefined): string[] {
+	if (!headers) return [];
+	// Unfold continuation lines, then take the <id> tokens of the References field.
+	const text = headers.toString('utf8').replace(/\r?\n[ \t]+/g, ' ');
+	const field = text.match(/^references:(.*)$/im)?.[1] ?? '';
+	return field.match(/<[^<>\s]+>/g) ?? [];
+}
+
+/**
+ * The conversation a message belongs to: the first message of its References
+ * chain (the thread's root), else the one it replies to, else itself. Works
+ * whatever order the messages arrive in, and across folders.
+ */
+export function threadKey(
+	references: string[],
+	inReplyTo: string | null | undefined,
+	messageId: string | null | undefined
+): string | null {
+	return references[0] ?? inReplyTo ?? messageId ?? null;
+}
+
 export function toRow(
 	mailboxId: number,
 	message: FetchMessageObject
 ): typeof messages.$inferInsert {
 	const envelope = message.envelope ?? {};
+	const references = parseReferences(message.headers);
 	const [from] = envelope.from ?? [];
 	const date = envelope.date ? new Date(envelope.date) : undefined;
 	const internal = message.internalDate ? new Date(message.internalDate) : undefined;
@@ -217,6 +248,8 @@ export function toRow(
 		uid: message.uid,
 		messageId: envelope.messageId ?? null,
 		inReplyTo: envelope.inReplyTo ?? null,
+		references,
+		threadId: threadKey(references, envelope.inReplyTo, envelope.messageId),
 		subject: envelope.subject ?? '',
 		fromName: from?.name || null,
 		fromAddress: from?.address?.toLowerCase() ?? null,

@@ -2,9 +2,9 @@ import path from 'node:path';
 import type { FetchMessageObject } from 'imapflow';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, type Database } from '../db';
-import { accounts, mailboxes, messages } from '../db/schema';
-import { listMailboxes, listMessages } from './queries';
-import { toRow } from './sync';
+import { accounts, mailboxes, messageBodies, messages } from '../db/schema';
+import { findBody, listMailboxes, listMessages, listThread, trustSender } from './queries';
+import { parseReferences, threadKey, toRow } from './sync';
 
 let db: Database;
 
@@ -35,14 +35,27 @@ async function mailbox(accountId: number, name: string, role: string | null = nu
 	return id;
 }
 
-async function message(mailboxId: number, uid: number, subject: string, seen = false) {
-	await db.insert(messages).values({
-		mailboxId,
-		uid,
-		subject,
-		seen,
-		date: new Date(Date.UTC(2026, 9, uid))
-	});
+async function message(
+	mailboxId: number,
+	uid: number,
+	subject: string,
+	seen = false,
+	thread?: { id: string; threadId: string }
+) {
+	const [row] = await db
+		.insert(messages)
+		.values({
+			mailboxId,
+			uid,
+			subject,
+			seen,
+			date: new Date(Date.UTC(2026, 9, uid)),
+			messageId: thread?.id,
+			threadId: thread?.threadId,
+			fromAddress: 'anna@firma.de'
+		})
+		.returning();
+	return row.id;
 }
 
 beforeEach(() => {
@@ -96,6 +109,51 @@ describe('listMessages', () => {
 	});
 });
 
+describe('conversations', () => {
+	it('lists one row per conversation with its size, read only if all are read', async () => {
+		const a = await account('a@beispiel.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		await message(inbox, 1, 'Planung', true, { id: '<1@x>', threadId: '<1@x>' });
+		await message(inbox, 3, 'Re: Planung', false, { id: '<3@x>', threadId: '<1@x>' });
+		await message(inbox, 2, 'Anderes', true);
+
+		const list = await listMessages(db, { inboxes: true });
+		expect(list.map((m) => [m.subject, m.threadSize, m.seen])).toEqual([
+			['Re: Planung', 2, false],
+			['Anderes', 1, true]
+		]);
+	});
+
+	it('shows the whole conversation across folders, each message once', async () => {
+		const a = await account('a@beispiel.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		const sent = await mailbox(a, 'Sent', 'sent');
+		const archive = await mailbox(a, 'Archiv', 'archive');
+		const first = await message(inbox, 1, 'Planung', true, { id: '<1@x>', threadId: '<1@x>' });
+		await message(sent, 2, 'Re: Planung', true, { id: '<2@x>', threadId: '<1@x>' });
+		await message(archive, 1, 'Planung', true, { id: '<1@x>', threadId: '<1@x>' });
+		await message(inbox, 3, 'Fremd', true, { id: '<9@x>', threadId: '<9@x>' });
+
+		expect((await listThread(db, first)).map((m) => m.subject)).toEqual(['Planung', 'Re: Planung']);
+		const lonely = await message(inbox, 4, 'Ohne ID');
+		expect((await listThread(db, lonely)).map((m) => m.subject)).toEqual(['Ohne ID']);
+	});
+});
+
+describe('trusted senders', () => {
+	it('marks bodies of trusted senders', async () => {
+		const a = await account('a@beispiel.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		const id = await message(inbox, 1, 'Newsletter');
+		await db.insert(messageBodies).values({ messageId: id, html: '<img src="https://x/y.png">' });
+
+		expect(await findBody(db, id)).toMatchObject({ remoteContent: true, trusted: false });
+		await trustSender(db, 'Anna@Firma.de');
+		await trustSender(db, 'anna@firma.de');
+		expect(await findBody(db, id)).toMatchObject({ trusted: true });
+	});
+});
+
 describe('toRow', () => {
 	const fetched = (over: Partial<FetchMessageObject>) =>
 		({ seq: 1, uid: 7, ...over }) as FetchMessageObject;
@@ -144,5 +202,23 @@ describe('toRow', () => {
 		expect(row.date).toEqual(internalDate);
 		expect(row.subject).toBe('');
 		expect(row.hasAttachments).toBe(false);
+	});
+});
+
+describe('threading', () => {
+	it('reads the References header, folded or not', () => {
+		const headers = Buffer.from(
+			'References: <root@a.de>\r\n <reply1@b.de>\r\n\t<reply2@c.de>\r\n\r\n'
+		);
+		expect(parseReferences(headers)).toEqual(['<root@a.de>', '<reply1@b.de>', '<reply2@c.de>']);
+		expect(parseReferences(Buffer.from('X-Other: <x@y>\r\n'))).toEqual([]);
+		expect(parseReferences(undefined)).toEqual([]);
+	});
+
+	it('keys a conversation by its first message', () => {
+		expect(threadKey(['<root@a>', '<r1@b>'], '<r1@b>', '<r2@c>')).toBe('<root@a>');
+		expect(threadKey([], '<root@a>', '<r1@b>')).toBe('<root@a>');
+		expect(threadKey([], null, '<root@a>')).toBe('<root@a>');
+		expect(threadKey([], null, null)).toBeNull();
 	});
 });

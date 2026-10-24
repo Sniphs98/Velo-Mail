@@ -146,3 +146,9 @@ export const senderAvatars = sqliteTable(
 	},
 	(t) => [primaryKey({ columns: [t.kind, t.key] })]
 );
+
+/** Senders whose remote images load without asking. */
+export const trustedSenders = sqliteTable('trusted_senders', {
+	address: text().primaryKey(),
+	createdAt: createdAt()
+});

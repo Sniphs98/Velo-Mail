@@ -8,7 +8,7 @@ import { imapOptions } from '../accounts/connection';
 import { openDatabase, type Database } from '../db';
 import { accounts, mailboxes, messages } from '../db/schema';
 import { SyncManager } from './manager';
-import { listMailboxes, listMessages } from './queries';
+import { listMailboxes, listMessages, listThread } from './queries';
 import { syncMailbox, syncMailboxes } from './sync';
 
 const settings: ServerSettings = {
@@ -122,6 +122,29 @@ describe('syncMailbox against GreenMail', () => {
 		expect(changes).toEqual({ added: 0, updated: 1, removed: 1 });
 		const [row] = await db.select().from(messages);
 		expect(row).toMatchObject({ subject: 'Gelesen', seen: true, flagged: true });
+	});
+
+	it('groups replies into one conversation', async () => {
+		await sendTestMail({ subject: 'Planung', messageId: '<root@beispiel.test>' });
+		await sendTestMail({
+			subject: 'Re: Planung',
+			messageId: '<reply@beispiel.test>',
+			inReplyTo: '<root@beispiel.test>',
+			references: ['<root@beispiel.test>']
+		});
+		await sendTestMail({ subject: 'Etwas anderes' });
+		await syncInbox(client);
+
+		const list = await listMessages(db, { inboxes: true });
+		expect(list.map((m) => [m.subject, m.threadSize]).sort()).toEqual([
+			['Etwas anderes', 1],
+			['Re: Planung', 2]
+		]);
+		const reply = list.find((m) => m.subject === 'Re: Planung')!;
+		expect((await listThread(db, reply.id)).map((m) => m.subject)).toEqual([
+			'Planung',
+			'Re: Planung'
+		]);
 	});
 
 	it('starts over when the server changes UIDVALIDITY', async () => {
