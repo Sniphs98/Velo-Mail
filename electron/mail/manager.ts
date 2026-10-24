@@ -11,7 +11,14 @@ import { mailboxes, messages } from '../db/schema';
 import { buildMessage, savesSentCopy } from './outgoing';
 import type { Database } from '../db';
 import { fetchAttachment, fetchBody } from './body';
-import { findAttachment, findBody, findMessage, withoutBody } from './queries';
+import {
+	findAttachment,
+	findBody,
+	findMessage,
+	newestUid,
+	unseenAbove,
+	withoutBody
+} from './queries';
 import { searchOnServer, setSeen, syncMailbox, syncMailboxes } from './sync';
 
 export interface SyncManagerDeps {
@@ -20,10 +27,19 @@ export interface SyncManagerDeps {
 	/** The cache of this account changed. */
 	onChanged(accountId: number): void;
 	onStatus(status: SyncStatus): void;
+	/** Unread messages arrived in the inbox since the last round (not on the first). */
+	onNewMail?(accountId: number, messages: NewMail[]): void;
 	/** Minutes between full rounds; IDLE covers the inbox in between. */
 	intervalMinutes?: number;
 	/** Newest inbox messages whose content is fetched ahead, for the preview line. */
 	prefetch?: number;
+}
+
+export interface NewMail {
+	id: number;
+	fromName: string | null;
+	fromAddress: string | null;
+	subject: string;
 }
 
 interface Session {
@@ -357,10 +373,17 @@ export class SyncManager {
 			// The inbox goes last, so it stays selected and IDLE watches it.
 			const inbox = boxes.find((box) => box.role === 'inbox');
 			const others = scope === 'all' ? boxes.filter((box) => box !== inbox) : [];
+			// What was there before; a first sync announces nothing.
+			const known =
+				inbox?.lastSyncedAt != null ? await newestUid(this.deps.db, inbox.id) : undefined;
 			let changed = false;
 			for (const box of [...others, ...(inbox ? [inbox] : [])]) {
 				const result = await syncMailbox(this.deps.db, session.client, box);
 				changed ||= result.added + result.updated + result.removed > 0;
+			}
+			if (inbox && known !== undefined) {
+				const arrived = await unseenAbove(this.deps.db, inbox.id, known);
+				if (arrived.length > 0) this.deps.onNewMail?.(accountId, arrived);
 			}
 			// A round can also bring new folders.
 			if (changed || scope === 'all') this.deps.onChanged(accountId);

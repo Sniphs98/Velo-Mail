@@ -171,11 +171,13 @@ describe('SyncManager against GreenMail', () => {
 		await sendTestMail({ subject: 'Vor dem Start' });
 		const onChanged = vi.fn();
 		const onStatus = vi.fn();
+		const onNewMail = vi.fn();
 		manager = new SyncManager({
 			db,
 			credentials: async () => ({ ...account, password: greenMail.user.password }),
 			onChanged,
-			onStatus
+			onStatus,
+			onNewMail
 		});
 
 		await manager.start(accountId);
@@ -183,6 +185,8 @@ describe('SyncManager against GreenMail', () => {
 		expect((await listMessages(db, { inboxes: true })).map((m) => m.subject)).toEqual([
 			'Vor dem Start'
 		]);
+		// What was there before the first sync is not news.
+		expect(onNewMail).not.toHaveBeenCalled();
 
 		onChanged.mockClear();
 		await sendTestMail({ subject: 'Ganz neu' });
@@ -195,6 +199,9 @@ describe('SyncManager against GreenMail', () => {
 			},
 			{ timeout: 10_000, interval: 200 }
 		);
+		expect(onNewMail).toHaveBeenCalledExactlyOnceWith(accountId, [
+			expect.objectContaining({ subject: 'Ganz neu', fromAddress: 'jonas@beispiel.test' })
+		]);
 
 		const [message] = await listMessages(db, { inboxes: true });
 		await manager.setSeen(message.id, true);
