@@ -14,17 +14,18 @@ npm install
 npm run dev        # App mit Hot-Reload starten
 ```
 
-| Befehl              | Was                                                      |
-| ------------------- | -------------------------------------------------------- |
-| `npm run dev`       | Vite + Electron, Neustart bei Änderungen am Main-Prozess |
-| `npm run dev:web`   | nur die Oberfläche im Browser (ohne `window.velo`)       |
-| `npm run build`     | Oberfläche nach `build/`, Electron-Code nach `out/`      |
-| `npm start`         | gebaute App starten                                      |
-| `npm run package`   | Installer für das eigene System nach `release/`          |
-| `npm run lint`      | Prettier + ESLint                                        |
-| `npm run check`     | Typprüfung (svelte-check und Electron)                   |
-| `npm run test:unit` | Unit- und Komponententests (Vitest)                      |
-| `npm run test:e2e`  | baut die App und testet sie mit Playwright               |
+| Befehl                | Was                                                      |
+| --------------------- | -------------------------------------------------------- |
+| `npm run dev`         | Vite + Electron, Neustart bei Änderungen am Main-Prozess |
+| `npm run dev:web`     | nur die Oberfläche im Browser (ohne `window.velo`)       |
+| `npm run build`       | Oberfläche nach `build/`, Electron-Code nach `out/`      |
+| `npm start`           | gebaute App starten                                      |
+| `npm run package`     | Installer für das eigene System nach `release/`          |
+| `npm run lint`        | Prettier + ESLint                                        |
+| `npm run check`       | Typprüfung (svelte-check und Electron)                   |
+| `npm run test:unit`   | Unit- und Komponententests (Vitest)                      |
+| `npm run test:e2e`    | baut die App und testet sie mit Playwright               |
+| `npm run db:generate` | Migration aus Änderungen an `electron/db/schema.ts`      |
 
 Unter Linux ohne Bildschirm (Server, Container) die E2E-Tests mit
 `xvfb-run -a npm run test:e2e` starten.
@@ -35,9 +36,16 @@ Unter Linux ohne Bildschirm (Server, Container) die E2E-Tests mit
 electron/        Main-Prozess und Preload (Node, Mail, Datenbank)
 src/lib/api.ts   typisierte Schnittstelle zwischen Oberfläche und Main-Prozess
 src/             Oberfläche (SvelteKit, läuft als SPA im Fenster)
+drizzle/         Migrationen (erzeugt mit `npm run db:generate`)
 e2e/             Playwright-Tests gegen die gebaute App
 scripts/         Dev-Server, Electron-Build, Versionsberechnung
 ```
+
+Die Datenbank ist SQLite über `node:sqlite`, das in Node bzw. Electron
+eingebaut ist; es gibt kein natives Modul, das für Electron neu gebaut werden
+müsste. Das Schema steht in `electron/db/schema.ts`. Nach einer Änderung
+`npm run db:generate` ausführen; die App spielt neue Migrationen beim Start
+ein (`velo-mail.db` im Profilordner).
 
 Die Oberfläche hat keinen Zugriff auf Node. Alles, was sie braucht, holt sie
 über `window.velo`, das der Preload aus `src/lib/api.ts` bereitstellt.
