@@ -224,7 +224,13 @@ Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
 - [x] Absenderbilder: BIMI-Logo der Organisation, sonst das größte Symbol der
       Website, sonst Gravatar; Freemail-Domains nur Gravatar; Treffer 30 Tage,
       Fehlschläge 7 Tage gecacht; in den Einstellungen abschaltbar
-- [ ] OAuth2 für Gmail/Outlook (zweiter Teil; braucht registrierte Client-IDs)
+- [x] Kompaktere Oberfläche: „Neue Nachricht“ als Stift-Knopf über der Liste,
+      engere Seitenleiste, Liste und Lesebereich
+- [x] Auto-Update (wie in Remoty): Prüfung gegen die neueste GitHub-Release
+      beim Start (abschaltbar), selbst aktualisieren mit electron-updater beim
+      Windows-Installer und AppImage, sonst Link zur Download-Seite
+- [ ] Auto-Update auf macOS, sobald die Builds signiert sind
+- [ ] OAuth2 für Gmail/Outlook (zum Schluss; braucht registrierte Client-IDs)
 
 ## Tests
 
