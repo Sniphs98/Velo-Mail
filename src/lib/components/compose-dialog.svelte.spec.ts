@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import { accounts } from '#lib/accounts.svelte.ts';
 import { compose } from '#lib/compose.svelte.ts';
 import { fakeVelo } from '#lib/testing/fake-velo.ts';
 import ComposeDialog from './compose-dialog.svelte';
@@ -8,6 +9,7 @@ import ComposeDialog from './compose-dialog.svelte';
 describe('ComposeDialog', () => {
 	afterEach(() => {
 		compose.open = false;
+		accounts.list = [];
 		delete window.velo;
 	});
 
@@ -55,6 +57,28 @@ describe('ComposeDialog', () => {
 
 		await page.getByRole('button', { name: 'Entwurf verwerfen' }).click();
 		expect(api.mail.deleteDraft).toHaveBeenCalledWith(1, 99);
+	});
+
+	it("adds the account's signature and swaps it with the sender", async () => {
+		fakeVelo();
+		accounts.list = [
+			{ id: 1, name: 'Privat', email: 'du@beispiel.de', color: '#2563eb', signature: 'Lukas' },
+			{
+				id: 2,
+				name: 'Arbeit',
+				email: 'du@firma.de',
+				color: '#ea580c',
+				signature: 'Lukas\nFirma GmbH'
+			}
+		];
+		render(ComposeDialog);
+		await compose.start(1);
+		const text = page.getByLabelText('Nachricht', { exact: true });
+		await expect.element(text).toHaveValue('\n\n-- \nLukas');
+
+		await page.getByLabelText('Von').selectOptions('2');
+		await expect.element(text).toHaveValue('\n\n-- \nLukas\nFirma GmbH');
+		expect(compose.draft.accountId).toBe(2);
 	});
 
 	it('shows why sending failed and stays open', async () => {

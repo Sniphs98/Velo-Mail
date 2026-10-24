@@ -70,8 +70,9 @@
 						<span class="w-16 text-sm text-muted-foreground">Von</span>
 						<NativeSelect.Root
 							class="my-2 w-auto border-transparent"
-							bind:value={compose.draft.accountId}
-							onchange={() => compose.changed()}
+							value={compose.draft.accountId}
+							onchange={(event: Event) =>
+								compose.changeAccount(Number((event.currentTarget as HTMLSelectElement).value))}
 						>
 							{#each accounts.list as account (account.id)}
 								<NativeSelect.Option value={account.id}>
