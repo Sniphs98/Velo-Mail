@@ -1,0 +1,40 @@
+# Packaging, see https://www.electron.build/configuration
+appId: io.github.sniphs98.velomail
+productName: Velo Mail
+artifactName: velo-mail-${version}-${os}-${arch}.${ext}
+
+directories:
+  output: release
+  # Icons and installer assets; not "build", which holds the renderer.
+  buildResources: resources
+
+files:
+  - out/**
+  - build/**
+  - package.json
+
+linux:
+  target: [AppImage, deb]
+  category: Network;Email
+  maintainer: Sniphs98 <sniphs98@users.noreply.github.com>
+
+win:
+  target: [nsis]
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  # The zip is what the auto-updater downloads on macOS.
+  target:
+    - target: dmg
+      arch: [universal]
+    - target: zip
+      arch: [universal]
+  category: public.app-category.productivity
+
+publish:
+  provider: github
+  owner: Sniphs98
+  repo: Velo-Mail

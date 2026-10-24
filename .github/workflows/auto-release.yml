@@ -1,0 +1,62 @@
+name: Auto-Release
+
+# Every merge into main is released. The merged pull request's label picks
+# how the version rises from the latest tag (scripts/next-version.js):
+#   no label     → patch, 1.2.3 → 1.2.4
+#   feature      → minor, 1.2.3 → 1.3.0
+#   breaking     → major, 1.2.3 → 2.0.0
+#   kein-release → no release (only docs, tests or CI)
+on:
+  push:
+    branches: [main]
+
+# One at a time, so each release counts up from the one before.
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Version bestimmen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      tag: ${{ steps.next.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # All tags, to count up from the latest.
+          fetch-depth: 0
+      - name: Labels anlegen, falls sie fehlen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create feature --color 0E8A16 --description "Release erhöht die Minor-Version (1.2.3 → 1.3.0)" 2>/dev/null || true
+          gh label create breaking --color B60205 --description "Release erhöht die Major-Version (1.2.3 → 2.0.0)" 2>/dev/null || true
+          gh label create kein-release --color CCCCCC --description "Kein Release beim Merge (nur Doku, Tests, CI)" 2>/dev/null || true
+      - id: next
+        name: Nächste Version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The pull request this commit merged; none for a direct push.
+          labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null)][0] | [.labels[]?.name] | join(",")')
+          tag=$(node scripts/next-version.js "$(git tag --list 'v*')" "$labels")
+          echo "Labels: ${labels:-keine} → ${tag:-kein Release}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  # A tag pushed from a workflow starts no other workflow, so the release
+  # runs here instead of through the tag.
+  release:
+    name: Release
+    needs: version
+    if: needs.version.outputs.tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.version.outputs.tag }}
