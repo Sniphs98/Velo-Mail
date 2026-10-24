@@ -26,8 +26,11 @@ nsis:
   allowToChangeInstallationDirectory: true
 
 mac:
+  # The zip is what the auto-updater downloads on macOS.
   target:
     - target: dmg
+      arch: [universal]
+    - target: zip
       arch: [universal]
   category: public.app-category.productivity
 
