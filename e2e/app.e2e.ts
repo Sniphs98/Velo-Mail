@@ -42,7 +42,11 @@ test('keeps Node out of the renderer', async () => {
 		process: typeof (globalThis as { process?: unknown }).process,
 		velo: Object.keys(window.velo ?? {})
 	}));
-	expect(exposed).toEqual({ require: 'undefined', process: 'undefined', velo: ['app'] });
+	expect(exposed).toEqual({
+		require: 'undefined',
+		process: 'undefined',
+		velo: ['app', 'accounts']
+	});
 });
 
 test('serves the renderer with a content security policy', async () => {

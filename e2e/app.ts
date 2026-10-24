@@ -5,10 +5,10 @@ import path from 'node:path';
 
 /**
  * Starts the built app (out/ and build/, see `npm run build`) with an empty
- * profile of its own; `userData` is where its database lives.
+ * profile of its own, or with `userData` from an earlier start; that is where
+ * its database lives.
  */
-export async function launchApp() {
-	const userData = mkdtempSync(path.join(tmpdir(), 'velo-e2e-'));
+export async function launchApp(userData = mkdtempSync(path.join(tmpdir(), 'velo-e2e-'))) {
 	const args = ['.'];
 	// Chromium refuses its sandbox as root (containers, CI).
 	if (process.getuid?.() === 0) args.push('--no-sandbox');
