@@ -64,6 +64,26 @@ describe('buildMessage', () => {
 	});
 });
 
+describe('formatted messages', () => {
+	it('sends text and HTML as alternatives, with stored attachments', async () => {
+		const built = await buildMessage(
+			{ address: 'du@beispiel.de' },
+			message({ html: '<p>Passt <strong>für mich</strong>.</p>' }),
+			{
+				stored: [
+					{ filename: 'plan.pdf', contentType: 'application/pdf', content: Buffer.from('PDF') }
+				]
+			}
+		);
+		const raw = built.raw.toString();
+		expect(raw).toMatch(/multipart\/alternative/);
+		expect(raw).toContain('Content-Type: text/plain');
+		expect(raw).toContain('Content-Type: text/html');
+		expect(raw).toContain('<strong>f=C3=BCr mich</strong>');
+		expect(raw).toMatch(/filename=plan\.pdf/);
+	});
+});
+
 describe('savesSentCopy', () => {
 	it('knows Gmail stores sent messages itself', () => {
 		const settings = { smtpHost: 'smtp.gmail.com' } as never;

@@ -4,7 +4,13 @@
 import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
 import { and, eq } from 'drizzle-orm';
-import type { MailboxRole, OutgoingMessage, ReplySource, SyncStatus } from '../../src/lib/api';
+import type {
+	MailboxRole,
+	OutgoingMessage,
+	ReplySource,
+	SavedDraft,
+	SyncStatus
+} from '../../src/lib/api';
 import type { Credentials } from '../accounts/service';
 import { imapOptions, smtpOptions } from '../accounts/connection';
 import { mailboxes, messages } from '../db/schema';
@@ -12,6 +18,7 @@ import { buildMessage, savesSentCopy } from './outgoing';
 import type { Database } from '../db';
 import { fetchAttachment, fetchBody } from './body';
 import {
+	attachmentsOf,
 	findAttachment,
 	findBody,
 	findMessage,
@@ -212,6 +219,8 @@ export class SyncManager {
 			subject: message.subject,
 			date: message.date.getTime(),
 			text: body.text ?? '',
+			html: body.html,
+			attachments: body.attachments,
 			accountId: found.mailbox.accountId,
 			accountEmail: account?.email ?? '',
 			uid: message.uid,
@@ -225,7 +234,9 @@ export class SyncManager {
 	 */
 	async send(message: OutgoingMessage) {
 		const account = await this.account(message.accountId);
-		const built = await buildMessage({ name: account.name, address: account.email }, message);
+		const built = await buildMessage({ name: account.name, address: account.email }, message, {
+			stored: await this.storedFiles(message)
+		});
 		const transport = nodemailer.createTransport(smtpOptions(account.settings, account.password));
 		try {
 			await transport.sendMail({ envelope: built.envelope, raw: built.raw });
@@ -262,21 +273,30 @@ export class SyncManager {
 	}
 
 	/** Stores the message in "Entwürfe", replacing the previous version. */
-	async saveDraft(message: OutgoingMessage): Promise<number | null> {
+	async saveDraft(message: OutgoingMessage): Promise<SavedDraft> {
 		const account = await this.account(message.accountId);
 		const built = await buildMessage({ name: account.name, address: account.email }, message, {
-			draft: true
+			draft: true,
+			stored: await this.storedFiles(message)
 		});
 		const session = this.connected(message.accountId);
-		const uid = await this.run(session, async () => {
+		const result = await this.run(session, async () => {
 			const drafts = await this.folder(message.accountId, session, 'drafts', 'Drafts');
 			const saved = await session.client.append(drafts.path, built.raw, ['\\Draft', '\\Seen']);
 			if (message.draftUid) await this.removeDraft(message.accountId, session, message.draftUid);
 			await syncMailbox(this.deps.db, session.client, drafts);
-			return saved ? (saved.uid ?? null) : null;
+			const uid = saved ? (saved.uid ?? null) : null;
+			if (!uid) return { uid, attachments: [] };
+			// Attachments are stored with the content; the draft's ids replace the old ones.
+			const [stored] = await this.deps.db
+				.select()
+				.from(messages)
+				.where(and(eq(messages.mailboxId, drafts.id), eq(messages.uid, uid)));
+			if (stored) await fetchBody(this.deps.db, session.client, drafts, stored);
+			return { uid, attachments: await attachmentsOf(this.deps.db, drafts.id, uid) };
 		});
 		this.deps.onChanged(message.accountId);
-		return uid;
+		return result;
 	}
 
 	async deleteDraft(accountId: number, uid: number) {
@@ -322,6 +342,20 @@ export class SyncManager {
 			});
 			this.deps.onChanged(accountId);
 		}
+	}
+
+	/** Downloads the attachments to forward; they must belong to this account. */
+	private async storedFiles(message: OutgoingMessage) {
+		const files = [];
+		for (const id of message.forwardAttachments ?? []) {
+			const found = await findAttachment(this.deps.db, id);
+			if (found?.mailbox.accountId !== message.accountId) {
+				throw new Error('Ein Anhang gehört nicht zu diesem Konto.');
+			}
+			const { content, filename, contentType } = await this.attachment(id);
+			files.push({ content, filename, contentType });
+		}
+		return files;
 	}
 
 	private async account(accountId: number) {

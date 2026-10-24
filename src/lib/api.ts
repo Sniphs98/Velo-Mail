@@ -144,8 +144,13 @@ export interface OutgoingMessage {
 	cc: string;
 	bcc: string;
 	subject: string;
+	/** The plain-text version. */
 	text: string;
+	/** The formatted version, if written in the editor. */
+	html?: string;
 	attachments: PickedFile[];
+	/** Attachments of stored messages (forwarding, continuing a draft), sent along. */
+	forwardAttachments?: number[];
 	/** The message this one answers; gets \Answered once sent. */
 	replyTo?: number;
 	/** Headers that keep the conversation together. */
@@ -153,6 +158,12 @@ export interface OutgoingMessage {
 	references?: string[];
 	/** The saved draft this replaces, deleted when sending or saving anew. */
 	draftUid?: number;
+}
+
+/** A saved draft: its UID and attachments, which now live on the server. */
+export interface SavedDraft {
+	uid: number | null;
+	attachments: AttachmentInfo[];
 }
 
 /** What a reply or forward starts from. */
@@ -165,6 +176,9 @@ export interface ReplySource {
 	subject: string;
 	date: number;
 	text: string;
+	html: string | null;
+	/** Its attachments, to forward them. */
+	attachments: AttachmentInfo[];
 	accountId: number;
 	accountEmail: string;
 	/** UID and whether it is a draft, to continue editing it. */
@@ -221,8 +235,8 @@ export interface VeloApi {
 		/** Opens the system's file dialog; the files can then be attached. */
 		pickFiles(): Promise<PickedFile[]>;
 		send(message: OutgoingMessage): Promise<void>;
-		/** Saves to the account's drafts folder; returns the draft's UID to replace it later. */
-		saveDraft(message: OutgoingMessage): Promise<number | null>;
+		/** Saves to the account's drafts folder; the result replaces it later. */
+		saveDraft(message: OutgoingMessage): Promise<SavedDraft>;
 		deleteDraft(accountId: number, uid: number): Promise<void>;
 		/** Moves messages (whole conversations) to the archive or the trash. */
 		move(messageIds: number[], to: 'archive' | 'trash'): Promise<void>;

@@ -81,11 +81,13 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 				accountId: 1,
 				accountEmail: 'du@beispiel.de',
 				uid: id,
-				isDraft: false
+				isDraft: false,
+				html: null,
+				attachments: []
 			})),
 			pickFiles: vi.fn(async () => []),
 			send: vi.fn(async () => {}),
-			saveDraft: vi.fn(async () => 99),
+			saveDraft: vi.fn(async () => ({ uid: 99, attachments: [] })),
 			deleteDraft: vi.fn(async () => {}),
 			move: vi.fn(async () => {}),
 			search: vi.fn(async () => []),
