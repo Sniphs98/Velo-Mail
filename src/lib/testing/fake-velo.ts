@@ -49,11 +49,17 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			...overrides.accounts
 		},
 		settings: {
-			get: vi.fn(async () => ({ theme: 'system' as const, notifications: true, tray: false })),
+			get: vi.fn(async () => ({
+				theme: 'system' as const,
+				notifications: true,
+				tray: false,
+				avatars: true
+			})),
 			set: vi.fn(async (changes: Partial<Settings>) => ({
 				theme: 'system' as const,
 				notifications: true,
 				tray: false,
+				avatars: true,
 				...changes
 			})),
 			...overrides.settings
@@ -85,6 +91,7 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			search: vi.fn(async () => []),
 			searchServer: vi.fn(async () => 0),
 			trustSender: vi.fn(async () => {}),
+			avatar: vi.fn(async () => null),
 			body: vi.fn(async () => ({
 				html: null,
 				text: 'Hallo!',

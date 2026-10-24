@@ -3,6 +3,7 @@
 	import { ipcErrorMessage } from '#lib/account-messages.ts';
 	import { accounts } from '#lib/accounts.svelte.ts';
 	import type { Account, Theme } from '#lib/api.ts';
+	import { pictures } from '#lib/pictures.svelte.ts';
 	import { settings } from '#lib/settings.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as Dialog from '#lib/components/ui/dialog/index.ts';
@@ -94,6 +95,24 @@
 							id="setting-notifications"
 							checked={settings.value.notifications}
 							onCheckedChange={(checked) => settings.set({ notifications: checked })}
+						/>
+					</Field.Field>
+
+					<Field.Field orientation="horizontal">
+						<Field.Content>
+							<Field.Label for="setting-avatars">Absenderbilder</Field.Label>
+							<Field.Description>
+								Firmenlogos und Gravatar-Fotos. Dafür fragt Velo Mail die Domain des Absenders bzw.
+								Gravatar an.
+							</Field.Description>
+						</Field.Content>
+						<Switch
+							id="setting-avatars"
+							checked={settings.value.avatars}
+							onCheckedChange={async (checked) => {
+								await settings.set({ avatars: checked });
+								pictures.clear();
+							}}
 						/>
 					</Field.Field>
 

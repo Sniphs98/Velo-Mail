@@ -218,7 +218,9 @@ Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
 - [x] Ungelesen-Zähler am App-Symbol (macOS-Dock, Linux-Launcher)
 - [x] Tray-Symbol (optional): Fenster schließen lässt die App weiterlaufen
 - [x] App-Icon (`resources/icon.svg`, PNGs per `node scripts/icons.mjs`)
-- [ ] Absenderbilder: BIMI, Favicon, Gravatar (zweiter Teil von Phase 8)
+- [x] Absenderbilder: BIMI-Logo der Organisation, sonst das größte Symbol der
+      Website, sonst Gravatar; Freemail-Domains nur Gravatar; Treffer 30 Tage,
+      Fehlschläge 7 Tage gecacht; in den Einstellungen abschaltbar
 - [ ] OAuth2 für Gmail/Outlook (zweiter Teil; braucht registrierte Client-IDs)
 
 ## Tests

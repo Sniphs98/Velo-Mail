@@ -1,6 +1,6 @@
 // The fallback sender picture: initials on a color derived from the address,
-// so the same sender always looks the same. Logos and photos (BIMI, favicon,
-// Gravatar) come later, see PLAN.md.
+// so the same sender always looks the same. Logos and photos come from the
+// main process (electron/avatars.ts).
 
 const colors = [
 	'#dbeafe',
