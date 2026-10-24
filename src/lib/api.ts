@@ -48,6 +48,24 @@ export interface Account {
 	name: string;
 	email: string;
 	color: string;
+	/** Plain text added below new messages and replies; empty for none. */
+	signature: string;
+}
+
+/** What can be changed on an account after adding it. */
+export interface AccountChanges {
+	name?: string;
+	signature?: string;
+}
+
+export type Theme = 'system' | 'light' | 'dark';
+
+export interface Settings {
+	theme: Theme;
+	/** Desktop notifications for new mail in the inboxes while the window is in the background. */
+	notifications: boolean;
+	/** An icon in the tray (menu bar on macOS); closing the window keeps the app running. */
+	tray: boolean;
 }
 
 /** Result of accounts.add: the saved account, or why it was not saved. */
@@ -167,7 +185,13 @@ export interface VeloApi {
 		test(settings: ServerSettings, password: string): Promise<ConnectionResult>;
 		/** Tests the connection, then saves the account with its password encrypted. */
 		add(account: NewAccount): Promise<AddAccountResult>;
+		update(id: number, changes: AccountChanges): Promise<Account>;
 		remove(id: number): Promise<void>;
+	};
+	settings: {
+		get(): Promise<Settings>;
+		/** Saves the given settings; returns all of them. */
+		set(changes: Partial<Settings>): Promise<Settings>;
 	};
 	mail: {
 		mailboxes(): Promise<Mailbox[]>;
@@ -202,6 +226,10 @@ export interface VeloApi {
 		/** Called whenever the cache changed; returns a function that unsubscribes. */
 		onChanged(listener: () => void): () => void;
 		onStatus(listener: (status: SyncStatus) => void): () => void;
+		/** A message should be shown, e.g. after clicking its notification. */
+		onOpen(listener: (messageId: number) => void): () => void;
+		/** "Neue Nachricht" was chosen outside the window, e.g. in the tray. */
+		onCompose(listener: () => void): () => void;
 	};
 }
 
@@ -219,7 +247,10 @@ export const IPC = {
 	accountsDiscover: 'accounts:discover',
 	accountsTest: 'accounts:test',
 	accountsAdd: 'accounts:add',
+	accountsUpdate: 'accounts:update',
 	accountsRemove: 'accounts:remove',
+	settingsGet: 'settings:get',
+	settingsSet: 'settings:set',
 	mailMailboxes: 'mail:mailboxes',
 	mailMessages: 'mail:messages',
 	mailSetSeen: 'mail:set-seen',
@@ -239,7 +270,9 @@ export const IPC = {
 	mailSaveAttachment: 'mail:save-attachment',
 	/** Main → renderer. */
 	mailChanged: 'mail:changed',
-	mailStatus: 'mail:status'
+	mailStatus: 'mail:status',
+	mailOpen: 'mail:open',
+	mailCompose: 'mail:compose'
 } as const;
 
 /** The API, or undefined outside Electron (plain browser, component tests). */

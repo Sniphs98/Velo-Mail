@@ -21,7 +21,12 @@ const api: VeloApi = {
 		discover: (email) => ipcRenderer.invoke(IPC.accountsDiscover, email),
 		test: (settings, password) => ipcRenderer.invoke(IPC.accountsTest, settings, password),
 		add: (account) => ipcRenderer.invoke(IPC.accountsAdd, account),
+		update: (id, changes) => ipcRenderer.invoke(IPC.accountsUpdate, id, changes),
 		remove: (id) => ipcRenderer.invoke(IPC.accountsRemove, id)
+	},
+	settings: {
+		get: () => ipcRenderer.invoke(IPC.settingsGet),
+		set: (changes) => ipcRenderer.invoke(IPC.settingsSet, changes)
 	},
 	mail: {
 		mailboxes: () => ipcRenderer.invoke(IPC.mailMailboxes),
@@ -42,7 +47,9 @@ const api: VeloApi = {
 		saveAttachment: (id) => ipcRenderer.invoke(IPC.mailSaveAttachment, id),
 		sync: (accountId) => ipcRenderer.invoke(IPC.mailSync, accountId),
 		onChanged: (listener) => on(IPC.mailChanged, listener),
-		onStatus: (listener) => on<[SyncStatus]>(IPC.mailStatus, listener)
+		onStatus: (listener) => on<[SyncStatus]>(IPC.mailStatus, listener),
+		onOpen: (listener) => on<[number]>(IPC.mailOpen, listener),
+		onCompose: (listener) => on(IPC.mailCompose, listener)
 	}
 };
 

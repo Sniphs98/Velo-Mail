@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { VeloApi } from '#lib/api.ts';
+import type { AccountChanges, Settings, VeloApi } from '#lib/api.ts';
 
 /** A window.velo for component tests; override what a test needs. */
 export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]> } = {}): VeloApi {
@@ -30,10 +30,33 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			test: vi.fn(async () => ({ imap: { ok: true }, smtp: { ok: true } }) as const),
 			add: vi.fn(async () => ({
 				ok: true as const,
-				account: { id: 1, name: 'Persönlich', email: 'du@beispiel.de', color: '#2563eb' }
+				account: {
+					id: 1,
+					name: 'Persönlich',
+					email: 'du@beispiel.de',
+					color: '#2563eb',
+					signature: ''
+				}
+			})),
+			update: vi.fn(async (id: number, changes: AccountChanges) => ({
+				id,
+				name: changes.name ?? 'Persönlich',
+				email: 'du@beispiel.de',
+				color: '#2563eb',
+				signature: changes.signature ?? ''
 			})),
 			remove: vi.fn(async () => {}),
 			...overrides.accounts
+		},
+		settings: {
+			get: vi.fn(async () => ({ theme: 'system' as const, notifications: true, tray: false })),
+			set: vi.fn(async (changes: Partial<Settings>) => ({
+				theme: 'system' as const,
+				notifications: true,
+				tray: false,
+				...changes
+			})),
+			...overrides.settings
 		},
 		mail: {
 			mailboxes: vi.fn(async () => []),
@@ -74,6 +97,8 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			sync: vi.fn(async () => {}),
 			onChanged: vi.fn(() => () => {}),
 			onStatus: vi.fn(() => () => {}),
+			onOpen: vi.fn(() => () => {}),
+			onCompose: vi.fn(() => () => {}),
 			...overrides.mail
 		}
 	};

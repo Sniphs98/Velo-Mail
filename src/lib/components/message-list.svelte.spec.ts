@@ -22,8 +22,8 @@ const message = (over: Partial<MessageSummary>): MessageSummary => ({
 });
 
 const accounts = [
-	{ id: 1, name: 'Persönlich', email: 'du@beispiel.de', color: '#2563eb' },
-	{ id: 2, name: 'Arbeit', email: 'du@firma.de', color: '#ea580c' }
+	{ id: 1, name: 'Persönlich', email: 'du@beispiel.de', color: '#2563eb', signature: '' },
+	{ id: 2, name: 'Arbeit', email: 'du@firma.de', color: '#ea580c', signature: '' }
 ];
 
 describe('MessageList', () => {
