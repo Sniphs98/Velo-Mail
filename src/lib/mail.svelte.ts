@@ -70,6 +70,29 @@ class Mail {
 		await velo()?.mail.setSeen(latest.id, false);
 	}
 
+	/**
+	 * Moves the open conversation's messages in the listed folder(s) to the
+	 * archive or trash, then opens the next conversation.
+	 */
+	async moveOpen(to: 'archive' | 'trash') {
+		const view = this.view;
+		const listed = new Set(
+			'mailboxId' in view
+				? [view.mailboxId]
+				: this.mailboxes.filter((m) => m.role === 'inbox').map((m) => m.id)
+		);
+		const ids = this.thread.filter((m) => listed.has(m.mailboxId)).map((m) => m.id);
+		if (this.selectedId !== null && ids.length === 0) ids.push(this.selectedId);
+		if (ids.length === 0) return;
+		const index = this.messages.findIndex((m) => m.id === this.selectedId);
+		const next = this.messages[index + 1] ?? this.messages[index - 1];
+		this.messages = this.messages.filter((m) => m.id !== this.selectedId);
+		this.selectedId = null;
+		this.thread = [];
+		await velo()?.mail.move(ids, to);
+		if (next) await this.open(next.id);
+	}
+
 	/** Opens the next (1) or previous (-1) conversation in the list. */
 	move(step: 1 | -1) {
 		if (this.messages.length === 0) return;

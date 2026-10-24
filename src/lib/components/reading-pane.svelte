@@ -1,10 +1,22 @@
 <script lang="ts">
+	import { Archive, Forward, Reply, ReplyAll, Trash2 } from '@lucide/svelte';
 	import type { Account, MessageSummary } from '#lib/api.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 	import { fullDate, listDate } from '#lib/format.ts';
 	import MailBody from './mail-body.svelte';
 	import SenderAvatar from './sender-avatar.svelte';
 
-	let { thread, account }: { thread: MessageSummary[]; account?: Account } = $props();
+	let {
+		thread,
+		account,
+		onreply,
+		onmove
+	}: {
+		thread: MessageSummary[];
+		account?: Account;
+		onreply: (kind: 'reply' | 'replyAll' | 'forward') => void;
+		onmove: (to: 'archive' | 'trash') => void;
+	} = $props();
 
 	/** Messages opened or closed by hand; otherwise only the newest is open. */
 	let toggled = $state<Record<number, boolean>>({});
@@ -15,6 +27,39 @@
 </script>
 
 <div class="flex w-full flex-col gap-4 self-stretch text-left">
+	<div role="toolbar" aria-label="Aktionen" class="-mt-2 flex items-center gap-1">
+		<Button
+			variant="ghost"
+			size="icon"
+			aria-label="Archivieren (E)"
+			onclick={() => onmove('archive')}
+		>
+			<Archive />
+		</Button>
+		<Button variant="ghost" size="icon" aria-label="Löschen (Entf)" onclick={() => onmove('trash')}>
+			<Trash2 />
+		</Button>
+		<div class="flex-1"></div>
+		<Button variant="ghost" size="icon" aria-label="Antworten (R)" onclick={() => onreply('reply')}>
+			<Reply />
+		</Button>
+		<Button
+			variant="ghost"
+			size="icon"
+			aria-label="Allen antworten (A)"
+			onclick={() => onreply('replyAll')}
+		>
+			<ReplyAll />
+		</Button>
+		<Button
+			variant="ghost"
+			size="icon"
+			aria-label="Weiterleiten (F)"
+			onclick={() => onreply('forward')}
+		>
+			<Forward />
+		</Button>
+	</div>
 	<div class="flex flex-wrap items-start gap-3">
 		<h2 class="flex-1 font-heading text-[22px] leading-tight font-semibold">
 			{thread[0]?.subject || '(Kein Betreff)'}

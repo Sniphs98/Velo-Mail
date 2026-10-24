@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { MessageSummary } from '#lib/api.ts';
@@ -33,7 +33,9 @@ describe('ReadingPane', () => {
 				message(1, 'Anna', 'Erster Entwurf'),
 				message(2, 'Du', 'Sieht gut aus'),
 				message(3, 'Jonas', 'Ich übernehme die Tests')
-			]
+			],
+			onreply: () => {},
+			onmove: () => {}
 		});
 
 		await expect
@@ -48,5 +50,18 @@ describe('ReadingPane', () => {
 
 		await page.getByRole('button', { name: /Anna.*Erster Entwurf/ }).click();
 		await expect.element(page.getByRole('article', { name: 'Nachricht von Anna' })).toBeVisible();
+	});
+
+	it('offers reply, forward, archive and delete', async () => {
+		fakeVelo();
+		const onreply = vi.fn();
+		const onmove = vi.fn();
+		render(ReadingPane, { thread: [message(1, 'Anna', 'Hallo')], onreply, onmove });
+		await page.getByRole('button', { name: 'Allen antworten (A)' }).click();
+		await page.getByRole('button', { name: 'Weiterleiten (F)' }).click();
+		await page.getByRole('button', { name: 'Archivieren (E)' }).click();
+		await page.getByRole('button', { name: 'Löschen (Entf)' }).click();
+		expect(onreply.mock.calls).toEqual([['replyAll'], ['forward']]);
+		expect(onmove.mock.calls).toEqual([['archive'], ['trash']]);
 	});
 });

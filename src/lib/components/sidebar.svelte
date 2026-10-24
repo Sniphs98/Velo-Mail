@@ -16,6 +16,7 @@
 	} from '@lucide/svelte';
 	import { accounts } from '#lib/accounts.svelte.ts';
 	import { velo, type AppInfo, type MailboxRole } from '#lib/api.ts';
+	import { compose } from '#lib/compose.svelte.ts';
 	import { mail } from '#lib/mail.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
@@ -42,6 +43,14 @@
 		all: Mails
 	};
 
+	/** The account of the open folder, else the first one. */
+	function defaultAccount() {
+		const view = mail.view;
+		const box =
+			'mailboxId' in view ? mail.mailboxes.find((m) => m.id === view.mailboxId) : undefined;
+		return box?.accountId ?? accounts.list[0].id;
+	}
+
 	const itemClass = 'h-9 justify-start gap-2.5 font-normal aria-[current=page]:font-medium';
 </script>
 
@@ -49,7 +58,12 @@
 	aria-label="Konten und Ordner"
 	class="flex w-60 shrink-0 flex-col gap-0.5 overflow-y-auto rounded-2xl border bg-card p-3.5"
 >
-	<Button disabled size="lg" class="mb-3 h-11 shrink-0 rounded-xl">
+	<Button
+		disabled={accounts.list.length === 0}
+		size="lg"
+		class="mb-3 h-11 shrink-0 rounded-xl"
+		onclick={() => compose.start(defaultAccount())}
+	>
 		<PenLine aria-hidden="true" />
 		Neue Nachricht
 	</Button>
