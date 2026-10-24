@@ -92,20 +92,25 @@ Geholt wird im Main-Prozess, Ergebnisse werden in der DB gecacht (auch
 …) wird kein Domain-Logo genommen, sonst hätte jede Privatperson das Google-
 Logo. Das Nachladen lässt sich in den Einstellungen abschalten (Datenschutz).
 
-### Phase 1 – Grundgerüst
+### Phase 1 – Grundgerüst _(fast fertig)_
 
-1. SvelteKit-Projekt (`sv create`, TypeScript, Tailwind, Prettier, ESLint,
-   Vitest, Playwright), `adapter-static` im SPA-Modus.
-2. shadcn-svelte mit Preset `b3XngymDea`, Radius/Farben nach gewähltem Design.
-3. Electron: `electron/main.ts`, `electron/preload.ts`, Dev-Modus (Vite +
-   Electron mit Hot-Reload), Build über electron-builder.
-4. `better-sqlite3` für Electron neu bauen (`electron-builder install-app-deps`).
-5. CI-Workflow (siehe unten) direkt mit aufsetzen.
+- [x] SvelteKit-Projekt (`sv create`, TypeScript, Tailwind, Prettier, ESLint,
+      Vitest, Playwright), `adapter-static` im SPA-Modus
+- [x] Electron: `electron/main.ts`, `electron/preload.ts`, Dev-Modus (Vite +
+      Electron mit Hot-Reload), Build über electron-builder
+- [x] Layout aus Design A (vorerst mit reinem Tailwind)
+- [x] CI- und Release-Workflows
+- [ ] shadcn-svelte mit Preset `b3XngymDea`: wartet darauf, dass
+      `shadcn-svelte.com` in der Cloud-Umgebung freigegeben ist (oder lokal
+      `npx shadcn-svelte@latest init --preset b3XngymDea` ausführen)
 
-**Ergebnis:** Ein leeres Fenster mit dem Layout aus dem Design, das sich als
-App bauen lässt, und grüne CI.
+**Ergebnis:** Ein Fenster mit dem Layout aus dem Design, das sich als App bauen
+lässt, und grüne CI.
 
 ### Phase 2 – Datenbank
+
+`better-sqlite3` kommt dazu und wird von electron-builder für Electron neu
+gebaut (`install-app-deps`).
 
 Drizzle-Schema, Migrationen werden mit der App ausgeliefert und beim Start
 ausgeführt. DB liegt in `app.getPath('userData')`. Unit-Tests mit einer
