@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { sendTestMail } from '../scripts/greenmail.mjs';
+import { samplePdf } from '../electron/testing/sample-pdf';
 import { addTestAccount, clearInbox, launchApp } from './app';
 
 test('searches subject, sender and content', async () => {
@@ -13,7 +14,11 @@ test('searches subject, sender and content', async () => {
 		from: 'Lea Hoffmann <lea@beispiel.test>',
 		text: 'Wir treffen uns diesmal bei mir.'
 	});
-	await sendTestMail({ subject: 'Rechnung Oktober', from: 'Stadtwerke <rechnung@stadtwerke.de>' });
+	await sendTestMail({
+		subject: 'Rechnung Oktober',
+		from: 'Stadtwerke <rechnung@stadtwerke.de>',
+		attachments: [{ filename: 'rechnung.pdf', content: samplePdf('Kundennummer 0815') }]
+	});
 	const { app, window: page } = await launchApp();
 	await expect(await addTestAccount(page)).toBeHidden();
 	const list = page.getByRole('region', { name: 'Nachrichtenliste' });
@@ -29,6 +34,11 @@ test('searches subject, sender and content', async () => {
 	await list.getByRole('searchbox', { name: 'Suchen' }).fill('treffen von:lea');
 	await expect(list.getByRole('listitem')).toHaveCount(1);
 	await expect(list.getByRole('listitem')).toContainText('Buchclub');
+
+	// Text inside a PDF attachment (fetched ahead with the content).
+	await list.getByRole('searchbox', { name: 'Suchen' }).fill('kundennummer');
+	await expect(list.getByRole('listitem')).toHaveCount(1);
+	await expect(list.getByRole('listitem')).toContainText('Rechnung Oktober');
 
 	await list.getByRole('searchbox', { name: 'Suchen' }).fill('gibtsnicht');
 	await expect(list.getByText('Keine Treffer')).toBeVisible();

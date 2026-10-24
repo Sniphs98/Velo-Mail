@@ -26,14 +26,18 @@ class Mail {
 		const api = velo();
 		if (!api) return;
 		const query = this.query.trim();
-		const [mailboxes, messages] = await Promise.all([
+		const selected = this.selectedId;
+		const [mailboxes, messages, thread] = await Promise.all([
 			api.mail.mailboxes(),
-			query ? api.mail.search(query) : api.mail.messages($state.snapshot(this.view))
+			query ? api.mail.search(query) : api.mail.messages($state.snapshot(this.view)),
+			// The open conversation may have new replies or fetched contents.
+			selected === null ? undefined : api.mail.thread(selected)
 		]);
 		// A newer search may have started meanwhile.
 		if (query !== this.query.trim()) return;
 		this.mailboxes = mailboxes;
 		this.messages = messages;
+		if (thread && thread.length > 0 && this.selectedId === selected) this.thread = thread;
 	}
 
 	async search(query: string) {

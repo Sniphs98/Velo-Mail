@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { ImapFlow } from 'imapflow';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { samplePdf } from '../testing/sample-pdf';
 import { greenMail, sendTestMail, withImap } from '../../scripts/greenmail.mjs';
 import type { ServerSettings } from '../../src/lib/api';
 import { imapOptions } from '../accounts/connection';
@@ -396,6 +397,20 @@ describe('writing against GreenMail', () => {
 		expect(body.text).toContain('Schau mal');
 		expect(body.attachments.map((a) => a.filename)).toEqual(['plan.txt']);
 		expect((await manager.attachment(body.attachments[0].id)).content.toString()).toBe('Der Plan');
+	});
+
+	it('finds a message by the text of its PDF attachment', async () => {
+		await sendTestMail({
+			subject: 'Post vom Amt',
+			attachments: [{ filename: 'bescheid.pdf', content: samplePdf('Steuernummer 4711') }]
+		});
+		await manager.syncNow(accountId);
+		const [message] = await listMessages(db, { inboxes: true });
+		await manager.body(message.id);
+		expect((await searchMessages(db, 'steuernummer')).map((m) => m.subject)).toEqual([
+			'Post vom Amt'
+		]);
+		expect((await searchMessages(db, 'bescheid')).map((m) => m.subject)).toEqual(['Post vom Amt']);
 	});
 
 	it('refuses to forward attachments of another account', async () => {

@@ -201,7 +201,8 @@ Lokale Volltextsuche über FTS5 (Absender, Betreff, Inhalt), Fallback auf IMAP
       `betreff:`
 - [x] „Auf dem Server weitersuchen“: IMAP `SEARCH` in allen Ordnern außer
       Papierkorb und Spam, holt nur Mails, die älter sind als der Cache
-- [ ] Suche in Anhängen (PDF-Text)
+- [x] Suche in Anhängen: Dateinamen und Text von PDFs (unpdf), sobald der
+      Inhalt einer Mail geladen ist
 
 ### Phase 8 – Feinschliff
 
