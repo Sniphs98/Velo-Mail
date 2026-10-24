@@ -98,6 +98,8 @@ describe('AccountService', () => {
 	it('hands out the settings and the decrypted password for connecting', async () => {
 		await service.add(input('du@beispiel.de'));
 		expect(await service.credentials(1)).toEqual({
+			name: 'Persönlich',
+			email: 'du@beispiel.de',
 			settings: input('du@beispiel.de').settings,
 			password: 'geheim'
 		});

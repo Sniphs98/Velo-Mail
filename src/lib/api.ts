@@ -102,6 +102,49 @@ export interface MessageBody {
 	attachments: AttachmentInfo[];
 }
 
+/** A file picked through the main process, attachable to a message. */
+export interface PickedFile {
+	path: string;
+	name: string;
+	size: number;
+}
+
+/** A message being written: sent, or saved as a draft. */
+export interface OutgoingMessage {
+	accountId: number;
+	/** Comma-separated addresses, e.g. "Anna <anna@firma.de>, jonas@beispiel.de". */
+	to: string;
+	cc: string;
+	bcc: string;
+	subject: string;
+	text: string;
+	attachments: PickedFile[];
+	/** The message this one answers; gets \Answered once sent. */
+	replyTo?: number;
+	/** Headers that keep the conversation together. */
+	inReplyTo?: string;
+	references?: string[];
+	/** The saved draft this replaces, deleted when sending or saving anew. */
+	draftUid?: number;
+}
+
+/** What a reply or forward starts from. */
+export interface ReplySource {
+	messageId: string | null;
+	references: string[];
+	from: { name?: string; address: string } | null;
+	to: { name?: string; address: string }[];
+	cc: { name?: string; address: string }[];
+	subject: string;
+	date: number;
+	text: string;
+	accountId: number;
+	accountEmail: string;
+	/** UID and whether it is a draft, to continue editing it. */
+	uid: number;
+	isDraft: boolean;
+}
+
 /** Which messages to list: one mailbox, or the inboxes of all accounts. */
 export type MessageQuery = { mailboxId: number } | { inboxes: true };
 
@@ -140,6 +183,16 @@ export interface VeloApi {
 		openAttachment(attachmentId: number): Promise<boolean>;
 		/** Asks where to save; false if cancelled. */
 		saveAttachment(attachmentId: number): Promise<boolean>;
+		/** Everything needed to reply to or forward a message. */
+		replySource(messageId: number): Promise<ReplySource>;
+		/** Opens the system's file dialog; the files can then be attached. */
+		pickFiles(): Promise<PickedFile[]>;
+		send(message: OutgoingMessage): Promise<void>;
+		/** Saves to the account's drafts folder; returns the draft's UID to replace it later. */
+		saveDraft(message: OutgoingMessage): Promise<number | null>;
+		deleteDraft(accountId: number, uid: number): Promise<void>;
+		/** Moves messages (whole conversations) to the archive or the trash. */
+		move(messageIds: number[], to: 'archive' | 'trash'): Promise<void>;
 		/** Syncs an account (or all) now instead of waiting for the next round. */
 		sync(accountId?: number): Promise<void>;
 		/** Called whenever the cache changed; returns a function that unsubscribes. */
@@ -169,6 +222,12 @@ export const IPC = {
 	mailSync: 'mail:sync',
 	mailBody: 'mail:body',
 	mailThread: 'mail:thread',
+	mailReplySource: 'mail:reply-source',
+	mailPickFiles: 'mail:pick-files',
+	mailSend: 'mail:send',
+	mailSaveDraft: 'mail:save-draft',
+	mailDeleteDraft: 'mail:delete-draft',
+	mailMove: 'mail:move',
 	mailTrustSender: 'mail:trust-sender',
 	mailOpenAttachment: 'mail:open-attachment',
 	mailSaveAttachment: 'mail:save-attachment',

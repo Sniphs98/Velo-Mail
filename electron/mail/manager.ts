@@ -2,8 +2,13 @@
 // minutes, and IMAP IDLE on the inbox so new mail shows up right away. One
 // connection per account; its jobs run one after another.
 import { ImapFlow } from 'imapflow';
-import type { ServerSettings, SyncStatus } from '../../src/lib/api';
-import { imapOptions } from '../accounts/connection';
+import nodemailer from 'nodemailer';
+import { and, eq } from 'drizzle-orm';
+import type { MailboxRole, OutgoingMessage, ReplySource, SyncStatus } from '../../src/lib/api';
+import type { Credentials } from '../accounts/service';
+import { imapOptions, smtpOptions } from '../accounts/connection';
+import { mailboxes, messages } from '../db/schema';
+import { buildMessage, savesSentCopy } from './outgoing';
 import type { Database } from '../db';
 import { fetchAttachment, fetchBody } from './body';
 import { findAttachment, findBody, findMessage, withoutBody } from './queries';
@@ -11,7 +16,7 @@ import { setSeen, syncMailbox, syncMailboxes } from './sync';
 
 export interface SyncManagerDeps {
 	db: Database;
-	credentials(accountId: number): Promise<{ settings: ServerSettings; password: string } | null>;
+	credentials(accountId: number): Promise<Credentials | null>;
 	/** The cache of this account changed. */
 	onChanged(accountId: number): void;
 	onStatus(status: SyncStatus): void;
@@ -144,6 +149,174 @@ export class SyncManager {
 			filename: found.attachment.filename,
 			contentType: found.attachment.contentType
 		};
+	}
+
+	/** What a reply or forward needs: headers, recipients and the text to quote. */
+	async replySource(messageId: number): Promise<ReplySource> {
+		const found = await findMessage(this.deps.db, messageId);
+		if (!found) throw new Error('Die Nachricht gibt es nicht mehr.');
+		const [body, account] = await Promise.all([
+			this.body(messageId),
+			this.deps.credentials(found.mailbox.accountId)
+		]);
+		const { message } = found;
+		return {
+			messageId: message.messageId,
+			references: message.references ?? [],
+			from: message.fromAddress
+				? { name: message.fromName ?? undefined, address: message.fromAddress }
+				: null,
+			to: message.to,
+			cc: message.cc,
+			subject: message.subject,
+			date: message.date.getTime(),
+			text: body.text ?? '',
+			accountId: found.mailbox.accountId,
+			accountEmail: account?.email ?? '',
+			uid: message.uid,
+			isDraft: found.mailbox.role === 'drafts' || message.draft
+		};
+	}
+
+	/**
+	 * Sends over SMTP, then stores a copy in "Gesendet" (unless the provider
+	 * does that itself), marks the answered message and removes the draft.
+	 */
+	async send(message: OutgoingMessage) {
+		const account = await this.account(message.accountId);
+		const built = await buildMessage({ name: account.name, address: account.email }, message);
+		const transport = nodemailer.createTransport(smtpOptions(account.settings, account.password));
+		try {
+			await transport.sendMail({ envelope: built.envelope, raw: built.raw });
+		} finally {
+			transport.close();
+		}
+
+		const session = this.connected(message.accountId);
+		await this.run(session, async () => {
+			if (!savesSentCopy(account.settings)) {
+				const sent = await this.folder(message.accountId, session, 'sent', 'Sent');
+				await session.client.append(sent.path, built.raw, ['\\Seen']);
+			}
+			if (message.replyTo) {
+				const original = await findMessage(this.deps.db, message.replyTo);
+				if (original) {
+					const lock = await session.client.getMailboxLock(original.mailbox.path);
+					try {
+						await session.client.messageFlagsAdd(String(original.message.uid), ['\\Answered'], {
+							uid: true
+						});
+					} finally {
+						lock.release();
+					}
+					await this.deps.db
+						.update(messages)
+						.set({ answered: true })
+						.where(eq(messages.id, original.message.id));
+				}
+			}
+			if (message.draftUid) await this.removeDraft(message.accountId, session, message.draftUid);
+		});
+		await this.schedule(message.accountId, session, 'all');
+	}
+
+	/** Stores the message in "Entwürfe", replacing the previous version. */
+	async saveDraft(message: OutgoingMessage): Promise<number | null> {
+		const account = await this.account(message.accountId);
+		const built = await buildMessage({ name: account.name, address: account.email }, message, {
+			draft: true
+		});
+		const session = this.connected(message.accountId);
+		const uid = await this.run(session, async () => {
+			const drafts = await this.folder(message.accountId, session, 'drafts', 'Drafts');
+			const saved = await session.client.append(drafts.path, built.raw, ['\\Draft', '\\Seen']);
+			if (message.draftUid) await this.removeDraft(message.accountId, session, message.draftUid);
+			await syncMailbox(this.deps.db, session.client, drafts);
+			return saved ? (saved.uid ?? null) : null;
+		});
+		this.deps.onChanged(message.accountId);
+		return uid;
+	}
+
+	async deleteDraft(accountId: number, uid: number) {
+		const session = this.connected(accountId);
+		await this.run(session, () => this.removeDraft(accountId, session, uid));
+		this.deps.onChanged(accountId);
+	}
+
+	/** Moves messages to the account's archive or trash folder. */
+	async move(messageIds: number[], role: 'archive' | 'trash') {
+		const found = (await Promise.all(messageIds.map((id) => findMessage(this.deps.db, id)))).filter(
+			(row) => row !== null
+		);
+		const byAccount = Map.groupBy(found, (row) => row.mailbox.accountId);
+		for (const [accountId, rows] of byAccount) {
+			const session = this.connected(accountId);
+			await this.run(session, async () => {
+				const target = await this.folder(
+					accountId,
+					session,
+					role,
+					role === 'trash' ? 'Trash' : 'Archive'
+				);
+				for (const [, inBox] of Map.groupBy(
+					rows.filter((row) => row.mailbox.id !== target.id),
+					(row) => row.mailbox.id
+				)) {
+					const lock = await session.client.getMailboxLock(inBox[0].mailbox.path);
+					try {
+						await session.client.messageMove(
+							inBox.map((row) => row.message.uid).join(','),
+							target.path,
+							{ uid: true }
+						);
+					} finally {
+						lock.release();
+					}
+					for (const row of inBox) {
+						await this.deps.db.delete(messages).where(eq(messages.id, row.message.id));
+					}
+				}
+				await syncMailbox(this.deps.db, session.client, target);
+			});
+			this.deps.onChanged(accountId);
+		}
+	}
+
+	private async account(accountId: number) {
+		const account = await this.deps.credentials(accountId);
+		if (!account) throw new Error('Das Konto gibt es nicht mehr.');
+		return account;
+	}
+
+	/** The account's folder with that role; created if the server has none. */
+	private async folder(accountId: number, session: Session, role: MailboxRole, name: string) {
+		const find = () =>
+			this.deps.db
+				.select()
+				.from(mailboxes)
+				.where(and(eq(mailboxes.accountId, accountId), eq(mailboxes.role, role)));
+		let [box] = await find();
+		if (!box) {
+			await session.client.mailboxCreate(name).catch(() => {});
+			await syncMailboxes(this.deps.db, accountId, session.client);
+			[box] = await find();
+		}
+		if (!box) throw new Error(`Der Ordner „${name}“ ließ sich nicht anlegen.`);
+		return box;
+	}
+
+	private async removeDraft(accountId: number, session: Session, uid: number) {
+		const drafts = await this.folder(accountId, session, 'drafts', 'Drafts');
+		const lock = await session.client.getMailboxLock(drafts.path);
+		try {
+			await session.client.messageDelete(String(uid), { uid: true });
+		} finally {
+			lock.release();
+		}
+		await this.deps.db
+			.delete(messages)
+			.where(and(eq(messages.mailboxId, drafts.id), eq(messages.uid, uid)));
 	}
 
 	private connected(accountId: number) {

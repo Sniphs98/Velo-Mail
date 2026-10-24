@@ -16,6 +16,13 @@ export interface SecretBox {
 	decrypt(encrypted: Buffer): Promise<string>;
 }
 
+export interface Credentials {
+	name: string;
+	email: string;
+	settings: ServerSettings;
+	password: string;
+}
+
 /** Account colors, assigned in turn (design: blue, orange, teal, …). */
 export const accountColors = ['#2563eb', '#ea580c', '#0d9488', '#7c3aed', '#db2777', '#ca8a04'];
 
@@ -98,12 +105,14 @@ export class AccountService {
 		return { ok: true, account };
 	}
 
-	/** Server settings and decrypted password, for connecting. */
-	async credentials(id: number): Promise<{ settings: ServerSettings; password: string } | null> {
+	/** Server settings and decrypted password, for connecting and sending. */
+	async credentials(id: number): Promise<Credentials | null> {
 		const [row] = await this.db.select().from(accounts).where(eq(accounts.id, id));
 		if (!row?.secret) return null;
 		const { imapHost, imapPort, imapSecurity, smtpHost, smtpPort, smtpSecurity, username } = row;
 		return {
+			name: row.name,
+			email: row.email,
 			settings: { imapHost, imapPort, imapSecurity, smtpHost, smtpPort, smtpSecurity, username },
 			password: await this.secrets.decrypt(row.secret)
 		};
