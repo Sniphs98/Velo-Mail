@@ -1,0 +1,99 @@
+<script lang="ts">
+	import { Paperclip, Search } from '@lucide/svelte';
+	import type { Account, MessageSummary } from '#lib/api.ts';
+	import { listDate } from '#lib/format.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import SenderAvatar from './sender-avatar.svelte';
+
+	let {
+		title,
+		subtitle,
+		messages,
+		accounts,
+		selectedId,
+		showAccount,
+		onselect
+	}: {
+		title: string;
+		subtitle?: string;
+		messages: MessageSummary[];
+		accounts: Account[];
+		selectedId: number | null;
+		/** Marks each message with its account's color (combined inboxes). */
+		showAccount: boolean;
+		onselect: (id: number) => void;
+	} = $props();
+
+	const colors = $derived(new Map(accounts.map((a) => [a.id, a.color])));
+</script>
+
+<section
+	aria-label="Nachrichtenliste"
+	class="flex w-96 shrink-0 flex-col gap-3 rounded-2xl border bg-card p-4"
+>
+	<div class="flex flex-col gap-0.5">
+		<h1 class="font-heading text-xl font-semibold">{title}</h1>
+		{#if subtitle}
+			<span class="text-[13px] text-muted-foreground">{subtitle}</span>
+		{/if}
+	</div>
+	<div class="relative">
+		<Search
+			class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+			aria-hidden="true"
+		/>
+		<Input
+			type="search"
+			placeholder="Suchen"
+			aria-label="Suchen"
+			class="h-10 rounded-full border-transparent bg-muted pl-10"
+		/>
+	</div>
+
+	{#if messages.length === 0}
+		<p class="py-10 text-center text-sm text-muted-foreground">Keine E-Mails</p>
+	{:else}
+		<ul class="-mx-1 flex flex-col gap-0.5 overflow-y-auto px-1">
+			{#each messages as message (message.id)}
+				<li>
+					<button
+						type="button"
+						aria-current={message.id === selectedId ? 'true' : undefined}
+						class="flex w-full gap-3 rounded-xl p-3 text-left hover:bg-muted/60 aria-[current=true]:bg-muted"
+						onclick={() => onselect(message.id)}
+					>
+						<SenderAvatar
+							name={message.fromName}
+							address={message.fromAddress}
+							badge={showAccount ? colors.get(message.accountId) : undefined}
+						/>
+						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+							<span class="flex items-center justify-between gap-2">
+								<span class="truncate text-sm" class:font-semibold={!message.seen}>
+									{message.fromName || message.fromAddress || 'Unbekannt'}
+								</span>
+								<span class="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+									{#if message.hasAttachments}
+										<Paperclip class="size-3.5" aria-hidden="true" />
+										<span class="sr-only">Mit Anhang</span>
+									{/if}
+									{listDate(message.date)}
+									{#if !message.seen}
+										<span class="size-2 rounded-full bg-primary" aria-hidden="true"></span>
+										<span class="sr-only">Ungelesen</span>
+									{/if}
+								</span>
+							</span>
+							<span class="truncate text-[13px]" class:font-semibold={!message.seen}>
+								{message.subject || '(Kein Betreff)'}
+							</span>
+							{#if message.snippet}
+								<span class="truncate text-[13px] text-muted-foreground">{message.snippet}</span>
+							{/if}
+						</span>
+					</button>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</section>
