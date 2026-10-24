@@ -95,6 +95,15 @@ describe('AccountService', () => {
 		expect(tested).toEqual([]);
 	});
 
+	it('hands out the settings and the decrypted password for connecting', async () => {
+		await service.add(input('du@beispiel.de'));
+		expect(await service.credentials(1)).toEqual({
+			settings: input('du@beispiel.de').settings,
+			password: 'geheim'
+		});
+		expect(await service.credentials(99)).toBeNull();
+	});
+
 	it('removes an account', async () => {
 		await service.add(input('du@beispiel.de'));
 		await service.remove(1);

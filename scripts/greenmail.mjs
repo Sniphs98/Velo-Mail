@@ -79,3 +79,51 @@ export async function startGreenMail() {
 		server.kill();
 	};
 }
+
+/**
+ * Delivers a mail to the test user through GreenMail's SMTP server.
+ * @param {{ subject: string, from?: string, text?: string }} mail
+ */
+export async function sendTestMail({
+	subject,
+	from = 'Jonas Weber <jonas@beispiel.test>',
+	text = 'Hallo!'
+}) {
+	const { default: nodemailer } = await import('nodemailer');
+	const transport = nodemailer.createTransport({
+		host: greenMail.host,
+		port: greenMail.smtpPort,
+		secure: false,
+		ignoreTLS: true,
+		auth: { user: greenMail.user.email, pass: greenMail.user.password }
+	});
+	try {
+		await transport.sendMail({ from, to: greenMail.user.email, subject, text });
+	} finally {
+		transport.close();
+	}
+}
+
+/**
+ * Runs `use` with a logged-in IMAP client for the test user, e.g. to empty the
+ * inbox or change flags behind the app's back.
+ * @template T
+ * @param {(client: import('imapflow').ImapFlow) => Promise<T>} use
+ */
+export async function withImap(use) {
+	const { ImapFlow } = await import('imapflow');
+	const client = new ImapFlow({
+		host: greenMail.host,
+		port: greenMail.imapPort,
+		secure: false,
+		doSTARTTLS: false,
+		auth: { user: greenMail.user.email, pass: greenMail.user.password },
+		logger: false
+	});
+	await client.connect();
+	try {
+		return await use(client);
+	} finally {
+		await client.logout();
+	}
+}
