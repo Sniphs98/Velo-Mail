@@ -6,7 +6,7 @@ import DOMPurify from 'dompurify';
 
 const styles = `
 	html { color-scheme: light; }
-	body { margin: 0; font-family: system-ui, sans-serif; font-size: 15px; line-height: 1.6;
+	body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.6;
 		color: #27272a; overflow-wrap: anywhere; }
 	img { max-width: 100%; height: auto; }
 	table { max-width: 100%; }
