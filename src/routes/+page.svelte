@@ -7,12 +7,21 @@
 	import ComposeDialog from '#lib/components/compose-dialog.svelte';
 	import MessageList from '#lib/components/message-list.svelte';
 	import ReadingPane from '#lib/components/reading-pane.svelte';
+	import SettingsDialog from '#lib/components/settings-dialog.svelte';
 	import Sidebar from '#lib/components/sidebar.svelte';
 	import { Button } from '#lib/components/ui/button/index.ts';
+	import { velo } from '#lib/api.ts';
 
 	let addingAccount = $state(false);
+	let showSettings = $state(false);
 
 	$effect(() => mail.connect());
+
+	// From a notification or the tray.
+	$effect(() => velo()?.mail.onOpen((id) => mail.open(id)));
+	$effect(() =>
+		velo()?.mail.onCompose(() => accounts.list[0] && compose.start(accounts.list[0].id))
+	);
 
 	const mailbox = $derived.by(() => {
 		const view = mail.view;
@@ -69,7 +78,7 @@
 <svelte:window onkeydown={shortcut} />
 
 <div class="flex h-full gap-3 p-3">
-	<Sidebar onaddaccount={() => (addingAccount = true)} />
+	<Sidebar onaddaccount={() => (addingAccount = true)} onsettings={() => (showSettings = true)} />
 
 	<MessageList
 		title={mail.query.trim() ? 'Suche' : (mailbox?.name ?? 'Alle Posteingänge')}
@@ -118,4 +127,5 @@
 </div>
 
 <AddAccountDialog bind:open={addingAccount} />
+<SettingsDialog bind:open={showSettings} />
 <ComposeDialog />

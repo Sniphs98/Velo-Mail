@@ -22,7 +22,7 @@
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 
-	let { onaddaccount }: { onaddaccount: () => void } = $props();
+	let { onaddaccount, onsettings }: { onaddaccount: () => void; onsettings: () => void } = $props();
 
 	let info = $state<AppInfo>();
 
@@ -152,7 +152,12 @@
 		<Plus class="size-[18px]" aria-hidden="true" />
 		Konto hinzufügen
 	</Button>
-	<Button variant="ghost" size="lg" class="h-10 shrink-0 justify-start gap-2.5 font-normal">
+	<Button
+		variant="ghost"
+		size="lg"
+		class="h-10 shrink-0 justify-start gap-2.5 font-normal"
+		onclick={onsettings}
+	>
 		<Settings2 class="size-[18px]" aria-hidden="true" />
 		Einstellungen
 	</Button>
