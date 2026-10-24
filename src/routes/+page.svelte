@@ -2,7 +2,9 @@
 	import { MailOpen } from '@lucide/svelte';
 	import { accounts } from '#lib/accounts.svelte.ts';
 	import { mail } from '#lib/mail.svelte.ts';
+	import { compose } from '#lib/compose.svelte.ts';
 	import AddAccountDialog from '#lib/components/add-account-dialog.svelte';
+	import ComposeDialog from '#lib/components/compose-dialog.svelte';
 	import MessageList from '#lib/components/message-list.svelte';
 	import ReadingPane from '#lib/components/reading-pane.svelte';
 	import Sidebar from '#lib/components/sidebar.svelte';
@@ -18,7 +20,21 @@
 	});
 	const mailboxAccount = $derived(accounts.list.find((a) => a.id === mailbox?.accountId));
 
-	/** j/k or arrows: next/previous conversation, u: unread, Ctrl/Cmd+K: search. */
+	function reply(kind: 'reply' | 'replyAll' | 'forward') {
+		const latest = mail.thread.at(-1);
+		if (latest) compose.start(latest.accountId, { kind, messageId: latest.id });
+	}
+
+	/** Drafts open in the composer, everything else in the reading pane. */
+	function select(id: number) {
+		if (mailbox?.role === 'drafts') compose.edit(id);
+		else mail.open(id);
+	}
+
+	/**
+	 * j/k or arrows: next/previous, u: unread, r/a/f: reply/all/forward,
+	 * c: new message, e: archive, Delete/#: trash, Ctrl/Cmd+K: search.
+	 */
 	function shortcut(event: KeyboardEvent) {
 		const target = event.target as HTMLElement | null;
 		if (event.defaultPrevented || document.querySelector('[role="dialog"]')) return;
@@ -34,7 +50,14 @@
 			ArrowDown: () => mail.move(1),
 			k: () => mail.move(-1),
 			ArrowUp: () => mail.move(-1),
-			u: () => mail.markUnread()
+			u: () => mail.markUnread(),
+			r: () => reply('reply'),
+			a: () => reply('replyAll'),
+			f: () => reply('forward'),
+			c: () => accounts.list[0] && compose.start(mailbox?.accountId ?? accounts.list[0].id),
+			e: () => mail.thread.length > 0 && mail.moveOpen('archive'),
+			'#': () => mail.thread.length > 0 && mail.moveOpen('trash'),
+			Delete: () => mail.thread.length > 0 && mail.moveOpen('trash')
 		};
 		const action = actions[event.key];
 		if (!action) return;
@@ -55,7 +78,7 @@
 		accounts={accounts.list}
 		selectedId={mail.selectedId}
 		showAccount={!mailbox && accounts.list.length > 1}
-		onselect={(id) => mail.open(id)}
+		onselect={select}
 	/>
 
 	<article
@@ -67,6 +90,8 @@
 			{#key mail.selectedId}
 				<ReadingPane
 					thread={mail.thread}
+					onreply={reply}
+					onmove={(to) => mail.moveOpen(to)}
 					account={accounts.list.length > 1
 						? accounts.list.find((a) => a.id === mail.thread[0]?.accountId)
 						: undefined}
@@ -88,3 +113,4 @@
 </div>
 
 <AddAccountDialog bind:open={addingAccount} />
+<ComposeDialog />

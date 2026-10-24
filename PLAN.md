@@ -168,13 +168,25 @@ App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
       (e = archivieren und r = antworten folgen mit Phase 6)
 - [x] Externe Bilder pro Absender dauerhaft erlauben
 
-### Phase 6 – Schreiben & Senden
+### Phase 6 – Schreiben & Senden _(erledigt)_
 
-- Fenster „Neue Nachricht“, Antworten/Allen antworten/Weiterleiten mit Zitat.
-- Editor mit einfachen Formatierungen (fett, kursiv, Liste, Link) und Anhängen.
-- Entwürfe automatisch im IMAP-Ordner „Entwürfe“ speichern.
-- Versand über SMTP, Kopie in „Gesendet“ ablegen (falls der Server das nicht
-  selbst macht).
+- [x] Fenster „Neue Nachricht“, Antworten/Allen antworten/Weiterleiten mit
+      Zitat und den Kopfzeilen für die Konversation (`In-Reply-To`,
+      `References`)
+- [x] Anhänge aus dem Dateidialog; nur dort ausgewählte Dateien können
+      verschickt werden
+- [x] Entwürfe werden 2 s nach der letzten Änderung im IMAP-Ordner „Entwürfe“
+      gespeichert (alte Fassung wird ersetzt), Entwürfe lassen sich weiter
+      bearbeiten oder verwerfen
+- [x] Versand über SMTP, Kopie in „Gesendet“ (nicht bei Gmail, das speichert
+      selbst), beantwortete Mail bekommt `\Answered`
+- [x] Archivieren und Löschen (Papierkorb), fehlende Ordner werden angelegt
+- [x] Tastenkürzel: c = neu, r/a/f = antworten/allen/weiterleiten,
+      e = archivieren, Entf/# = löschen, Strg/⌘+Enter = senden
+- [ ] Formatierung (fett, kursiv, Listen, Links) – vorerst reiner Text
+- [ ] Anhänge der Originalmail beim Weiterleiten mitschicken
+- [ ] Ordnernamen einheitlich auf Deutsch anzeigen (selbst angelegte heißen
+      „Sent“, „Drafts“, …)
 
 ### Phase 7 – Suche
 

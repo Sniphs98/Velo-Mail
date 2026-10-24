@@ -21,6 +21,8 @@ const settings: ServerSettings = {
 	username: greenMail.user.email
 };
 
+const account = { name: 'Test', email: greenMail.user.email, settings };
+
 let db: Database;
 let accountId: number;
 
@@ -171,7 +173,7 @@ describe('SyncManager against GreenMail', () => {
 		const onStatus = vi.fn();
 		manager = new SyncManager({
 			db,
-			credentials: async () => ({ settings, password: greenMail.user.password }),
+			credentials: async () => ({ ...account, password: greenMail.user.password }),
 			onChanged,
 			onStatus
 		});
@@ -217,7 +219,7 @@ describe('SyncManager against GreenMail', () => {
 		});
 		manager = new SyncManager({
 			db,
-			credentials: async () => ({ settings, password: greenMail.user.password }),
+			credentials: async () => ({ ...account, password: greenMail.user.password }),
 			onChanged: () => {},
 			onStatus: () => {}
 		});
@@ -243,11 +245,114 @@ describe('SyncManager against GreenMail', () => {
 		const onStatus = vi.fn();
 		manager = new SyncManager({
 			db,
-			credentials: async () => ({ settings, password: 'falsch' }),
+			credentials: async () => ({ ...account, password: 'falsch' }),
 			onChanged: () => {},
 			onStatus
 		});
 		await manager.start(accountId);
 		expect(onStatus).toHaveBeenCalledWith(expect.objectContaining({ accountId, state: 'error' }));
+	});
+});
+
+describe('writing against GreenMail', () => {
+	let manager: SyncManager;
+	const outgoing = (over: Partial<Parameters<SyncManager['send']>[0]> = {}) => ({
+		accountId,
+		to: greenMail.user.email,
+		cc: '',
+		bcc: '',
+		subject: 'Hallo von Velo',
+		text: 'Testnachricht',
+		attachments: [],
+		...over
+	});
+
+	async function count(path: string, query: object = { all: true }) {
+		return withImap(async (client) => {
+			const lock = await client.getMailboxLock(path);
+			try {
+				return ((await client.search(query, { uid: true })) || []).length;
+			} finally {
+				lock.release();
+			}
+		});
+	}
+
+	beforeEach(async () => {
+		manager = new SyncManager({
+			db,
+			credentials: async () => ({ ...account, password: greenMail.user.password }),
+			onChanged: () => {},
+			onStatus: () => {}
+		});
+		await manager.start(accountId);
+	});
+
+	afterEach(async () => {
+		await manager.stopAll();
+	});
+
+	it('sends, keeps a copy in the sent folder and marks the answered message', async () => {
+		await sendTestMail({ subject: 'Frage', messageId: '<frage@beispiel.test>' });
+		await manager.syncNow(accountId);
+		const [question] = await listMessages(db, { inboxes: true });
+		const sentBefore = await withImap(async (client) =>
+			(await client.list()).some((box) => box.specialUse === '\\Sent')
+				? count((await client.list()).find((box) => box.specialUse === '\\Sent')!.path)
+				: 0
+		);
+
+		await manager.send(
+			outgoing({
+				subject: 'Re: Frage',
+				replyTo: question.id,
+				inReplyTo: '<frage@beispiel.test>',
+				references: ['<frage@beispiel.test>']
+			})
+		);
+
+		expect(await count('INBOX', { subject: 'Re: Frage' })).toBe(1);
+		expect(await count('INBOX', { answered: true, subject: 'Frage' })).toBe(1);
+		const sentPath = (await listMailboxes(db)).find((box) => box.role === 'sent')!.name;
+		expect(await count(sentPath)).toBe(sentBefore + 1);
+		// The reply joins the question's conversation, sent copy included.
+		expect((await listThread(db, question.id)).map((m) => m.subject)).toContain('Re: Frage');
+	});
+
+	it('saves a draft, replaces it, and deletes it', async () => {
+		const drafts = async () =>
+			(await listMailboxes(db)).find((box) => box.role === 'drafts')?.name ?? 'Drafts';
+		const first = await manager.saveDraft(outgoing({ subject: 'Entwurf', to: '' }));
+		expect(first).toBeTypeOf('number');
+		const before = await count(await drafts());
+
+		const second = await manager.saveDraft(outgoing({ subject: 'Entwurf 2', draftUid: first! }));
+		expect(await count(await drafts())).toBe(before);
+		expect(await count(await drafts(), { subject: 'Entwurf 2', draft: true })).toBe(1);
+
+		await manager.deleteDraft(accountId, second!);
+		expect(await count(await drafts())).toBe(before - 1);
+	});
+
+	it('archives and deletes messages', async () => {
+		await sendTestMail({ subject: 'Ins Archiv' });
+		await sendTestMail({ subject: 'In den Papierkorb' });
+		await manager.syncNow(accountId);
+		const list = await listMessages(db, { inboxes: true });
+		const archive = list.find((m) => m.subject === 'Ins Archiv')!;
+		const trash = list.find((m) => m.subject === 'In den Papierkorb')!;
+
+		await manager.move([archive.id], 'archive');
+		await manager.move([trash.id], 'trash');
+
+		expect(await count('INBOX')).toBe(0);
+		const boxes = await listMailboxes(db);
+		expect(
+			await count(boxes.find((b) => b.role === 'archive')!.name, { subject: 'Ins Archiv' })
+		).toBe(1);
+		expect(
+			await count(boxes.find((b) => b.role === 'trash')!.name, { subject: 'In den Papierkorb' })
+		).toBe(1);
+		expect(await listMessages(db, { inboxes: true })).toEqual([]);
 	});
 });
