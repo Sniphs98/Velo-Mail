@@ -1,6 +1,8 @@
 // The main-process side of src/lib/api.ts. Everything arriving here comes from
 // the renderer and is validated before use.
-import { app, BrowserWindow, ipcMain, net, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, net, safeStorage, shell } from 'electron';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { resolveMx, resolveSrv } from 'node:dns/promises';
 import { z } from 'zod';
 import { IPC, type AppInfo } from '../src/lib/api';
@@ -9,6 +11,7 @@ import { testConnection } from './accounts/connection';
 import { AccountService, serverSettingsSchema, type SecretBox } from './accounts/service';
 import type { Database } from './db';
 import { SyncManager } from './mail/manager';
+import { isRunnable, safeFilename } from './mail/files';
 import { listMailboxes, listMessages } from './mail/queries';
 
 // Keychain on macOS, DPAPI on Windows, the desktop's keyring on Linux. Without
@@ -85,6 +88,35 @@ export function registerIpc(db: Database) {
 	ipcMain.handle(IPC.mailSetSeen, (_event, id: unknown, seen: unknown) =>
 		sync.setSeen(z.number().int().parse(id), z.boolean().parse(seen))
 	);
+	ipcMain.handle(IPC.mailBody, (_event, id: unknown) => sync.body(z.number().int().parse(id)));
+	ipcMain.handle(IPC.mailOpenAttachment, async (_event, id: unknown) => {
+		const file = await sync.attachment(z.number().int().parse(id));
+		const filename = safeFilename(file.filename, file.contentType);
+		if (isRunnable(filename)) return false;
+		const dir = path.join(app.getPath('temp'), 'velo-mail', String(id));
+		await mkdir(dir, { recursive: true });
+		const target = path.join(dir, filename);
+		await writeFile(target, file.content);
+		const error = await shell.openPath(target);
+		if (error) throw new Error(error);
+		return true;
+	});
+	ipcMain.handle(IPC.mailSaveAttachment, async (event, id: unknown) => {
+		const file = await sync.attachment(z.number().int().parse(id));
+		const window = BrowserWindow.fromWebContents(event.sender);
+		const options = {
+			defaultPath: path.join(
+				app.getPath('downloads'),
+				safeFilename(file.filename, file.contentType)
+			)
+		};
+		const result = window
+			? await dialog.showSaveDialog(window, options)
+			: await dialog.showSaveDialog(options);
+		if (result.canceled || !result.filePath) return false;
+		await writeFile(result.filePath, file.content);
+		return true;
+	});
 	ipcMain.handle(IPC.mailSync, async (_event, id: unknown) => {
 		const ids =
 			id === undefined
