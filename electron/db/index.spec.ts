@@ -70,7 +70,8 @@ describe('openDatabase', () => {
 			'message_bodies',
 			'messages',
 			'messages_fts',
-			'sender_avatars'
+			'sender_avatars',
+			'trusted_senders'
 		]);
 	});
 

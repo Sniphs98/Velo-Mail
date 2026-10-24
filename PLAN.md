@@ -150,7 +150,7 @@ App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
 - [ ] Ältere Mails beim Scrollen nachladen
 - [ ] Vorschautext in der Liste (kommt mit den Inhalten in Phase 5)
 
-### Phase 5 – Lesen _(Teil 1 erledigt)_
+### Phase 5 – Lesen _(erledigt)_
 
 - [x] Inhalt beim Öffnen laden (postal-mime), für die neuesten 30 Mails im
       Posteingang vorab, daraus der Vorschautext in der Liste
@@ -161,9 +161,12 @@ App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
 - [x] Anhänge öffnen oder speichern; ausführbare Dateien werden nur
       gespeichert, nie geöffnet
 - [x] Volltextindex enthält jetzt auch den Inhalt
-- [ ] Konversationsansicht (Threading über `References`/`In-Reply-To`)
-- [ ] Tastenkürzel (j/k, e = archivieren, r = antworten, Strg+K = Suche)
-- [ ] Externe Bilder pro Absender dauerhaft erlauben
+- [x] Konversationen (Threading über `References`/`In-Reply-To`): eine Zeile
+      je Unterhaltung in der Liste, im Lesebereich der ganze Verlauf über alle
+      Ordner des Kontos (auch eigene Antworten aus „Gesendet“)
+- [x] Tastenkürzel: j/k bzw. ↓/↑ blättern, u = ungelesen, Strg/⌘+K = Suche
+      (e = archivieren und r = antworten folgen mit Phase 6)
+- [x] Externe Bilder pro Absender dauerhaft erlauben
 
 ### Phase 6 – Schreiben & Senden
 

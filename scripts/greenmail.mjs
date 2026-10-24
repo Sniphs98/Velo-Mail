@@ -83,14 +83,18 @@ export async function startGreenMail() {
 /**
  * Delivers a mail to the test user through GreenMail's SMTP server.
  * @param {{ subject: string, from?: string, text?: string, html?: string,
- *   attachments?: import('nodemailer/lib/mailer').Attachment[] }} mail
+ *   attachments?: import('nodemailer/lib/mailer').Attachment[],
+ *   messageId?: string, inReplyTo?: string, references?: string[] }} mail
  */
 export async function sendTestMail({
 	subject,
 	from = 'Jonas Weber <jonas@beispiel.test>',
 	text = 'Hallo!',
 	html,
-	attachments
+	attachments,
+	messageId,
+	inReplyTo,
+	references
 }) {
 	const { default: nodemailer } = await import('nodemailer');
 	const transport = nodemailer.createTransport({
@@ -101,7 +105,17 @@ export async function sendTestMail({
 		auth: { user: greenMail.user.email, pass: greenMail.user.password }
 	});
 	try {
-		await transport.sendMail({ from, to: greenMail.user.email, subject, text, html, attachments });
+		await transport.sendMail({
+			from,
+			to: greenMail.user.email,
+			subject,
+			text,
+			html,
+			attachments,
+			messageId,
+			inReplyTo,
+			references
+		});
 	} finally {
 		transport.close();
 	}

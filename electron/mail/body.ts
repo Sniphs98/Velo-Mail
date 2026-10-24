@@ -7,6 +7,7 @@ import type { ImapFlow } from 'imapflow';
 import PostalMime from 'postal-mime';
 import type { Database } from '../db';
 import { attachments, mailboxes, messageBodies, messages } from '../db/schema';
+import { threadKey } from './sync';
 
 /** Larger messages are not downloaded as a whole. */
 export const maxMessageSize = 50 * 1024 * 1024;
@@ -171,6 +172,7 @@ export async function fetchBody(
 			.set({
 				snippet: parsed.snippet,
 				references: parsed.references,
+				threadId: threadKey(parsed.references, message.inReplyTo, message.messageId),
 				hasAttachments: parsed.attachments.some((a) => !a.inline)
 			})
 			.where(eq(messages.id, message.id))

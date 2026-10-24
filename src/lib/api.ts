@@ -76,9 +76,12 @@ export interface MessageSummary {
 	snippet: string;
 	/** Milliseconds since the epoch. */
 	date: number;
+	/** In lists: true only if every message of the conversation is read. */
 	seen: boolean;
 	flagged: boolean;
 	hasAttachments: boolean;
+	/** Messages in the conversation (in lists: those in the listed folder). */
+	threadSize: number;
 }
 
 export interface AttachmentInfo {
@@ -93,6 +96,8 @@ export interface MessageBody {
 	text: string | null;
 	/** The HTML loads images or styles from the internet; blocked until allowed. */
 	remoteContent: boolean;
+	/** The sender's remote images may load without asking. */
+	trusted: boolean;
 	/** Attachments, without images shown inside the HTML. */
 	attachments: AttachmentInfo[];
 }
@@ -125,6 +130,10 @@ export interface VeloApi {
 		mailboxes(): Promise<Mailbox[]>;
 		messages(query: MessageQuery): Promise<MessageSummary[]>;
 		setSeen(messageId: number, seen: boolean): Promise<void>;
+		/** The conversation of a message, oldest first, across the account's folders. */
+		thread(messageId: number): Promise<MessageSummary[]>;
+		/** Loads remote images of this sender without asking from now on. */
+		trustSender(address: string): Promise<void>;
 		/** The content, downloaded on first use. */
 		body(messageId: number): Promise<MessageBody>;
 		/** Opens an attachment with the system's app; false if that is not allowed for its type. */
@@ -159,6 +168,8 @@ export const IPC = {
 	mailSetSeen: 'mail:set-seen',
 	mailSync: 'mail:sync',
 	mailBody: 'mail:body',
+	mailThread: 'mail:thread',
+	mailTrustSender: 'mail:trust-sender',
 	mailOpenAttachment: 'mail:open-attachment',
 	mailSaveAttachment: 'mail:save-attachment',
 	/** Main → renderer. */

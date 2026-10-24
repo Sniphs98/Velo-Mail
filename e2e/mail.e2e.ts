@@ -70,3 +70,47 @@ test('shows an HTML mail safely, with its attachment', async () => {
 	await expect(page).toHaveTitle('Velo Mail');
 	await app.close();
 });
+
+test('shows conversations and moves through them with the keyboard', async () => {
+	await clearInbox();
+	await sendTestMail({ subject: 'Älteste', from: 'Lea Hoffmann <lea@beispiel.test>' });
+	await sendTestMail({
+		subject: 'Planung',
+		from: 'Anna Becker <anna@firma.de>',
+		text: 'Erster Entwurf',
+		messageId: '<planung@firma.de>'
+	});
+	await sendTestMail({
+		subject: 'Re: Planung',
+		from: 'Jonas Weber <jonas@beispiel.test>',
+		text: 'Ich übernehme die Tests',
+		inReplyTo: '<planung@firma.de>',
+		references: ['<planung@firma.de>']
+	});
+	const { app, window: page } = await launchApp();
+	await expect(await addTestAccount(page)).toBeHidden();
+
+	const list = page.getByRole('region', { name: 'Nachrichtenliste' });
+	const conversation = list.getByRole('button', { name: /Jonas Weber/ });
+	await expect(conversation).toContainText('2 Nachrichten');
+	await expect(list.getByRole('button')).toHaveCount(2);
+
+	await conversation.click();
+	const pane = page.getByRole('article', { name: 'Nachricht' });
+	await expect(pane.getByRole('heading', { name: 'Planung' })).toBeVisible();
+	await expect(pane.getByRole('article', { name: 'Nachricht von Jonas Weber' })).toBeVisible();
+	await expect(pane.getByRole('button', { name: /Anna Becker.*Erster Entwurf/ })).toBeVisible();
+	// Opening a conversation marks all of it read.
+	await expect(conversation).not.toContainText('Ungelesen');
+
+	await page.keyboard.press('j');
+	await expect(pane.getByRole('heading', { name: 'Älteste' })).toBeVisible();
+	await page.keyboard.press('k');
+	await expect(pane.getByRole('heading', { name: 'Planung' })).toBeVisible();
+	await page.keyboard.press('u');
+	await expect(conversation).toContainText('Ungelesen');
+
+	await page.keyboard.press('Control+k');
+	await expect(list.getByRole('searchbox', { name: 'Suchen' })).toBeFocused();
+	await app.close();
+});

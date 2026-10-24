@@ -69,8 +69,15 @@
 						/>
 						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 							<span class="flex items-center justify-between gap-2">
-								<span class="truncate text-sm" class:font-semibold={!message.seen}>
-									{message.fromName || message.fromAddress || 'Unbekannt'}
+								<span class="flex min-w-0 items-center gap-1.5">
+									<span class="truncate text-sm" class:font-semibold={!message.seen}>
+										{message.fromName || message.fromAddress || 'Unbekannt'}
+									</span>
+									{#if message.threadSize > 1}
+										<span class="text-xs text-muted-foreground">
+											{message.threadSize} <span class="sr-only">Nachrichten</span>
+										</span>
+									{/if}
 								</span>
 								<span class="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
 									{#if message.hasAttachments}

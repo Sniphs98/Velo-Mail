@@ -39,10 +39,13 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			mailboxes: vi.fn(async () => []),
 			messages: vi.fn(async () => []),
 			setSeen: vi.fn(async () => {}),
+			thread: vi.fn(async () => []),
+			trustSender: vi.fn(async () => {}),
 			body: vi.fn(async () => ({
 				html: null,
 				text: 'Hallo!',
 				remoteContent: false,
+				trusted: false,
 				attachments: []
 			})),
 			openAttachment: vi.fn(async () => true),
