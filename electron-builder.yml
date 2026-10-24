@@ -17,6 +17,19 @@ files:
   - resources/tray/**
   - package.json
 
+# Hardening of the Electron binary (https://www.electronjs.org/docs/latest/tutorial/fuses):
+# the installed app cannot be run as plain Node or with a debugger attached,
+# which would hand out its access (e.g. the passwords in the macOS keychain).
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableCookieEncryption: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+  # Unsigned macOS builds need a fresh ad-hoc signature after the change.
+  resetAdHocDarwinSignature: true
+
 linux:
   target: [AppImage, deb]
   category: Network;Email
