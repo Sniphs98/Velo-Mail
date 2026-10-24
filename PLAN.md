@@ -10,7 +10,7 @@ und runden Ecken.
 | UI           | SvelteKit (Svelte 5), `adapter-static` | läuft als SPA im Electron-Fenster, kein eigener Server          |
 | Komponenten  | shadcn-svelte, Preset `b3XngymDea`     | `npx shadcn-svelte@latest init --preset b3XngymDea`             |
 | Desktop      | Electron                               | Main-Prozess macht Mail, DB und Dateisystem                     |
-| Datenbank    | SQLite (`better-sqlite3`) + Drizzle    | lokaler Cache der Mails, Migrationen laufen beim App-Start      |
+| Datenbank    | SQLite (`node:sqlite`) + Drizzle 1.0   | lokaler Cache der Mails, Migrationen laufen beim App-Start      |
 | IMAP         | `imapflow`                             | Sync, IDLE (Push für neue Mails), CONDSTORE                     |
 | SMTP         | `nodemailer`                           | Versand                                                         |
 | Mail-Parsing | `postal-mime` oder `mailparser`        | MIME, Anhänge, Zeichensätze                                     |
@@ -92,29 +92,33 @@ Geholt wird im Main-Prozess, Ergebnisse werden in der DB gecacht (auch
 …) wird kein Domain-Logo genommen, sonst hätte jede Privatperson das Google-
 Logo. Das Nachladen lässt sich in den Einstellungen abschalten (Datenschutz).
 
-### Phase 1 – Grundgerüst _(fast fertig)_
+### Phase 1 – Grundgerüst _(erledigt)_
 
 - [x] SvelteKit-Projekt (`sv create`, TypeScript, Tailwind, Prettier, ESLint,
       Vitest, Playwright), `adapter-static` im SPA-Modus
 - [x] Electron: `electron/main.ts`, `electron/preload.ts`, Dev-Modus (Vite +
       Electron mit Hot-Reload), Build über electron-builder
-- [x] Layout aus Design A (vorerst mit reinem Tailwind)
+- [x] Layout aus Design A
 - [x] CI- und Release-Workflows
-- [ ] shadcn-svelte mit Preset `b3XngymDea`: wartet darauf, dass
-      `shadcn-svelte.com` in der Cloud-Umgebung freigegeben ist (oder lokal
-      `npx shadcn-svelte@latest init --preset b3XngymDea` ausführen)
+- [x] shadcn-svelte mit Preset `b3XngymDea` (Nova, Neutral, Radius Medium,
+      Inter + Geist)
 
 **Ergebnis:** Ein Fenster mit dem Layout aus dem Design, das sich als App bauen
 lässt, und grüne CI.
 
-### Phase 2 – Datenbank
+### Phase 2 – Datenbank _(erledigt)_
 
-`better-sqlite3` kommt dazu und wird von electron-builder für Electron neu
-gebaut (`install-app-deps`).
+- [x] Drizzle-Schema (`electron/db/schema.ts`): Konten, Ordner, Mails,
+      Inhalte, Anhänge, Absender-Avatare
+- [x] Volltextsuche als FTS5-Tabelle, per Trigger aktuell gehalten
+- [x] Migrationen werden mit der App ausgeliefert und beim Start ausgeführt;
+      die DB liegt in `app.getPath('userData')`
+- [x] Tests mit In-Memory-SQLite und gegen die gebaute App
 
-Drizzle-Schema, Migrationen werden mit der App ausgeliefert und beim Start
-ausgeführt. DB liegt in `app.getPath('userData')`. Unit-Tests mit einer
-In-Memory-SQLite.
+Statt `better-sqlite3` nutzen wir `node:sqlite`, das in Electron eingebaut
+ist: kein natives Modul, nichts neu zu bauen, gleiches SQLite in Tests und
+App. Den passenden Treiber hat erst Drizzle 1.0, daher die Version
+`1.0.0-rc.5` (fest gepinnt, bis 1.0 erscheint).
 
 ### Phase 3 – Konten
 

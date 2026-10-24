@@ -1,11 +1,14 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { DatabaseSync } from 'node:sqlite';
+import path from 'node:path';
 import { launchApp } from './app';
 
 let app: ElectronApplication;
 let page: Page;
+let userData: string;
 
 test.beforeAll(async () => {
-	({ app, window: page } = await launchApp());
+	({ app, window: page, userData } = await launchApp());
 });
 
 test.afterAll(async () => {
@@ -22,6 +25,15 @@ test('opens the main window with the three panes', async () => {
 test('shows the app version from the main process', async () => {
 	const version = await app.evaluate(({ app }) => app.getVersion());
 	await expect(page.getByText(`Velo Mail ${version}`)).toBeVisible();
+});
+
+test('creates the database in the profile on first start', async () => {
+	const db = new DatabaseSync(path.join(userData, 'velo-mail.db'), { readOnly: true });
+	const tables = db
+		.prepare("select name from sqlite_master where type = 'table' and name = 'accounts'")
+		.all();
+	db.close();
+	expect(tables).toHaveLength(1);
 });
 
 test('keeps Node out of the renderer', async () => {
