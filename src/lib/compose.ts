@@ -1,6 +1,7 @@
 // Starting points for writing: replies, reply-to-all and forwards.
-import type { ReplySource } from '#lib/api.ts';
+import type { AttachmentInfo, ReplySource } from '#lib/api.ts';
 import { fullDate } from '#lib/format.ts';
+import { escapeHtml, quoteHtml, textToHtml } from '#lib/mail-text.ts';
 
 type Address = { name?: string; address: string };
 
@@ -10,7 +11,10 @@ export interface Draft {
 	cc: string;
 	bcc: string;
 	subject: string;
-	text: string;
+	/** What the editor holds; the plain-text version is made when sending. */
+	html: string;
+	/** Attachments of the forwarded message (or of the draft being continued). */
+	forwarded: AttachmentInfo[];
 	replyTo?: number;
 	inReplyTo?: string;
 	references?: string[];
@@ -33,14 +37,6 @@ export function prefixSubject(subject: string, prefix: 'Re' | 'Fwd'): string {
 	return pattern.test(subject) ? subject : `${prefix}: ${subject}`;
 }
 
-function quote(text: string) {
-	return text
-		.trimEnd()
-		.split('\n')
-		.map((line) => (line.startsWith('>') ? `>${line}` : `> ${line}`))
-		.join('\n');
-}
-
 export function replyDraft(
 	source: ReplySource,
 	kind: 'reply' | 'replyAll' | 'forward',
@@ -48,7 +44,7 @@ export function replyDraft(
 ): Draft {
 	const own = source.accountEmail.toLowerCase();
 	const sender = source.from?.name || source.from?.address || 'unbekannt';
-	const base = { accountId: source.accountId, bcc: '' };
+	const base = { accountId: source.accountId, bcc: '', forwarded: [] };
 
 	if (kind === 'forward') {
 		const header = [
@@ -57,13 +53,14 @@ export function replyDraft(
 			`Datum: ${fullDate(source.date)}`,
 			`Betreff: ${source.subject}`,
 			`An: ${list(source.to)}`
-		].join('\n');
+		];
 		return {
 			...base,
 			to: '',
 			cc: '',
 			subject: prefixSubject(source.subject, 'Fwd'),
-			text: `\n\n${header}\n\n${source.text.trimEnd()}\n`
+			html: `<p>${header.map(escapeHtml).join('<br>')}</p>${textToHtml(source.text)}`,
+			forwarded: source.attachments
 		};
 	}
 
@@ -88,40 +85,9 @@ export function replyDraft(
 		to: list([...to, ...others]),
 		cc: list(cc),
 		subject: prefixSubject(source.subject, 'Re'),
-		text: `\n\nAm ${fullDate(source.date)} schrieb ${sender}:\n${quote(source.text)}\n`,
+		html: quoteHtml(`Am ${fullDate(source.date)} schrieb ${sender}:`, source.text),
 		replyTo: messageId,
 		inReplyTo: source.messageId ?? undefined,
 		references: source.messageId ? [...source.references, source.messageId] : source.references
 	};
-}
-
-/** The signature after the "-- " line that mail apps recognise (RFC 3676). */
-export function signatureBlock(signature: string) {
-	const text = signature.trimEnd();
-	return text ? `-- \n${text}` : '';
-}
-
-/** Puts the signature where you write: above a quote or forwarded message. */
-export function withSignature(text: string, signature: string) {
-	const block = signatureBlock(signature);
-	return block ? `\n\n${block}${text}` : text;
-}
-
-/**
- * Exchanges the signature when the sender account changes. Only a signature
- * still in the text as inserted is replaced; edited ones stay as they are.
- */
-export function swapSignature(text: string, from: string, to: string) {
-	const old = signatureBlock(from);
-	const next = signatureBlock(to);
-	if (old) {
-		const at = text.indexOf(old);
-		const after = text.slice(at + old.length);
-		// Missing, or something was typed onto its last line.
-		if (at === -1 || (after && !after.startsWith('\n'))) return text;
-		const start = text.slice(at - 2, at) === '\n\n' ? at - 2 : at;
-		return text.slice(0, next ? at : start) + next + after;
-	}
-	// No signature yet: add one if nothing was written above a quote.
-	return next && text.startsWith('\n\n') ? withSignature(text, to) : text;
 }

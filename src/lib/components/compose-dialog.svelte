@@ -7,6 +7,7 @@
 	import * as Dialog from '#lib/components/ui/dialog/index.ts';
 	import * as NativeSelect from '#lib/components/ui/native-select/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import RichEditor from './rich-editor.svelte';
 
 	let showCc = $state(false);
 
@@ -70,9 +71,8 @@
 						<span class="w-16 text-sm text-muted-foreground">Von</span>
 						<NativeSelect.Root
 							class="my-2 w-auto border-transparent"
-							value={compose.draft.accountId}
-							onchange={(event: Event) =>
-								compose.changeAccount(Number((event.currentTarget as HTMLSelectElement).value))}
+							bind:value={compose.draft.accountId}
+							onchange={() => compose.accountChanged()}
 						>
 							{#each accounts.list as account (account.id)}
 								<NativeSelect.Option value={account.id}>
@@ -113,15 +113,30 @@
 				</label>
 			</div>
 
-			<label class="flex min-h-[40vh] flex-1 px-5 py-4">
-				<span class="sr-only">Nachricht</span>
-				<textarea
-					class="min-h-0 flex-1 resize-none bg-transparent text-[15px] leading-relaxed outline-none"
-					bind:value={compose.draft.text}></textarea>
-			</label>
+			<RichEditor
+				html={compose.draft.html}
+				onchange={(html) => {
+					compose.draft.html = html;
+					compose.changed();
+				}}
+			/>
 
-			{#if compose.attachments.length > 0}
+			{#if compose.attachments.length > 0 || compose.draft.forwarded.length > 0}
 				<ul aria-label="Anhänge" class="flex flex-wrap gap-2 px-5 pb-3">
+					{#each compose.draft.forwarded as file (file.id)}
+						<li class="flex items-center gap-2 rounded-xl border py-1 pr-1 pl-3 text-sm">
+							<span class="max-w-56 truncate">{file.filename ?? 'Anhang'}</span>
+							<span class="text-xs text-muted-foreground">{fileSize(file.size)}</span>
+							<Button
+								variant="ghost"
+								size="icon-xs"
+								aria-label="{file.filename ?? 'Anhang'} entfernen"
+								onclick={() => compose.unforward(file.id)}
+							>
+								<X />
+							</Button>
+						</li>
+					{/each}
 					{#each compose.attachments as file (file.path)}
 						<li class="flex items-center gap-2 rounded-xl border py-1 pr-1 pl-3 text-sm">
 							<span class="max-w-56 truncate">{file.name}</span>
