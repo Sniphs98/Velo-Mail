@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Inbox, PenLine, Plus, Settings2 } from '@lucide/svelte';
-	import { velo, type AppInfo } from '#lib/api.ts';
 	import { resolve } from '$app/paths';
+	import { velo, type AppInfo } from '#lib/api.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
 
 	let info = $state<AppInfo>();
 
@@ -14,43 +15,35 @@
 
 <nav
 	aria-label="Konten und Ordner"
-	class="flex w-60 shrink-0 flex-col gap-1 rounded-2xl border border-zinc-200 bg-white p-3.5"
+	class="flex w-60 shrink-0 flex-col gap-1 rounded-2xl border bg-card p-3.5"
 >
-	<button
-		type="button"
-		disabled
-		class="mb-3 flex h-11 items-center justify-center gap-2 rounded-xl bg-zinc-900 text-sm font-medium text-zinc-50 disabled:opacity-50"
-	>
-		<PenLine class="size-4" aria-hidden="true" />
+	<Button disabled size="lg" class="mb-3 h-11 rounded-xl">
+		<PenLine aria-hidden="true" />
 		Neue Nachricht
-	</button>
+	</Button>
 
-	<a
+	<Button
 		href={resolve('/')}
 		aria-current="page"
-		class="flex h-10 items-center gap-2.5 rounded-lg bg-zinc-100 px-2.5 text-sm font-medium"
+		variant="secondary"
+		size="lg"
+		class="h-10 justify-start gap-2.5"
 	>
 		<Inbox class="size-[18px]" aria-hidden="true" />
 		Alle Posteingänge
-	</a>
+	</Button>
 
 	<div class="flex-1"></div>
 
-	<button
-		type="button"
-		class="flex h-10 items-center gap-2.5 rounded-lg px-2.5 text-sm text-zinc-700 hover:bg-zinc-100"
-	>
+	<Button variant="ghost" size="lg" class="h-10 justify-start gap-2.5 font-normal">
 		<Plus class="size-[18px]" aria-hidden="true" />
 		Konto hinzufügen
-	</button>
-	<button
-		type="button"
-		class="flex h-10 items-center gap-2.5 rounded-lg px-2.5 text-sm text-zinc-700 hover:bg-zinc-100"
-	>
+	</Button>
+	<Button variant="ghost" size="lg" class="h-10 justify-start gap-2.5 font-normal">
 		<Settings2 class="size-[18px]" aria-hidden="true" />
 		Einstellungen
-	</button>
+	</Button>
 	{#if info}
-		<p class="px-2.5 pt-2 text-xs text-zinc-500">{info.name} {info.version}</p>
+		<p class="px-2.5 pt-2 text-xs text-muted-foreground">{info.name} {info.version}</p>
 	{/if}
 </nav>
