@@ -25,6 +25,8 @@ describe('SettingsDialog', () => {
 		expect(api.settings.set).toHaveBeenCalledWith({ notifications: false });
 		await page.getByRole('switch', { name: 'Im Hintergrund weiterlaufen' }).click();
 		expect(api.settings.set).toHaveBeenCalledWith({ tray: true });
+		await page.getByRole('switch', { name: 'Absenderbilder' }).click();
+		expect(api.settings.set).toHaveBeenCalledWith({ avatars: false });
 	});
 
 	it('saves the name and signature of an account', async () => {
