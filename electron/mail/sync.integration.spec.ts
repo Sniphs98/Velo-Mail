@@ -185,6 +185,37 @@ describe('SyncManager against GreenMail', () => {
 		expect((await listMessages(db, { inboxes: true }))[0].seen).toBe(true);
 	});
 
+	it('fetches contents ahead for the preview, and attachments on demand', async () => {
+		await sendTestMail({
+			subject: 'Angebot',
+			text: 'Anbei das Angebot.\n\nBeste Grüße\nThomas',
+			html: '<p>Anbei das <b>Angebot</b>.</p><img src="https://tracker.example/p.gif">',
+			attachments: [{ filename: 'Angebot.pdf', content: Buffer.from('%PDF-1.4 Angebot') }]
+		});
+		manager = new SyncManager({
+			db,
+			credentials: async () => ({ settings, password: greenMail.user.password }),
+			onChanged: () => {},
+			onStatus: () => {}
+		});
+		await manager.start(accountId);
+
+		const [message] = await listMessages(db, { inboxes: true });
+		expect(message.snippet).toBe('Anbei das Angebot. Beste Grüße Thomas');
+		expect(message.hasAttachments).toBe(true);
+
+		const body = await manager.body(message.id);
+		expect(body.html).toContain('<b>Angebot</b>');
+		expect(body.remoteContent).toBe(true);
+		expect(body.attachments).toEqual([
+			expect.objectContaining({ filename: 'Angebot.pdf', size: 16 })
+		]);
+
+		const file = await manager.attachment(body.attachments[0].id);
+		expect(file.content.toString()).toBe('%PDF-1.4 Angebot');
+		expect(file.filename).toBe('Angebot.pdf');
+	});
+
 	it('reports when it cannot log in', async () => {
 		const onStatus = vi.fn();
 		manager = new SyncManager({

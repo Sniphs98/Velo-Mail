@@ -5,7 +5,8 @@ import { ImapFlow } from 'imapflow';
 import type { ServerSettings, SyncStatus } from '../../src/lib/api';
 import { imapOptions } from '../accounts/connection';
 import type { Database } from '../db';
-import { findMessage } from './queries';
+import { fetchAttachment, fetchBody } from './body';
+import { findAttachment, findBody, findMessage, withoutBody } from './queries';
 import { setSeen, syncMailbox, syncMailboxes } from './sync';
 
 export interface SyncManagerDeps {
@@ -16,6 +17,8 @@ export interface SyncManagerDeps {
 	onStatus(status: SyncStatus): void;
 	/** Minutes between full rounds; IDLE covers the inbox in between. */
 	intervalMinutes?: number;
+	/** Newest inbox messages whose content is fetched ahead, for the preview line. */
+	prefetch?: number;
 }
 
 interface Session {
@@ -103,12 +106,50 @@ export class SyncManager {
 	async setSeen(messageId: number, seen: boolean) {
 		const found = await findMessage(this.deps.db, messageId);
 		if (!found || found.message.seen === seen) return;
-		const session = this.sessions.get(found.mailbox.accountId);
-		if (!session) throw new Error('Das Konto ist gerade nicht verbunden.');
+		const session = this.connected(found.mailbox.accountId);
 		await this.run(session, () =>
 			setSeen(this.deps.db, session.client, found.mailbox, found.message.uid, seen)
 		);
 		this.deps.onChanged(found.mailbox.accountId);
+	}
+
+	/** The content of a message, downloading it if needed. */
+	async body(messageId: number) {
+		const stored = await findBody(this.deps.db, messageId);
+		if (stored) return stored;
+		const found = await findMessage(this.deps.db, messageId);
+		if (!found) throw new Error('Die Nachricht gibt es nicht mehr.');
+		const session = this.connected(found.mailbox.accountId);
+		await this.run(session, () =>
+			fetchBody(this.deps.db, session.client, found.mailbox, found.message)
+		);
+		this.deps.onChanged(found.mailbox.accountId);
+		return (await findBody(this.deps.db, messageId))!;
+	}
+
+	async attachment(attachmentId: number) {
+		const found = await findAttachment(this.deps.db, attachmentId);
+		if (!found) throw new Error('Den Anhang gibt es nicht mehr.');
+		const session = this.connected(found.mailbox.accountId);
+		const content = await this.run(session, () =>
+			fetchAttachment(
+				session.client,
+				found.mailbox,
+				found.message.uid,
+				Number(found.attachment.part)
+			)
+		);
+		return {
+			content,
+			filename: found.attachment.filename,
+			contentType: found.attachment.contentType
+		};
+	}
+
+	private connected(accountId: number) {
+		const session = this.sessions.get(accountId);
+		if (!session) throw new Error('Das Konto ist gerade nicht verbunden.');
+		return session;
 	}
 
 	private schedule(accountId: number, session: Session, scope: 'all' | 'inbox') {
@@ -125,11 +166,24 @@ export class SyncManager {
 			}
 			// A round can also bring new folders.
 			if (changed || scope === 'all') this.deps.onChanged(accountId);
+			if (inbox && (await this.prefetch(session, inbox))) this.deps.onChanged(accountId);
 			if (scope === 'all') {
 				this.failures.delete(accountId);
 				this.deps.onStatus({ accountId, state: 'ready' });
 			}
 		}).catch((error) => this.fail(accountId, session, error));
+	}
+
+	/** Fetches the content of the newest inbox messages; true if any. */
+	private async prefetch(session: Session, inbox: Parameters<typeof fetchBody>[2]) {
+		const pending = await withoutBody(this.deps.db, inbox.id, this.deps.prefetch ?? 30);
+		for (const { id } of pending) {
+			const found = await findMessage(this.deps.db, id);
+			// One broken message must not stop the others.
+			if (found)
+				await fetchBody(this.deps.db, session.client, inbox, found.message).catch(() => {});
+		}
+		return pending.length > 0;
 	}
 
 	/** Queues a job on the account's connection. */

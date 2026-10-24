@@ -81,6 +81,22 @@ export interface MessageSummary {
 	hasAttachments: boolean;
 }
 
+export interface AttachmentInfo {
+	id: number;
+	filename: string | null;
+	contentType: string;
+	size: number;
+}
+
+export interface MessageBody {
+	html: string | null;
+	text: string | null;
+	/** The HTML loads images or styles from the internet; blocked until allowed. */
+	remoteContent: boolean;
+	/** Attachments, without images shown inside the HTML. */
+	attachments: AttachmentInfo[];
+}
+
 /** Which messages to list: one mailbox, or the inboxes of all accounts. */
 export type MessageQuery = { mailboxId: number } | { inboxes: true };
 
@@ -109,6 +125,12 @@ export interface VeloApi {
 		mailboxes(): Promise<Mailbox[]>;
 		messages(query: MessageQuery): Promise<MessageSummary[]>;
 		setSeen(messageId: number, seen: boolean): Promise<void>;
+		/** The content, downloaded on first use. */
+		body(messageId: number): Promise<MessageBody>;
+		/** Opens an attachment with the system's app; false if that is not allowed for its type. */
+		openAttachment(attachmentId: number): Promise<boolean>;
+		/** Asks where to save; false if cancelled. */
+		saveAttachment(attachmentId: number): Promise<boolean>;
 		/** Syncs an account (or all) now instead of waiting for the next round. */
 		sync(accountId?: number): Promise<void>;
 		/** Called whenever the cache changed; returns a function that unsubscribes. */
@@ -136,6 +158,9 @@ export const IPC = {
 	mailMessages: 'mail:messages',
 	mailSetSeen: 'mail:set-seen',
 	mailSync: 'mail:sync',
+	mailBody: 'mail:body',
+	mailOpenAttachment: 'mail:open-attachment',
+	mailSaveAttachment: 'mail:save-attachment',
 	/** Main → renderer. */
 	mailChanged: 'mail:changed',
 	mailStatus: 'mail:status'
