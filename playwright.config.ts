@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test';
 // as its mail server.
 export default defineConfig({
 	testDir: 'e2e',
-	globalSetup: './scripts/greenmail-setup.mjs',
+	globalSetup: './e2e/global-setup.ts',
 	testMatch: '**/*.e2e.ts',
 	reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list'
 });
