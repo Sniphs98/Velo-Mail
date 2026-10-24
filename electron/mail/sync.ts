@@ -2,7 +2,7 @@
 // new messages by UID, flag changes (via CONDSTORE when the server has it),
 // and messages deleted on the server. Bodies are fetched when a message is
 // opened (phase 5).
-import { and, eq, inArray, max } from 'drizzle-orm';
+import { and, eq, inArray, max, min } from 'drizzle-orm';
 import type { FetchMessageObject, ImapFlow, ListResponse } from 'imapflow';
 import type { Database } from '../db';
 import { mailboxes, messages, type Address } from '../db/schema';
@@ -49,8 +49,20 @@ export async function syncMailboxes(db: Database, accountId: number, client: Ima
 	return stored.filter((box) => paths.has(box.path));
 }
 
+/** German names for special folders, whatever the server calls them. */
+const roleNames: Record<Role, string> = {
+	inbox: 'Posteingang',
+	sent: 'Gesendet',
+	drafts: 'Entwürfe',
+	trash: 'Papierkorb',
+	archive: 'Archiv',
+	junk: 'Spam',
+	all: 'Alle Nachrichten'
+};
+
 function displayName(box: ListResponse) {
-	return box.specialUse === '\\Inbox' ? 'Posteingang' : box.name;
+	const role = box.specialUse && roles[box.specialUse];
+	return role ? roleNames[role] : box.name;
 }
 
 export interface MailboxChanges {
@@ -102,6 +114,60 @@ export async function syncMailbox(
 	}
 }
 
+const fetchQuery = {
+	uid: true,
+	flags: true,
+	envelope: true,
+	internalDate: true,
+	size: true,
+	bodyStructure: true,
+	headers: ['references']
+};
+
+async function insertRows(db: Database, rows: (typeof messages.$inferInsert)[]) {
+	for (let i = 0; i < rows.length; i += 200) {
+		await db
+			.insert(messages)
+			.values(rows.slice(i, i + 200))
+			.onConflictDoNothing();
+	}
+}
+
+/**
+ * Searches a folder on the server and stores the hits the cache does not have
+ * yet (older than the first sync's window); the caller holds no lock.
+ */
+export async function searchOnServer(
+	db: Database,
+	client: ImapFlow,
+	mailbox: typeof mailboxes.$inferSelect,
+	text: string,
+	limit = 200
+) {
+	const lock = await client.getMailboxLock(mailbox.path);
+	try {
+		const [{ oldest }] = await db
+			.select({ oldest: min(messages.uid) })
+			.from(messages)
+			.where(eq(messages.mailboxId, mailbox.id));
+		// Everything from the oldest cached message on is synced already; newer
+		// hits come with the next sync, which counts on having every UID above
+		// the newest one it stored.
+		if (oldest === null) return 0;
+		const found = (await client.search({ text }, { uid: true })) || [];
+		const missing = found.filter((uid) => uid < oldest).slice(-limit);
+		if (missing.length === 0) return 0;
+		const rows: (typeof messages.$inferInsert)[] = [];
+		for await (const message of client.fetch(missing.join(','), fetchQuery, { uid: true })) {
+			rows.push(toRow(mailbox.id, message));
+		}
+		await insertRows(db, rows);
+		return rows.length;
+	} finally {
+		lock.release();
+	}
+}
+
 async function fetchNew(db: Database, client: ImapFlow, mailboxId: number, exists: number) {
 	const [{ last }] = await db
 		.select({ last: max(messages.uid) })
@@ -111,29 +177,12 @@ async function fetchNew(db: Database, client: ImapFlow, mailboxId: number, exist
 	// First sync: the newest messages by sequence number. Later: by UID.
 	const range = last ? `${last + 1}:*` : `${Math.max(1, exists - initialLimit + 1)}:*`;
 	const rows: (typeof messages.$inferInsert)[] = [];
-	for await (const message of client.fetch(
-		range,
-		{
-			uid: true,
-			flags: true,
-			envelope: true,
-			internalDate: true,
-			size: true,
-			bodyStructure: true,
-			headers: ['references']
-		},
-		{ uid: Boolean(last) }
-	)) {
+	for await (const message of client.fetch(range, fetchQuery, { uid: Boolean(last) })) {
 		// "n:*" always returns the last message, even if it is older than n.
 		if (last && message.uid <= last) continue;
 		rows.push(toRow(mailboxId, message));
 	}
-	for (let i = 0; i < rows.length; i += 200) {
-		await db
-			.insert(messages)
-			.values(rows.slice(i, i + 200))
-			.onConflictDoNothing();
-	}
+	await insertRows(db, rows);
 	return rows.length;
 }
 

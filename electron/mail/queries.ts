@@ -2,6 +2,7 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Mailbox, MessageBody, MessageQuery, MessageSummary } from '../../src/lib/api';
 import { hasRemoteContent } from './body';
+import { toFtsQuery } from './search';
 import type { Database } from '../db';
 import { attachments, mailboxes, messageBodies, messages, trustedSenders } from '../db/schema';
 
@@ -197,4 +198,24 @@ export async function withoutBody(db: Database, mailboxId: number, limit: number
 /** Remote images of this sender load without asking from now on. */
 export async function trustSender(db: Database, address: string) {
 	await db.insert(trustedSenders).values({ address: address.toLowerCase() }).onConflictDoNothing();
+}
+
+/** Messages matching the search, newest first, across all accounts and folders. */
+export async function searchMessages(
+	db: Database,
+	input: string,
+	limit = 200
+): Promise<MessageSummary[]> {
+	const query = toFtsQuery(input);
+	if (!query) return [];
+	const rows = await db
+		.select(summary)
+		.from(messages)
+		.innerJoin(mailboxes, eq(mailboxes.id, messages.mailboxId))
+		.where(
+			inArray(messages.id, sql`(select rowid from messages_fts where messages_fts match ${query})`)
+		)
+		.orderBy(desc(messages.date), desc(messages.id))
+		.limit(limit);
+	return rows.map((row) => ({ ...row, date: row.date.getTime(), threadSize: 1 }));
 }

@@ -3,7 +3,14 @@ import type { FetchMessageObject } from 'imapflow';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, type Database } from '../db';
 import { accounts, mailboxes, messageBodies, messages } from '../db/schema';
-import { findBody, listMailboxes, listMessages, listThread, trustSender } from './queries';
+import {
+	findBody,
+	listMailboxes,
+	listMessages,
+	listThread,
+	searchMessages,
+	trustSender
+} from './queries';
 import { parseReferences, threadKey, toRow } from './sync';
 
 let db: Database;
@@ -137,6 +144,31 @@ describe('conversations', () => {
 		expect((await listThread(db, first)).map((m) => m.subject)).toEqual(['Planung', 'Re: Planung']);
 		const lonely = await message(inbox, 4, 'Ohne ID');
 		expect((await listThread(db, lonely)).map((m) => m.subject)).toEqual(['Ohne ID']);
+	});
+});
+
+describe('searchMessages', () => {
+	it('finds by subject, sender and content across folders, newest first', async () => {
+		const a = await account('a@beispiel.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		const archive = await mailbox(a, 'Archiv', 'archive');
+		const offer = await message(inbox, 1, 'Angebot Relaunch');
+		await message(archive, 2, 'Re: Angebot Relaunch');
+		const invoice = await message(inbox, 3, 'Rechnung Oktober');
+		await db
+			.insert(messageBodies)
+			.values({ messageId: invoice, text: 'Bitte überweisen Sie bis Freitag' });
+
+		expect((await searchMessages(db, 'angeb')).map((m) => m.subject)).toEqual([
+			'Re: Angebot Relaunch',
+			'Angebot Relaunch'
+		]);
+		expect((await searchMessages(db, 'uberweisen')).map((m) => m.id)).toEqual([invoice]);
+		expect((await searchMessages(db, 'von:anna betreff:relaunch')).map((m) => m.id)).toContain(
+			offer
+		);
+		expect(await searchMessages(db, 'betreff:freitag')).toEqual([]);
+		expect(await searchMessages(db, '"')).toEqual([]);
 	});
 });
 

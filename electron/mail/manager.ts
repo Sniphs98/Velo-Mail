@@ -12,7 +12,7 @@ import { buildMessage, savesSentCopy } from './outgoing';
 import type { Database } from '../db';
 import { fetchAttachment, fetchBody } from './body';
 import { findAttachment, findBody, findMessage, withoutBody } from './queries';
-import { setSeen, syncMailbox, syncMailboxes } from './sync';
+import { searchOnServer, setSeen, syncMailbox, syncMailboxes } from './sync';
 
 export interface SyncManagerDeps {
 	db: Database;
@@ -149,6 +149,31 @@ export class SyncManager {
 			filename: found.attachment.filename,
 			contentType: found.attachment.contentType
 		};
+	}
+
+	/**
+	 * Searches every connected account's folders (not trash and spam) on the
+	 * server and stores older hits the cache did not have; returns how many.
+	 */
+	async searchServer(text: string) {
+		let added = 0;
+		for (const [accountId, session] of this.sessions) {
+			const boxes = await this.deps.db
+				.select()
+				.from(mailboxes)
+				.where(eq(mailboxes.accountId, accountId));
+			const searchable = boxes.filter((box) => box.role !== 'trash' && box.role !== 'junk');
+			const found = await this.run(session, async () => {
+				let count = 0;
+				for (const box of searchable) {
+					count += await searchOnServer(this.deps.db, session.client, box, text);
+				}
+				return count;
+			});
+			if (found > 0) this.deps.onChanged(accountId);
+			added += found;
+		}
+		return added;
 	}
 
 	/** What a reply or forward needs: headers, recipients and the text to quote. */

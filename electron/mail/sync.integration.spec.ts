@@ -8,7 +8,7 @@ import { imapOptions } from '../accounts/connection';
 import { openDatabase, type Database } from '../db';
 import { accounts, mailboxes, messages } from '../db/schema';
 import { SyncManager } from './manager';
-import { listMailboxes, listMessages, listThread } from './queries';
+import { listMailboxes, listMessages, listThread, searchMessages } from './queries';
 import { syncMailbox, syncMailboxes } from './sync';
 
 const settings: ServerSettings = {
@@ -278,6 +278,12 @@ describe('writing against GreenMail', () => {
 		});
 	}
 
+	/** The server path of the account's folder with that role. */
+	async function pathOf(role: string) {
+		const boxes = await db.select().from(mailboxes);
+		return boxes.find((box) => box.role === role)?.path;
+	}
+
 	beforeEach(async () => {
 		manager = new SyncManager({
 			db,
@@ -313,15 +319,14 @@ describe('writing against GreenMail', () => {
 
 		expect(await count('INBOX', { subject: 'Re: Frage' })).toBe(1);
 		expect(await count('INBOX', { answered: true, subject: 'Frage' })).toBe(1);
-		const sentPath = (await listMailboxes(db)).find((box) => box.role === 'sent')!.name;
+		const sentPath = (await pathOf('sent'))!;
 		expect(await count(sentPath)).toBe(sentBefore + 1);
 		// The reply joins the question's conversation, sent copy included.
 		expect((await listThread(db, question.id)).map((m) => m.subject)).toContain('Re: Frage');
 	});
 
 	it('saves a draft, replaces it, and deletes it', async () => {
-		const drafts = async () =>
-			(await listMailboxes(db)).find((box) => box.role === 'drafts')?.name ?? 'Drafts';
+		const drafts = async () => (await pathOf('drafts')) ?? 'Drafts';
 		const first = await manager.saveDraft(outgoing({ subject: 'Entwurf', to: '' }));
 		expect(first).toBeTypeOf('number');
 		const before = await count(await drafts());
@@ -332,6 +337,19 @@ describe('writing against GreenMail', () => {
 
 		await manager.deleteDraft(accountId, second!);
 		expect(await count(await drafts())).toBe(before - 1);
+	});
+
+	it('finds older messages on the server that the cache does not have', async () => {
+		await sendTestMail({ subject: 'Uralte Rechnung', text: 'Rechnungsnummer 4711' });
+		await sendTestMail({ subject: 'Neu' });
+		await manager.syncNow(accountId);
+		// As if the old one were outside the first sync's window.
+		await db.delete(messages).where(eq(messages.subject, 'Uralte Rechnung'));
+		expect(await searchMessages(db, '4711')).toEqual([]);
+
+		expect(await manager.searchServer('Rechnung')).toBe(1);
+		expect((await searchMessages(db, 'uralte')).map((m) => m.subject)).toEqual(['Uralte Rechnung']);
+		expect(await manager.searchServer('Rechnung')).toBe(0);
 	});
 
 	it('archives and deletes messages', async () => {
@@ -346,13 +364,8 @@ describe('writing against GreenMail', () => {
 		await manager.move([trash.id], 'trash');
 
 		expect(await count('INBOX')).toBe(0);
-		const boxes = await listMailboxes(db);
-		expect(
-			await count(boxes.find((b) => b.role === 'archive')!.name, { subject: 'Ins Archiv' })
-		).toBe(1);
-		expect(
-			await count(boxes.find((b) => b.role === 'trash')!.name, { subject: 'In den Papierkorb' })
-		).toBe(1);
+		expect(await count((await pathOf('archive'))!, { subject: 'Ins Archiv' })).toBe(1);
+		expect(await count((await pathOf('trash'))!, { subject: 'In den Papierkorb' })).toBe(1);
 		expect(await listMessages(db, { inboxes: true })).toEqual([]);
 	});
 });

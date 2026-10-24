@@ -15,6 +15,8 @@ class Mail {
 	/** The open conversation, oldest first. */
 	thread = $state<MessageSummary[]>([]);
 	status = $state<Record<number, SyncStatus>>({});
+	/** While not empty, the list shows search results instead of the folder. */
+	query = $state('');
 
 	unreadInboxes = $derived(
 		this.mailboxes.filter((m) => m.role === 'inbox').reduce((sum, m) => sum + m.unread, 0)
@@ -23,15 +25,33 @@ class Mail {
 	async load() {
 		const api = velo();
 		if (!api) return;
+		const query = this.query.trim();
 		const [mailboxes, messages] = await Promise.all([
 			api.mail.mailboxes(),
-			api.mail.messages($state.snapshot(this.view))
+			query ? api.mail.search(query) : api.mail.messages($state.snapshot(this.view))
 		]);
+		// A newer search may have started meanwhile.
+		if (query !== this.query.trim()) return;
 		this.mailboxes = mailboxes;
 		this.messages = messages;
 	}
 
+	async search(query: string) {
+		this.query = query;
+		this.selectedId = null;
+		this.thread = [];
+		await this.load();
+	}
+
+	/** Searches the servers for older messages; returns how many were found. */
+	async searchServer() {
+		const found = (await velo()?.mail.searchServer(this.query.trim())) ?? 0;
+		await this.load();
+		return found;
+	}
+
 	async show(view: MessageQuery) {
+		this.query = '';
 		this.view = view;
 		this.selectedId = null;
 		this.thread = [];

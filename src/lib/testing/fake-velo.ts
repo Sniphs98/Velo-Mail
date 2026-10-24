@@ -59,6 +59,8 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			saveDraft: vi.fn(async () => 99),
 			deleteDraft: vi.fn(async () => {}),
 			move: vi.fn(async () => {}),
+			search: vi.fn(async () => []),
+			searchServer: vi.fn(async () => 0),
 			trustSender: vi.fn(async () => {}),
 			body: vi.fn(async () => ({
 				html: null,
