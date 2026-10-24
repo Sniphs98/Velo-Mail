@@ -60,7 +60,19 @@ export default defineConfig({
 						'electron/**/*.{test,spec}.ts',
 						'scripts/**/*.{test,spec}.js'
 					],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', '**/*.integration.spec.ts']
+				}
+			},
+
+			{
+				extends: './vite.config.ts',
+				test: {
+					// Against a real mail server (GreenMail, needs Java).
+					name: 'integration',
+					environment: 'node',
+					include: ['electron/**/*.integration.spec.ts'],
+					globalSetup: ['scripts/greenmail-setup.mjs'],
+					testTimeout: 30_000
 				}
 			}
 		]
