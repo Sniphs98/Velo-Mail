@@ -206,6 +206,21 @@ Lokale Volltextsuche über FTS5 (Absender, Betreff, Inhalt), Fallback auf IMAP
 Dunkelmodus, Desktop-Benachrichtigungen, Tray-Icon, Ungelesen-Zähler im Dock,
 Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
 
+- [x] Einstellungen (Allgemein, Konten), gespeichert in der Tabelle `settings`
+- [x] Dunkelmodus: System, Hell oder Dunkel; HTML-Mails behalten ihren hellen
+      Hintergrund
+- [x] Signatur pro Konto, unter dem eigenen Text und über dem Zitat, mit „-- “
+      abgetrennt; wechselt mit dem Absenderkonto
+- [x] Absendername nachträglich ändern
+- [x] Benachrichtigung bei neuer ungelesener Mail im Posteingang, solange das
+      Fenster im Hintergrund ist; ab vier Mails eine Zusammenfassung; Klick
+      öffnet die Mail
+- [x] Ungelesen-Zähler am App-Symbol (macOS-Dock, Linux-Launcher)
+- [x] Tray-Symbol (optional): Fenster schließen lässt die App weiterlaufen
+- [x] App-Icon (`resources/icon.svg`, PNGs per `node scripts/icons.mjs`)
+- [ ] Absenderbilder: BIMI, Favicon, Gravatar (zweiter Teil von Phase 8)
+- [ ] OAuth2 für Gmail/Outlook (zweiter Teil; braucht registrierte Client-IDs)
+
 ## Tests
 
 | Ebene       | Werkzeug                         | Was                                                                               |
