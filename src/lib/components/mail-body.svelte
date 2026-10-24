@@ -96,14 +96,17 @@
 	{/if}
 
 	{#if srcdoc}
-		<iframe
-			title="Inhalt der Nachricht"
-			class="w-full border-0"
-			style:height="{height}px"
-			sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-			{srcdoc}
-			onload={fit}
-		></iframe>
+		<!-- HTML mails are designed for a light page, so they keep one in dark mode. -->
+		<div class="dark:rounded-xl dark:bg-white dark:p-4">
+			<iframe
+				title="Inhalt der Nachricht"
+				class="w-full border-0"
+				style:height="{height}px"
+				sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+				{srcdoc}
+				onload={fit}
+			></iframe>
+		</div>
 	{:else if body.text}
 		<div class="text-[15px] leading-relaxed break-words whitespace-pre-wrap">{body.text}</div>
 	{:else}
