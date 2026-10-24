@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { listDate } from './format';
+import { fileSize, listDate } from './format';
 
 const now = new Date(2026, 9, 24, 15, 0); // Saturday
 
@@ -14,5 +14,13 @@ describe('listDate', () => {
 
 	it('shows the time for dates in the future (wrong clocks)', () => {
 		expect(listDate(new Date(2026, 9, 25, 8, 0).getTime(), now)).toBe('08:00');
+	});
+});
+
+describe('fileSize', () => {
+	it('picks a readable unit', () => {
+		expect(fileSize(512)).toBe('512 B');
+		expect(fileSize(12_800)).toBe('13 KB');
+		expect(fileSize(3_500_000)).toBe('3,3 MB');
 	});
 });

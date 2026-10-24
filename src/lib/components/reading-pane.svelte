@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Account, MessageSummary } from '#lib/api.ts';
 	import { fullDate } from '#lib/format.ts';
+	import MailBody from './mail-body.svelte';
 	import SenderAvatar from './sender-avatar.svelte';
 
 	let { message, account }: { message: MessageSummary; account?: Account } = $props();
@@ -34,7 +35,5 @@
 			</span>
 		{/if}
 	</div>
-	<p class="text-sm text-muted-foreground">
-		Der Inhalt der Nachricht wird im nächsten Schritt geladen.
-	</p>
+	<MailBody messageId={message.id} />
 </div>

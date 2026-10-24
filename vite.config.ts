@@ -24,7 +24,9 @@ export default defineConfig({
 					'default-src': ['self'],
 					'script-src': ['self'],
 					'style-src': ['self', 'unsafe-inline'],
-					'img-src': ['self', 'data:', 'blob:'],
+					// https: only takes effect inside a mail whose remote content was allowed;
+					// the mail's own policy blocks it otherwise (src/lib/mail-html.ts).
+					'img-src': ['self', 'data:', 'blob:', 'https:'],
 					'font-src': ['self', 'data:'],
 					'object-src': ['none'],
 					'base-uri': ['none'],

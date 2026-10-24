@@ -27,3 +27,17 @@ export function listDate(ms: number, now = new Date()): string {
 export function fullDate(ms: number): string {
 	return full.format(new Date(ms));
 }
+
+/** File size like "12 KB" or "3,4 MB". */
+export function fileSize(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	const units = ['KB', 'MB', 'GB'];
+	let value = bytes / 1024;
+	let unit = 0;
+	while (value >= 1024 && unit < units.length - 1) {
+		value /= 1024;
+		unit++;
+	}
+	const digits = value < 10 ? 1 : 0;
+	return `${value.toLocaleString('de-DE', { maximumFractionDigits: digits })} ${units[unit]}`;
+}
