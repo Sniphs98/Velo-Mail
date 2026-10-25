@@ -23,6 +23,7 @@ import type { Database } from './db';
 import type { Desktop } from './desktop';
 import { readSettings, writeSettings } from './settings';
 import { Updater } from './update/updater';
+import { Invitations } from './calendar/invitations';
 import { CalendarManager } from './calendar/manager';
 import { CalendarSources } from './calendar/service';
 import { SyncManager } from './mail/manager';
@@ -202,6 +203,29 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	);
 	handle(IPC.calendarDeleteEvent, (_event, eventId: unknown) => calendar.delete(id.parse(eventId)));
 	handle(IPC.calendarSync, () => calendar.syncAll());
+
+	const invitations = new Invitations({
+		db,
+		calendar,
+		body: (messageId) => sync.body(messageId),
+		send: (message, ics) => sync.send(message, ics),
+		account: async (accountId) => (await accounts.list()).find((a) => a.id === accountId) ?? null
+	});
+	handle(IPC.mailInvitation, (_event, messageId: unknown) =>
+		invitations.invitation(id.parse(messageId))
+	);
+	handle(
+		IPC.mailRespondToInvitation,
+		(_event, messageId: unknown, response: unknown, calendarId: unknown) =>
+			invitations.respond(
+				id.parse(messageId),
+				z.enum(['accepted', 'tentative', 'declined']).parse(response),
+				id.nullable().parse(calendarId)
+			)
+	);
+	handle(IPC.mailRemoveCancelledEvent, (_event, messageId: unknown) =>
+		invitations.removeCancelled(id.parse(messageId))
+	);
 	handle(IPC.appCheckUpdate, () => updater.check());
 	handle(IPC.appInstallUpdate, () => updater.install());
 	handle(IPC.appRestartToUpdate, () => updater.restart());

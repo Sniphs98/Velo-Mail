@@ -18,7 +18,44 @@ const pixel = Buffer.from(
 	'base64'
 );
 
+const invite = [
+	'BEGIN:VCALENDAR',
+	'VERSION:2.0',
+	'METHOD:REQUEST',
+	'BEGIN:VEVENT',
+	'UID:x@firma.de',
+	'DTSTART:20261103T090000Z',
+	'SUMMARY:Planung',
+	'END:VEVENT',
+	'END:VCALENDAR',
+	''
+].join('\r\n');
+
 describe('parseMessage', () => {
+	it('keeps the calendar part of an invitation', async () => {
+		const parsed = await parseMessage(
+			await compose({ text: 'Einladung', icalEvent: { method: 'REQUEST', content: invite } })
+		);
+		expect(parsed.calendar).toContain('SUMMARY:Planung');
+		expect(parsed.text).toBe('Einladung');
+		// The calendar part is shown as the invitation, not as an attachment;
+		// an invite.ics with a name (Google sends both) stays one.
+		expect(parsed.attachments).toEqual([
+			expect.objectContaining({ contentType: 'text/calendar', filename: null, inline: true }),
+			expect.objectContaining({ filename: 'invite.ics', inline: false })
+		]);
+	});
+
+	it('takes no calendar part without an event in it', async () => {
+		const parsed = await parseMessage(
+			await compose({
+				text: 'Kalender',
+				attachments: [{ filename: 'leer.ics', content: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n' }]
+			})
+		);
+		expect(parsed.calendar).toBeNull();
+	});
+
 	it('reads plain text and makes a snippet without quoted lines', async () => {
 		const parsed = await parseMessage(
 			await compose({

@@ -28,6 +28,31 @@ export function fullDate(ms: number): string {
 	return full.format(new Date(ms));
 }
 
+const eventDay = new Intl.DateTimeFormat('de-DE', {
+	weekday: 'short',
+	day: 'numeric',
+	month: 'long',
+	year: 'numeric'
+});
+
+/**
+ * When an event takes place, e.g. "Di., 3. November 2026 · 10:00–11:00" or
+ * "Di., 3. November 2026 (ganztägig)". All-day events end the midnight after.
+ */
+export function eventTime(start: number, end: number, allDay: boolean): string {
+	const from = new Date(start);
+	if (allDay) {
+		const last = new Date(Math.max(start, end - 1));
+		return startOfDay(last) === startOfDay(from)
+			? `${eventDay.format(from)} (ganztägig)`
+			: `${eventDay.format(from)} – ${eventDay.format(last)}`;
+	}
+	const to = new Date(end);
+	return startOfDay(to) === startOfDay(from) || end === start
+		? `${eventDay.format(from)} · ${time.format(from)}–${time.format(to)}`
+		: `${eventDay.format(from)}, ${time.format(from)} – ${eventDay.format(to)}, ${time.format(to)}`;
+}
+
 /** File size like "12 KB" or "3,4 MB". */
 export function fileSize(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;

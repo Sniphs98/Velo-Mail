@@ -17,7 +17,10 @@ export const greenMail = {
 	imapPort: 3143,
 	smtpPort: 3025,
 	/** Logs in with the full address. */
-	user: { email: 'anna@beispiel.test', password: 'geheim' }
+	user: { email: 'anna@beispiel.test', password: 'geheim' },
+	/** Mailboxes of their own for tests that run alongside those using `user`. */
+	invitee: { email: 'ben@beispiel.test', password: 'geheim' },
+	organizer: { email: 'lea@beispiel.test', password: 'geheim' }
 };
 
 function download() {
@@ -42,14 +45,16 @@ function portOpen(port) {
 /** Starts GreenMail and resolves once IMAP and SMTP accept connections. */
 export async function startGreenMail() {
 	download();
-	const { user } = greenMail;
+	const users = [greenMail.user, greenMail.invitee, greenMail.organizer]
+		.map(({ email, password }) => `${email.split('@')[0]}:${password}@${email.split('@')[1]}`)
+		.join(',');
 	const server = spawn(
 		'java',
 		[
 			'-Dgreenmail.setup.test.imap',
 			'-Dgreenmail.setup.test.smtp',
 			`-Dgreenmail.hostname=${greenMail.host}`,
-			`-Dgreenmail.users=${user.email.split('@')[0]}:${user.password}@${user.email.split('@')[1]}`,
+			`-Dgreenmail.users=${users}`,
 			// Only the users above may log in (GreenMail creates unknown ones otherwise).
 			'-Dgreenmail.users.login=email',
 			'-jar',
@@ -81,13 +86,17 @@ export async function startGreenMail() {
 }
 
 /**
- * Delivers a mail to the test user through GreenMail's SMTP server.
- * @param {{ subject: string, from?: string, text?: string, html?: string,
+ * Delivers a mail (to the test user, unless `to` says otherwise) through
+ * GreenMail's SMTP server.
+ * @param {{ subject: string, from?: string, to?: string, text?: string, html?: string,
  *   attachments?: import('nodemailer/lib/mailer').Attachment[],
+ *   icalEvent?: { method: string, content: string },
  *   messageId?: string, inReplyTo?: string, references?: string[] }} mail
  */
 export async function sendTestMail({
 	subject,
+	to = greenMail.user.email,
+	icalEvent,
 	from = 'Jonas Weber <jonas@beispiel.test>',
 	text = 'Hallo!',
 	html,
@@ -107,8 +116,9 @@ export async function sendTestMail({
 	try {
 		await transport.sendMail({
 			from,
-			to: greenMail.user.email,
+			to,
 			subject,
+			icalEvent,
 			text,
 			html,
 			attachments,
@@ -122,19 +132,20 @@ export async function sendTestMail({
 }
 
 /**
- * Runs `use` with a logged-in IMAP client for the test user, e.g. to empty the
- * inbox or change flags behind the app's back.
+ * Runs `use` with a logged-in IMAP client for the test user (or `user`), e.g.
+ * to empty the inbox or change flags behind the app's back.
  * @template T
  * @param {(client: import('imapflow').ImapFlow) => Promise<T>} use
+ * @param {{ email: string, password: string }} [user]
  */
-export async function withImap(use) {
+export async function withImap(use, user = greenMail.user) {
 	const { ImapFlow } = await import('imapflow');
 	const client = new ImapFlow({
 		host: greenMail.host,
 		port: greenMail.imapPort,
 		secure: false,
 		doSTARTTLS: false,
-		auth: { user: greenMail.user.email, pass: greenMail.user.password },
+		auth: { user: user.email, pass: user.password },
 		logger: false
 	});
 	await client.connect();

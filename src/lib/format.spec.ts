@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fileSize, listDate } from './format';
+import { eventTime, fileSize, listDate } from './format';
 
 const now = new Date(2026, 9, 24, 15, 0); // Saturday
 
@@ -22,5 +22,24 @@ describe('fileSize', () => {
 		expect(fileSize(512)).toBe('512 B');
 		expect(fileSize(12_800)).toBe('13 KB');
 		expect(fileSize(3_500_000)).toBe('3,3 MB');
+	});
+});
+
+describe('eventTime', () => {
+	const at = (day: number, hour = 0, minute = 0) => new Date(2026, 10, day, hour, minute).getTime();
+
+	it('shows the day with start and end time', () => {
+		expect(eventTime(at(3, 10), at(3, 11, 30), false)).toBe('Di., 3. November 2026 · 10:00–11:30');
+	});
+
+	it('names both days when the event runs past midnight', () => {
+		expect(eventTime(at(3, 22), at(4, 1), false)).toBe(
+			'Di., 3. November 2026, 22:00 – Mi., 4. November 2026, 01:00'
+		);
+	});
+
+	it('shows all-day events without times, ending the day before their end', () => {
+		expect(eventTime(at(3), at(4), true)).toBe('Di., 3. November 2026 (ganztägig)');
+		expect(eventTime(at(3), at(6), true)).toBe('Di., 3. November 2026 – Do., 5. November 2026');
 	});
 });

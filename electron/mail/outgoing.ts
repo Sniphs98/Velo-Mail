@@ -52,7 +52,16 @@ export interface Built {
 export async function buildMessage(
 	from: Recipient,
 	message: OutgoingMessage,
-	{ draft = false, stored = [] as StoredFile[] } = {}
+	{
+		draft = false,
+		stored = [] as StoredFile[],
+		calendar
+	}: {
+		draft?: boolean;
+		stored?: StoredFile[];
+		/** An iTIP message (e.g. a REPLY), sent as text/calendar alongside the text. */
+		calendar?: { method: string; content: string };
+	} = {}
 ): Promise<Built> {
 	const to = parseRecipients(message.to);
 	const cc = parseRecipients(message.cc);
@@ -68,6 +77,7 @@ export async function buildMessage(
 		subject: message.subject,
 		text: message.text,
 		html: message.html || undefined,
+		icalEvent: calendar,
 		inReplyTo: message.inReplyTo,
 		references: message.references,
 		attachments: [

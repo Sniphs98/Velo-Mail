@@ -232,10 +232,11 @@ export class SyncManager {
 	 * Sends over SMTP, then stores a copy in "Gesendet" (unless the provider
 	 * does that itself), marks the answered message and removes the draft.
 	 */
-	async send(message: OutgoingMessage) {
+	async send(message: OutgoingMessage, calendar?: { method: string; content: string }) {
 		const account = await this.account(message.accountId);
 		const built = await buildMessage({ name: account.name, address: account.email }, message, {
-			stored: await this.storedFiles(message)
+			stored: await this.storedFiles(message),
+			calendar
 		});
 		const transport = nodemailer.createTransport(smtpOptions(account.settings, account.password));
 		try {
