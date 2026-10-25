@@ -232,6 +232,23 @@ Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
 - [ ] Auto-Update auf macOS, sobald die Builds signiert sind
 - [ ] OAuth2 für Gmail/Outlook (zum Schluss; braucht registrierte Client-IDs)
 
+### Kalender
+
+Eigener Kalender über CalDAV (iCloud, Nextcloud, Posteo, mailbox.org, Yahoo,
+GMX, Web.de, …). Google und Microsoft kommen mit OAuth2.
+
+- [x] Kalender hinzufügen: Server wird aus der Adresse gesucht, Anmeldung
+      geprüft, Passwort verschlüsselt gespeichert
+- [x] Abgleich beim Start, alle 5 Minuten und nach Änderungen (ctag, ETag)
+- [x] Ansichten Tag, Woche, Monat; Kalender ein-/ausblenden, eigene Farben
+- [x] Wiederholungen und Ausnahmen (ical.js), Zeitzonen, Ganztagstermine
+- [x] Termine anlegen, ändern, löschen; Änderungen an Serien verschieben die
+      ganze Serie; woanders geänderte Termine werden nicht überschrieben
+- [ ] Einladungen aus Mails annehmen (iTIP/iMIP), Zusagen an den Absender
+- [ ] Erinnerungen (VALARM) als Desktop-Benachrichtigung
+- [ ] Einzelne Termine einer Serie ändern
+- [ ] Termine per Ziehen verschieben
+
 ## Tests
 
 | Ebene       | Werkzeug                         | Was                                                                               |

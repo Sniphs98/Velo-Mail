@@ -52,6 +52,23 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			remove: vi.fn(async () => {}),
 			...overrides.accounts
 		},
+		calendar: {
+			sources: vi.fn(async () => []),
+			addSource: vi.fn(async () => ({
+				ok: true as const,
+				source: { id: 1, name: 'anna', serverUrl: 'https://dav.beispiel.de', username: 'anna' }
+			})),
+			removeSource: vi.fn(async () => {}),
+			calendars: vi.fn(async () => []),
+			updateCalendar: vi.fn(async () => {}),
+			events: vi.fn(async () => []),
+			createEvent: vi.fn(async () => {}),
+			updateEvent: vi.fn(async () => {}),
+			deleteEvent: vi.fn(async () => {}),
+			sync: vi.fn(async () => {}),
+			onChanged: vi.fn(() => () => {}),
+			...overrides.calendar
+		},
 		settings: {
 			get: vi.fn(async () => ({
 				theme: 'system' as const,

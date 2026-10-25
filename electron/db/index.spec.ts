@@ -66,6 +66,9 @@ describe('openDatabase', () => {
 		expect(own.map((t) => t.name)).toEqual([
 			'accounts',
 			'attachments',
+			'calendar_sources',
+			'calendars',
+			'events',
 			'mailboxes',
 			'message_bodies',
 			'messages',

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		Archive,
+		CalendarDays,
 		CircleAlert,
 		Ellipsis,
 		File,
@@ -19,13 +20,21 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { mode } from '#lib/calendar.svelte.ts';
+	import CalendarList from './calendar/calendar-list.svelte';
 	import UpdateNotice from './update-notice.svelte';
 
 	let {
 		width,
 		onaddaccount,
+		onaddcalendar,
 		onsettings
-	}: { width?: number; onaddaccount: () => void; onsettings: () => void } = $props();
+	}: {
+		width?: number;
+		onaddaccount: () => void;
+		onaddcalendar: () => void;
+		onsettings: () => void;
+	} = $props();
 
 	let info = $state<AppInfo>();
 
@@ -54,88 +63,124 @@
 	class="relative flex w-52 shrink-0 flex-col gap-px overflow-y-auto rounded-xl border bg-card p-2"
 	style:width={width ? `${width}px` : undefined}
 >
-	<Button
-		variant={mail.isShowing({ inboxes: true }) ? 'secondary' : 'ghost'}
-		aria-current={mail.isShowing({ inboxes: true }) ? 'page' : undefined}
-		size="sm"
-		class={itemClass}
-		onclick={() => mail.show({ inboxes: true })}
+	<div
+		role="tablist"
+		aria-label="Bereich"
+		class="mb-2 grid shrink-0 grid-cols-2 rounded-lg bg-muted p-0.5"
 	>
-		<Inbox class="size-4" aria-hidden="true" />
-		<span class="flex-1 text-left">Alle Posteingänge</span>
-		{#if mail.unreadInboxes > 0}
-			<span class="text-xs font-semibold">{mail.unreadInboxes}</span>
-		{/if}
-	</Button>
+		<button
+			type="button"
+			role="tab"
+			aria-selected={mode.current === 'mail'}
+			class="flex items-center justify-center gap-1.5 rounded-md py-1 text-xs text-muted-foreground aria-selected:bg-card aria-selected:font-medium aria-selected:text-foreground aria-selected:shadow-sm"
+			onclick={() => (mode.current = 'mail')}
+		>
+			<Mails class="size-3.5" aria-hidden="true" /> Mail
+		</button>
+		<button
+			type="button"
+			role="tab"
+			aria-selected={mode.current === 'calendar'}
+			class="flex items-center justify-center gap-1.5 rounded-md py-1 text-xs text-muted-foreground aria-selected:bg-card aria-selected:font-medium aria-selected:text-foreground aria-selected:shadow-sm"
+			onclick={() => (mode.current = 'calendar')}
+		>
+			<CalendarDays class="size-3.5" aria-hidden="true" /> Kalender
+		</button>
+	</div>
 
-	{#each accounts.list as account (account.id)}
-		{@const status = mail.status[account.id]}
-		<section aria-label={account.name} class="flex flex-col gap-0.5">
-			<div class="group/account flex items-center gap-2 pt-3 pr-0.5 pb-0.5 pl-2">
-				<span class="size-2.5 shrink-0 rounded-full" style:background={account.color}></span>
-				<span class="flex min-w-0 flex-1 flex-col">
-					<span class="truncate text-[13px] font-semibold">{account.name}</span>
-					<span class="truncate text-xs text-muted-foreground">{account.email}</span>
-				</span>
-				{#if status?.state === 'syncing'}
-					<Spinner class="size-3.5 text-muted-foreground" aria-label="Wird synchronisiert" />
-				{:else if status?.state === 'error'}
-					<span title={status.error} class="text-destructive">
-						<CircleAlert class="size-4" aria-label="Synchronisierung fehlgeschlagen" />
+	{#if mode.current === 'calendar'}
+		<CalendarList />
+	{:else}
+		<Button
+			variant={mail.isShowing({ inboxes: true }) ? 'secondary' : 'ghost'}
+			aria-current={mail.isShowing({ inboxes: true }) ? 'page' : undefined}
+			size="sm"
+			class={itemClass}
+			onclick={() => mail.show({ inboxes: true })}
+		>
+			<Inbox class="size-4" aria-hidden="true" />
+			<span class="flex-1 text-left">Alle Posteingänge</span>
+			{#if mail.unreadInboxes > 0}
+				<span class="text-xs font-semibold">{mail.unreadInboxes}</span>
+			{/if}
+		</Button>
+
+		{#each accounts.list as account (account.id)}
+			{@const status = mail.status[account.id]}
+			<section aria-label={account.name} class="flex flex-col gap-0.5">
+				<div class="group/account flex items-center gap-2 pt-3 pr-0.5 pb-0.5 pl-2">
+					<span class="size-2.5 shrink-0 rounded-full" style:background={account.color}></span>
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="truncate text-[13px] font-semibold">{account.name}</span>
+						<span class="truncate text-xs text-muted-foreground">{account.email}</span>
 					</span>
-				{/if}
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button
-								{...props}
-								variant="ghost"
-								size="icon-sm"
-								class="opacity-0 group-hover/account:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-								aria-label="Optionen für {account.name}"
-							>
-								<Ellipsis />
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="end">
-						<DropdownMenu.Item onclick={() => velo()?.mail.sync(account.id)}>
-							Jetzt synchronisieren
-						</DropdownMenu.Item>
-						<DropdownMenu.Item variant="destructive" onclick={() => accounts.remove(account.id)}>
-							Konto entfernen
-						</DropdownMenu.Item>
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-			</div>
-			{#each mail.mailboxes.filter((m) => m.accountId === account.id) as box (box.id)}
-				{@const Icon = box.role ? icons[box.role] : Folder}
-				{@const active = mail.isShowing({ mailboxId: box.id })}
-				<Button
-					variant={active ? 'secondary' : 'ghost'}
-					aria-current={active ? 'page' : undefined}
-					size="sm"
-					class="{itemClass} pl-6"
-					onclick={() => mail.show({ mailboxId: box.id })}
-				>
-					<Icon class="size-4" aria-hidden="true" />
-					<span class="flex-1 truncate text-left">{box.name}</span>
-					{#if box.unread > 0 && box.role !== 'trash' && box.role !== 'junk'}
-						<span class="text-xs font-semibold">{box.unread}</span>
+					{#if status?.state === 'syncing'}
+						<Spinner class="size-3.5 text-muted-foreground" aria-label="Wird synchronisiert" />
+					{:else if status?.state === 'error'}
+						<span title={status.error} class="text-destructive">
+							<CircleAlert class="size-4" aria-label="Synchronisierung fehlgeschlagen" />
+						</span>
 					{/if}
-				</Button>
-			{/each}
-		</section>
-	{/each}
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Button
+									{...props}
+									variant="ghost"
+									size="icon-sm"
+									class="opacity-0 group-hover/account:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+									aria-label="Optionen für {account.name}"
+								>
+									<Ellipsis />
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content align="end">
+							<DropdownMenu.Item onclick={() => velo()?.mail.sync(account.id)}>
+								Jetzt synchronisieren
+							</DropdownMenu.Item>
+							<DropdownMenu.Item variant="destructive" onclick={() => accounts.remove(account.id)}>
+								Konto entfernen
+							</DropdownMenu.Item>
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
+				</div>
+				{#each mail.mailboxes.filter((m) => m.accountId === account.id) as box (box.id)}
+					{@const Icon = box.role ? icons[box.role] : Folder}
+					{@const active = mail.isShowing({ mailboxId: box.id })}
+					<Button
+						variant={active ? 'secondary' : 'ghost'}
+						aria-current={active ? 'page' : undefined}
+						size="sm"
+						class="{itemClass} pl-6"
+						onclick={() => mail.show({ mailboxId: box.id })}
+					>
+						<Icon class="size-4" aria-hidden="true" />
+						<span class="flex-1 truncate text-left">{box.name}</span>
+						{#if box.unread > 0 && box.role !== 'trash' && box.role !== 'junk'}
+							<span class="text-xs font-semibold">{box.unread}</span>
+						{/if}
+					</Button>
+				{/each}
+			</section>
+		{/each}
+	{/if}
 
 	<div class="min-h-4 flex-1"></div>
 
 	<UpdateNotice />
 
-	<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onaddaccount}>
-		<Plus class="size-4" aria-hidden="true" />
-		Konto hinzufügen
-	</Button>
+	{#if mode.current === 'calendar'}
+		<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onaddcalendar}>
+			<Plus class="size-4" aria-hidden="true" />
+			Kalender hinzufügen
+		</Button>
+	{:else}
+		<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onaddaccount}>
+			<Plus class="size-4" aria-hidden="true" />
+			Konto hinzufügen
+		</Button>
+	{/if}
 	<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onsettings}>
 		<Settings2 class="size-4" aria-hidden="true" />
 		Einstellungen

@@ -198,6 +198,61 @@ export interface ReplySource {
 	isDraft: boolean;
 }
 
+/** A CalDAV server with its login. */
+export interface CalendarSource {
+	id: number;
+	name: string;
+	serverUrl: string;
+	username: string;
+}
+
+export interface NewCalendarSource {
+	/** Shown in the sidebar; defaults to the user name. */
+	name?: string;
+	/** Usually the e-mail address. */
+	username: string;
+	password: string;
+	/** Found from the address when empty. */
+	serverUrl?: string;
+}
+
+export type AddCalendarResult =
+	| { ok: true; source: CalendarSource }
+	/** auth: wrong login; notfound: no server; oauth: Google/Microsoft need OAuth2. */
+	| { ok: false; reason: 'auth' | 'notfound' | 'oauth' };
+
+export interface Calendar {
+	id: number;
+	sourceId: number;
+	name: string;
+	color: string;
+	enabled: boolean;
+}
+
+/** One occurrence in a range; recurring events give one per occurrence. */
+export interface CalendarEvent {
+	id: number;
+	calendarId: number;
+	color: string;
+	summary: string;
+	location: string | null;
+	description: string | null;
+	/** Milliseconds; all-day events run from local midnight to midnight. */
+	start: number;
+	end: number;
+	allDay: boolean;
+	recurring: boolean;
+}
+
+export interface EventInput {
+	summary: string;
+	location?: string;
+	description?: string;
+	start: number;
+	end: number;
+	allDay: boolean;
+}
+
 /** Which messages to list: one mailbox, or the inboxes of all accounts. */
 export type MessageQuery = { mailboxId: number } | { inboxes: true };
 
@@ -230,6 +285,25 @@ export interface VeloApi {
 		add(account: NewAccount): Promise<AddAccountResult>;
 		update(id: number, changes: AccountChanges): Promise<Account>;
 		remove(id: number): Promise<void>;
+	};
+	calendar: {
+		sources(): Promise<CalendarSource[]>;
+		/** Finds the server, checks the login and starts syncing. */
+		addSource(source: NewCalendarSource): Promise<AddCalendarResult>;
+		removeSource(id: number): Promise<void>;
+		calendars(): Promise<Calendar[]>;
+		updateCalendar(id: number, changes: { enabled?: boolean; color?: string }): Promise<void>;
+		/** Occurrences that overlap [from, to), in milliseconds. */
+		events(from: number, to: number): Promise<CalendarEvent[]>;
+		createEvent(calendarId: number, event: EventInput): Promise<void>;
+		/**
+		 * Changes an event. For a recurring one the whole series moves by as much
+		 * as the occurrence that started at `occurrenceStart` was moved.
+		 */
+		updateEvent(id: number, event: EventInput, occurrenceStart?: number): Promise<void>;
+		deleteEvent(id: number): Promise<void>;
+		sync(): Promise<void>;
+		onChanged(listener: () => void): () => void;
 	};
 	settings: {
 		get(): Promise<Settings>;
@@ -300,6 +374,18 @@ export const IPC = {
 	accountsUpdate: 'accounts:update',
 	accountsRemove: 'accounts:remove',
 	settingsGet: 'settings:get',
+	calendarSources: 'calendar:sources',
+	calendarAddSource: 'calendar:add-source',
+	calendarRemoveSource: 'calendar:remove-source',
+	calendarCalendars: 'calendar:calendars',
+	calendarUpdateCalendar: 'calendar:update-calendar',
+	calendarEvents: 'calendar:events',
+	calendarCreateEvent: 'calendar:create-event',
+	calendarUpdateEvent: 'calendar:update-event',
+	calendarDeleteEvent: 'calendar:delete-event',
+	calendarSync: 'calendar:sync',
+	/** Main → renderer. */
+	calendarChanged: 'calendar:changed',
 	settingsSet: 'settings:set',
 	mailMailboxes: 'mail:mailboxes',
 	mailMessages: 'mail:messages',

@@ -29,7 +29,8 @@ jobs:
       # Component tests run in a real browser (vitest-browser-svelte).
       - run: npx playwright install --with-deps chromium
       - run: npm run test:unit -- --run
-      # GreenMail, the test mail server, runs on Java (scripts/greenmail.mjs).
+      # The test servers: GreenMail (mail) runs on Java, Radicale (calendars)
+      # on Python, which the runner has (scripts/greenmail.mjs, radicale.mjs).
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -37,7 +38,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .cache
-          key: greenmail-${{ hashFiles('scripts/greenmail.mjs') }}
+          key: test-servers-${{ hashFiles('scripts/greenmail.mjs', 'scripts/radicale.mjs') }}
       - run: npm run test:integration
 
   e2e:
@@ -50,7 +51,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # GreenMail, the test mail server, runs on Java (scripts/greenmail.mjs).
+      # The test servers: GreenMail (mail) runs on Java, Radicale (calendars)
+      # on Python, which the runner has (scripts/greenmail.mjs, radicale.mjs).
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -58,7 +60,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .cache
-          key: greenmail-${{ hashFiles('scripts/greenmail.mjs') }}
+          key: test-servers-${{ hashFiles('scripts/greenmail.mjs', 'scripts/radicale.mjs') }}
       - run: npm run build
       # Ubuntu 24.04 blocks the user namespaces Chromium's sandbox needs.
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0

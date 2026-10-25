@@ -10,6 +10,9 @@
 	import SettingsDialog from '#lib/components/settings-dialog.svelte';
 	import ResizeHandle from '#lib/components/resize-handle.svelte';
 	import Sidebar from '#lib/components/sidebar.svelte';
+	import AddCalendarDialog from '#lib/components/calendar/add-calendar-dialog.svelte';
+	import CalendarView from '#lib/components/calendar/calendar-view.svelte';
+	import { calendar, mode } from '#lib/calendar.svelte.ts';
 	import { layout, listWidth, sidebarWidth } from '#lib/layout.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { velo } from '#lib/api.ts';
@@ -18,6 +21,10 @@
 
 	let addingAccount = $state(false);
 	let showSettings = $state(false);
+	let addingCalendar = $state(false);
+	let calendarView = $state<ReturnType<typeof CalendarView>>();
+
+	$effect(() => calendar.connect());
 
 	$effect(() => mail.connect());
 
@@ -51,6 +58,23 @@
 		if (latest) compose.start(latest.accountId, { kind, messageId: latest.id });
 	}
 
+	/** t: today, arrows: back/forward, d/w/m: day/week/month, n: new event. */
+	function calendarShortcut(event: KeyboardEvent) {
+		const actions: Record<string, () => void> = {
+			t: () => calendar.today(),
+			ArrowLeft: () => calendar.move(-1),
+			ArrowRight: () => calendar.move(1),
+			d: () => calendar.show('day'),
+			w: () => calendar.show('week'),
+			m: () => calendar.show('month'),
+			n: () => calendar.calendars.length > 0 && calendarView?.create()
+		};
+		const action = actions[event.key];
+		if (!action) return;
+		event.preventDefault();
+		action();
+	}
+
 	/** From the open folder's account, else the first. */
 	function newMessage() {
 		if (accounts.list[0]) compose.start(mailbox?.accountId ?? accounts.list[0].id);
@@ -76,6 +100,10 @@
 		}
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+		if (mode.current === 'calendar') {
+			calendarShortcut(event);
+			return;
+		}
 		const actions: Record<string, () => void> = {
 			j: () => mail.move(1),
 			ArrowDown: () => mail.move(1),
@@ -111,60 +139,66 @@
 		<Sidebar
 			width={layout.sidebar}
 			onaddaccount={() => (addingAccount = true)}
+			onaddcalendar={() => (addingCalendar = true)}
 			onsettings={() => (showSettings = true)}
 		/>
 		<ResizeHandle bind:value={layout.sidebar} {...sidebarWidth} label="Breite der Seitenleiste" />
 
-		<MessageList
-			width={layout.list}
-			title={mail.query.trim() ? 'Suche' : (mailbox?.name ?? 'Alle Posteingänge')}
-			subtitle={mail.query.trim()
-				? `${mail.messages.length} Treffer in allen Konten`
-				: mailboxAccount?.email}
-			messages={mail.messages}
-			accounts={accounts.list}
-			selectedId={mail.selectedId}
-			showAccount={(!mailbox || !!mail.query.trim()) && accounts.list.length > 1}
-			onselect={select}
-			query={mail.query}
-			onsearch={(query) => mail.search(query)}
-			onsearchserver={() => mail.searchServer()}
-			oncompose={accounts.list.length > 0 ? newMessage : undefined}
-		/>
-		<ResizeHandle bind:value={layout.list} {...listWidth} label="Breite der Nachrichtenliste" />
+		{#if mode.current === 'calendar'}
+			<CalendarView bind:this={calendarView} onaddcalendar={() => (addingCalendar = true)} />
+		{:else}
+			<MessageList
+				width={layout.list}
+				title={mail.query.trim() ? 'Suche' : (mailbox?.name ?? 'Alle Posteingänge')}
+				subtitle={mail.query.trim()
+					? `${mail.messages.length} Treffer in allen Konten`
+					: mailboxAccount?.email}
+				messages={mail.messages}
+				accounts={accounts.list}
+				selectedId={mail.selectedId}
+				showAccount={(!mailbox || !!mail.query.trim()) && accounts.list.length > 1}
+				onselect={select}
+				query={mail.query}
+				onsearch={(query) => mail.search(query)}
+				onsearchserver={() => mail.searchServer()}
+				oncompose={accounts.list.length > 0 ? newMessage : undefined}
+			/>
+			<ResizeHandle bind:value={layout.list} {...listWidth} label="Breite der Nachrichtenliste" />
 
-		<article
-			aria-label="Nachricht"
-			class="relative flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-xl border bg-card p-4 text-center"
-			class:justify-start={mail.thread.length > 0}
-		>
-			{#if mail.thread.length > 0}
-				{#key mail.selectedId}
-					<ReadingPane
-						thread={mail.thread}
-						onreply={reply}
-						onmove={(to) => mail.moveOpen(to)}
-						account={accounts.list.length > 1
-							? accounts.list.find((a) => a.id === mail.thread[0]?.accountId)
-							: undefined}
-					/>
-				{/key}
-			{:else}
-				<MailOpen class="size-10 text-muted-foreground/40" aria-hidden="true" />
-				{#if accounts.list.length === 0}
-					<h2 class="font-heading text-lg font-semibold">Willkommen bei Velo Mail</h2>
-					<p class="max-w-sm text-sm text-muted-foreground">
-						Füge ein E-Mail-Konto hinzu, um deine Nachrichten hier zu lesen.
-					</p>
-					<Button class="mt-2" onclick={() => (addingAccount = true)}>Konto hinzufügen</Button>
+			<article
+				aria-label="Nachricht"
+				class="relative flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-xl border bg-card p-4 text-center"
+				class:justify-start={mail.thread.length > 0}
+			>
+				{#if mail.thread.length > 0}
+					{#key mail.selectedId}
+						<ReadingPane
+							thread={mail.thread}
+							onreply={reply}
+							onmove={(to) => mail.moveOpen(to)}
+							account={accounts.list.length > 1
+								? accounts.list.find((a) => a.id === mail.thread[0]?.accountId)
+								: undefined}
+						/>
+					{/key}
 				{:else}
-					<p class="text-sm text-muted-foreground">Keine Nachricht ausgewählt</p>
+					<MailOpen class="size-10 text-muted-foreground/40" aria-hidden="true" />
+					{#if accounts.list.length === 0}
+						<h2 class="font-heading text-lg font-semibold">Willkommen bei Velo Mail</h2>
+						<p class="max-w-sm text-sm text-muted-foreground">
+							Füge ein E-Mail-Konto hinzu, um deine Nachrichten hier zu lesen.
+						</p>
+						<Button class="mt-2" onclick={() => (addingAccount = true)}>Konto hinzufügen</Button>
+					{:else}
+						<p class="text-sm text-muted-foreground">Keine Nachricht ausgewählt</p>
+					{/if}
 				{/if}
-			{/if}
-		</article>
+			</article>
+		{/if}
 	</div>
 </div>
 
 <AddAccountDialog bind:open={addingAccount} />
 <SettingsDialog bind:open={showSettings} />
+<AddCalendarDialog bind:open={addingCalendar} />
 <ComposeDialog />

@@ -23,6 +23,8 @@ import type { Database } from './db';
 import type { Desktop } from './desktop';
 import { readSettings, writeSettings } from './settings';
 import { Updater } from './update/updater';
+import { CalendarManager } from './calendar/manager';
+import { CalendarSources } from './calendar/service';
 import { SyncManager } from './mail/manager';
 import { canOpen, markFromInternet, safeFilename } from './mail/files';
 import {
@@ -154,6 +156,52 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 
 	const avatars = new Avatars({ db, fetchBytes, resolveTxt });
 	const updater = new Updater((percent) => broadcast(IPC.appUpdateProgress, percent));
+	const calendarSources = new CalendarSources(db, secrets);
+	const calendar = new CalendarManager({
+		db,
+		sources: calendarSources,
+		onChanged: () => broadcast(IPC.calendarChanged)
+	});
+	calendar.start();
+	const eventSchema = z
+		.object({
+			summary: z.string().max(1000),
+			location: z.string().max(1000).optional(),
+			description: z.string().max(100_000).optional(),
+			start: z.number().int(),
+			end: z.number().int(),
+			allDay: z.boolean()
+		})
+		.refine((event) => event.end >= event.start, 'Das Ende liegt vor dem Beginn.');
+	const id = z.number().int();
+	handle(IPC.calendarSources, () => calendarSources.list());
+	// CalendarSources validates the rest.
+	handle(IPC.calendarAddSource, async (_event, source) => {
+		const result = await calendarSources.add(source);
+		if (result.ok) calendar.syncSource(result.source.id).catch(() => {});
+		return result;
+	});
+	handle(IPC.calendarRemoveSource, async (_event, sourceId: unknown) => {
+		const valid = id.parse(sourceId);
+		calendar.forget(valid);
+		await calendarSources.remove(valid);
+		broadcast(IPC.calendarChanged);
+	});
+	handle(IPC.calendarCalendars, () => calendar.calendars());
+	handle(IPC.calendarUpdateCalendar, (_event, calendarId: unknown, changes: unknown) =>
+		calendar.updateCalendar(id.parse(calendarId), changes)
+	);
+	handle(IPC.calendarEvents, (_event, from: unknown, to: unknown) =>
+		calendar.events(id.parse(from), id.parse(to))
+	);
+	handle(IPC.calendarCreateEvent, (_event, calendarId: unknown, event: unknown) =>
+		calendar.create(id.parse(calendarId), eventSchema.parse(event))
+	);
+	handle(IPC.calendarUpdateEvent, (_event, eventId: unknown, event: unknown, start: unknown) =>
+		calendar.update(id.parse(eventId), eventSchema.parse(event), id.optional().parse(start))
+	);
+	handle(IPC.calendarDeleteEvent, (_event, eventId: unknown) => calendar.delete(id.parse(eventId)));
+	handle(IPC.calendarSync, () => calendar.syncAll());
 	handle(IPC.appCheckUpdate, () => updater.check());
 	handle(IPC.appInstallUpdate, () => updater.install());
 	handle(IPC.appRestartToUpdate, () => updater.restart());
