@@ -14,6 +14,18 @@ export interface ParsedEvent {
 	recurring: boolean;
 	/** Last possible occurrence; null if the series never ends. */
 	recurUntil: Date | null;
+	/** Minutes before the start of the first reminder; null for none. */
+	reminder: number | null;
+}
+
+/** A reminder that is due: when, and of which occurrence. */
+export interface Alarm {
+	at: Date;
+	start: Date;
+	end: Date;
+	summary: string;
+	location: string | null;
+	allDay: boolean;
 }
 
 export interface Occurrence {
@@ -33,6 +45,8 @@ export interface EventInput {
 	start: number;
 	end: number;
 	allDay: boolean;
+	/** Minutes before the start; null removes reminders, undefined keeps them. */
+	reminder?: number | null;
 }
 
 const day = 24 * 60 * 60 * 1000;
@@ -83,8 +97,35 @@ export function parseEvent(ics: string): ParsedEvent | null {
 		end,
 		allDay: event.startDate.isDate,
 		recurring,
-		recurUntil: recurring ? lastOccurrence(event, end.getTime() - start.getTime()) : null
+		recurUntil: recurring ? lastOccurrence(event, end.getTime() - start.getTime()) : null,
+		reminder: firstReminder(vevent)
 	};
+}
+
+type Trigger = { offset: number; related: 'start' | 'end' } | { at: Date };
+
+/** When the event's reminders go off; e-mail alarms are left to the server. */
+function triggers(vevent: ICAL.Component): Trigger[] {
+	return vevent.getAllSubcomponents('valarm').flatMap((alarm): Trigger[] => {
+		const action = String(alarm.getFirstPropertyValue('action') ?? 'DISPLAY').toUpperCase();
+		const trigger = alarm.getFirstProperty('trigger');
+		if (!trigger || (action !== 'DISPLAY' && action !== 'AUDIO')) return [];
+		const value = trigger.getFirstValue();
+		if (value instanceof ICAL.Duration) {
+			const related = String(trigger.getParameter('related') ?? '').toUpperCase();
+			return [{ offset: value.toSeconds() * 1000, related: related === 'END' ? 'end' : 'start' }];
+		}
+		return value instanceof ICAL.Time ? [{ at: value.toJSDate() }] : [];
+	});
+}
+
+function firstReminder(vevent: ICAL.Component): number | null {
+	for (const trigger of triggers(vevent)) {
+		if ('offset' in trigger && trigger.related === 'start' && trigger.offset <= 0) {
+			return Math.round(-trigger.offset / 60_000) || 0;
+		}
+	}
+	return null;
 }
 
 /** End of the last occurrence, or null for a series without UNTIL or COUNT. */
@@ -101,8 +142,12 @@ function lastOccurrence(event: ICAL.Event, duration: number): Date | null {
 	return last ? new Date(last.toJSDate().getTime() + duration) : null;
 }
 
-/** The occurrences that overlap [from, to), with changed ones as changed. */
-export function occurrences(ics: string, from: Date, to: Date): Occurrence[] {
+interface Expanded extends Occurrence {
+	/** The VEVENT the occurrence comes from: the series or a changed occurrence. */
+	vevent: ICAL.Component;
+}
+
+function expand(ics: string, from: Date, to: Date): Expanded[] {
 	const root = component(ics);
 	const vevent = master(root);
 	if (!vevent) return [];
@@ -119,10 +164,10 @@ export function occurrences(ics: string, from: Date, to: Date): Occurrence[] {
 		const start = event.startDate.toJSDate();
 		const end = endOf(event);
 		return overlaps(start, end)
-			? [{ start, end, summary: event.summary || '', location: event.location || null }]
+			? [{ start, end, summary: event.summary || '', location: event.location || null, vevent }]
 			: [];
 	}
-	const found: Occurrence[] = [];
+	const found: Expanded[] = [];
 	const iterator = event.iterator();
 	for (let i = 0, next = iterator.next(); next && i < maxOccurrences; i++, next = iterator.next()) {
 		const details = event.getOccurrenceDetails(next);
@@ -135,8 +180,51 @@ export function occurrences(ics: string, from: Date, to: Date): Occurrence[] {
 			end,
 			summary: details.item.summary || '',
 			location: details.item.location || null,
-			recurrenceId: details.recurrenceId.toString()
+			recurrenceId: details.recurrenceId.toString(),
+			vevent: details.item.component
 		});
+	}
+	return found;
+}
+
+/** The occurrences that overlap [from, to), with changed ones as changed. */
+export function occurrences(ics: string, from: Date, to: Date): Occurrence[] {
+	return expand(ics, from, to).map(({ vevent: _, ...occurrence }) => occurrence);
+}
+
+/** How far before (or after) its event a reminder is looked for. */
+export const alarmReach = 8 * day;
+
+/** The reminders that go off in (from, to]. */
+export function alarmsIn(ics: string, from: Date, to: Date): Alarm[] {
+	const found: Alarm[] = [];
+	const window = expand(
+		ics,
+		new Date(from.getTime() - alarmReach),
+		new Date(to.getTime() + alarmReach)
+	);
+	for (const occurrence of window) {
+		const dtstart = occurrence.vevent.getFirstPropertyValue('dtstart');
+		const allDay = dtstart instanceof ICAL.Time && dtstart.isDate;
+		for (const trigger of triggers(occurrence.vevent)) {
+			const at =
+				'at' in trigger
+					? trigger.at
+					: new Date(
+							(trigger.related === 'end' ? occurrence.end : occurrence.start).getTime() +
+								trigger.offset
+						);
+			if (at > from && at <= to) {
+				found.push({
+					at,
+					start: occurrence.start,
+					end: occurrence.end,
+					summary: occurrence.summary,
+					location: occurrence.location,
+					allDay
+				});
+			}
+		}
 	}
 	return found;
 }
@@ -178,6 +266,7 @@ export function eventIcs(
 	vevent.removeProperty('duration');
 	event.startDate = time(input.start, input.allDay);
 	event.endDate = time(input.end, input.allDay);
+	if (input.reminder !== undefined) setReminder(vevent, input.reminder, input.summary);
 	vevent.updatePropertyWithValue('dtstamp', ICAL.Time.now());
 	const sequence = Number(vevent.getFirstPropertyValue('sequence') ?? -1);
 	vevent.updatePropertyWithValue('sequence', previous ? sequence + 1 : 0);
@@ -187,4 +276,15 @@ export function eventIcs(
 function set(vevent: ICAL.Component, name: string, value: string | undefined) {
 	if (value?.trim()) vevent.updatePropertyWithValue(name, value);
 	else vevent.removeProperty(name);
+}
+
+/** Replaces the event's reminders with one, `minutes` before the start (or none). */
+function setReminder(vevent: ICAL.Component, minutes: number | null, summary: string) {
+	for (const alarm of vevent.getAllSubcomponents('valarm')) vevent.removeSubcomponent(alarm);
+	if (minutes === null) return;
+	const alarm = new ICAL.Component('valarm');
+	alarm.addPropertyWithValue('action', 'DISPLAY');
+	alarm.addPropertyWithValue('description', summary || 'Erinnerung');
+	alarm.addPropertyWithValue('trigger', ICAL.Duration.fromSeconds(-minutes * 60));
+	vevent.addSubcomponent(alarm);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eventIcs, occurrences, parseEvent } from './ics';
+import { alarmsIn, eventIcs, occurrences, parseEvent } from './ics';
 
 const wrap = (...lines: string[]) =>
 	['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Test//DE', ...lines, 'END:VCALENDAR'].join('\r\n');
@@ -200,5 +200,81 @@ describe('eventIcs', () => {
 		});
 		expect(ics).toContain('DTSTART;VALUE=DATE:20261224');
 		expect(ics).toContain('DTEND;VALUE=DATE:20261227');
+	});
+});
+
+describe('reminders', () => {
+	const alarm = (...lines: string[]) => ['BEGIN:VALARM', ...lines, 'END:VALARM'];
+	const weekly = wrap(
+		...berlin,
+		'BEGIN:VEVENT',
+		'UID:r1',
+		'DTSTAMP:20261001T000000Z',
+		'DTSTART;TZID=Europe/Berlin:20261102T090000',
+		'DTEND;TZID=Europe/Berlin:20261102T100000',
+		'RRULE:FREQ=WEEKLY;COUNT=3',
+		'SUMMARY:Jour fixe',
+		...alarm('ACTION:DISPLAY', 'TRIGGER:-PT15M'),
+		...alarm('ACTION:EMAIL', 'TRIGGER:-PT1H'),
+		...alarm('ACTION:AUDIO', 'TRIGGER;RELATED=END:PT0S'),
+		'END:VEVENT'
+	);
+	const utc = (day: number, hour: number, minute = 0) =>
+		new Date(Date.UTC(2026, 10, day, hour, minute));
+
+	it('reads the first reminder as minutes before the start', () => {
+		expect(parseEvent(weekly)?.reminder).toBe(15);
+		expect(
+			parseEvent(
+				wrap('BEGIN:VEVENT', 'UID:x', 'DTSTART:20261102T090000Z', 'SUMMARY:Ohne', 'END:VEVENT')
+			)?.reminder
+		).toBeNull();
+	});
+
+	it('finds the reminders due in a window, for each occurrence', () => {
+		// 09:00 Berlin = 08:00 UTC; 15 minutes before, and at the end (09:00 UTC).
+		expect(alarmsIn(weekly, utc(2, 7, 40), utc(2, 7, 50)).map((a) => a.at)).toEqual([
+			utc(2, 7, 45)
+		]);
+		expect(alarmsIn(weekly, utc(9, 8, 30), utc(9, 9, 0))).toMatchObject([
+			{ at: utc(9, 9), start: utc(9, 8), summary: 'Jour fixe', allDay: false }
+		]);
+		// E-mail alarms are the server's; nothing else is due an hour before.
+		expect(alarmsIn(weekly, utc(16, 6, 50), utc(16, 7, 10))).toEqual([]);
+		// After the last occurrence nothing is due.
+		expect(alarmsIn(weekly, utc(23, 7, 0), utc(23, 9, 0))).toEqual([]);
+	});
+
+	it('handles absolute triggers', () => {
+		const ics = wrap(
+			'BEGIN:VEVENT',
+			'UID:abs',
+			'DTSTART;VALUE=DATE:20261105',
+			'DTEND;VALUE=DATE:20261106',
+			'SUMMARY:Geburtstag',
+			...alarm('ACTION:DISPLAY', 'TRIGGER;VALUE=DATE-TIME:20261104T170000Z'),
+			'END:VEVENT'
+		);
+		expect(alarmsIn(ics, utc(4, 16), utc(4, 18))).toMatchObject([
+			{ at: utc(4, 17), summary: 'Geburtstag', allDay: true }
+		]);
+	});
+
+	it('writes, keeps and removes the reminder', () => {
+		const input = {
+			summary: 'Zahnarzt',
+			start: utc(3, 14).getTime(),
+			end: utc(3, 15).getTime(),
+			allDay: false
+		};
+		const created = eventIcs({ ...input, reminder: 30 });
+		expect(parseEvent(created)?.reminder).toBe(30);
+		expect(alarmsIn(created, utc(3, 13), utc(3, 14)).map((a) => a.at)).toEqual([utc(3, 13, 30)]);
+		// Without `reminder` it stays as it is.
+		expect(parseEvent(eventIcs({ ...input, summary: 'Zahnarzt Dr. B' }, created))?.reminder).toBe(
+			30
+		);
+		expect(parseEvent(eventIcs({ ...input, reminder: 0 }, created))?.reminder).toBe(0);
+		expect(parseEvent(eventIcs({ ...input, reminder: null }, created))?.reminder).toBeNull();
 	});
 });
