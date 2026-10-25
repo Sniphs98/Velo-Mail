@@ -28,6 +28,21 @@ const api: VeloApi = {
 		update: (id, changes) => ipcRenderer.invoke(IPC.accountsUpdate, id, changes),
 		remove: (id) => ipcRenderer.invoke(IPC.accountsRemove, id)
 	},
+	calendar: {
+		sources: () => ipcRenderer.invoke(IPC.calendarSources),
+		addSource: (source) => ipcRenderer.invoke(IPC.calendarAddSource, source),
+		removeSource: (id) => ipcRenderer.invoke(IPC.calendarRemoveSource, id),
+		calendars: () => ipcRenderer.invoke(IPC.calendarCalendars),
+		updateCalendar: (id, changes) => ipcRenderer.invoke(IPC.calendarUpdateCalendar, id, changes),
+		events: (from, to) => ipcRenderer.invoke(IPC.calendarEvents, from, to),
+		createEvent: (calendarId, event) =>
+			ipcRenderer.invoke(IPC.calendarCreateEvent, calendarId, event),
+		updateEvent: (id, event, occurrenceStart) =>
+			ipcRenderer.invoke(IPC.calendarUpdateEvent, id, event, occurrenceStart),
+		deleteEvent: (id) => ipcRenderer.invoke(IPC.calendarDeleteEvent, id),
+		sync: () => ipcRenderer.invoke(IPC.calendarSync),
+		onChanged: (listener) => on(IPC.calendarChanged, listener)
+	},
 	settings: {
 		get: () => ipcRenderer.invoke(IPC.settingsGet),
 		set: (changes) => ipcRenderer.invoke(IPC.settingsSet, changes)
