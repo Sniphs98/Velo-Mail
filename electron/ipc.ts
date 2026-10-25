@@ -211,10 +211,18 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	handle(IPC.calendarCreateEvent, (_event, calendarId: unknown, event: unknown) =>
 		calendar.create(id.parse(calendarId), eventSchema.parse(event))
 	);
-	handle(IPC.calendarUpdateEvent, (_event, eventId: unknown, event: unknown, start: unknown) =>
-		calendar.update(id.parse(eventId), eventSchema.parse(event), id.optional().parse(start))
+	const recurrenceId = z.string().max(100);
+	const occurrenceSchema = z.object({ start: id, recurrenceId, only: z.boolean() });
+	handle(IPC.calendarUpdateEvent, (_event, eventId: unknown, event: unknown, occurrence: unknown) =>
+		calendar.update(
+			id.parse(eventId),
+			eventSchema.parse(event),
+			occurrenceSchema.optional().parse(occurrence)
+		)
 	);
-	handle(IPC.calendarDeleteEvent, (_event, eventId: unknown) => calendar.delete(id.parse(eventId)));
+	handle(IPC.calendarDeleteEvent, (_event, eventId: unknown, occurrence: unknown) =>
+		calendar.delete(id.parse(eventId), recurrenceId.optional().parse(occurrence))
+	);
 	handle(IPC.calendarSync, () => calendar.syncAll());
 
 	const invitations = new Invitations({

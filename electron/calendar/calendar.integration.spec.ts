@@ -196,7 +196,7 @@ describe('CalendarManager against Radicale', () => {
 				end: second.end + 3600_000,
 				allDay: false
 			},
-			second.start
+			{ start: second.start, recurrenceId: second.recurrenceId!, only: false }
 		);
 		const moved = await manager.events(Date.UTC(2026, 10, 2), Date.UTC(2026, 10, 17));
 		expect(moved.map((e) => new Date(e.start).toISOString())).toEqual([
@@ -204,6 +204,67 @@ describe('CalendarManager against Radicale', () => {
 			'2026-11-09T10:00:00.000Z',
 			'2026-11-16T10:00:00.000Z'
 		]);
+	});
+
+	it('changes or deletes only one occurrence of a series', async () => {
+		// Every test syncs all calendars on the server, so only this one's events count.
+		const { client, calendar } = await mine();
+		await client.createCalendarObject({
+			calendar,
+			filename: 'yoga.ics',
+			iCalString: ics('yoga', '20261201T170000Z', '20261201T180000Z', 'Yoga', [
+				'RRULE:FREQ=WEEKLY;COUNT=4'
+			])
+		});
+		const source = await addSource();
+		await manager.syncSource(source.id);
+		const own = (await manager.calendars()).find((c) => c.name === name)!;
+		const december = async () =>
+			(await manager.events(Date.UTC(2026, 11, 1), Date.UTC(2026, 11, 31))).filter(
+				(e) => e.calendarId === own.id
+			);
+		const [, second, third] = await december();
+		expect(second.recurrenceId).toBe('2026-12-08T17:00:00Z');
+
+		await manager.update(
+			second.id,
+			{
+				summary: 'Yoga im Park',
+				location: 'Stadtpark',
+				start: Date.UTC(2026, 11, 9, 16),
+				end: Date.UTC(2026, 11, 9, 17),
+				allDay: false
+			},
+			{ start: second.start, recurrenceId: second.recurrenceId!, only: true }
+		);
+		await manager.delete(third.id, third.recurrenceId!);
+
+		const after = await december();
+		expect(after.map((e) => [new Date(e.start).toISOString(), e.summary, e.location])).toEqual([
+			['2026-12-01T17:00:00.000Z', 'Yoga', null],
+			['2026-12-09T16:00:00.000Z', 'Yoga im Park', 'Stadtpark'],
+			['2026-12-22T17:00:00.000Z', 'Yoga', null]
+		]);
+		// On the server: one object with the exception and the excluded date.
+		const [stored] = await client.fetchCalendarObjects({ calendar });
+		expect(stored.data).toContain('RECURRENCE-ID:20261208T170000Z');
+		expect(stored.data).toContain('EXDATE:20261215T170000Z');
+		// Changing the changed occurrence again edits the same exception.
+		const changed = (await december())[1];
+		expect(changed.recurrenceId).toBe('2026-12-08T17:00:00Z');
+		await manager.update(
+			changed.id,
+			{
+				summary: 'Yoga fällt kürzer aus',
+				start: changed.start,
+				end: changed.start + 1800_000,
+				allDay: false
+			},
+			{ start: changed.start, recurrenceId: changed.recurrenceId!, only: true }
+		);
+		const [again] = await client.fetchCalendarObjects({ calendar });
+		expect(again.data.match(/RECURRENCE-ID/g)).toHaveLength(1);
+		expect(again.data).toContain('SUMMARY:Yoga fällt kürzer aus');
 	});
 
 	it('picks up changes made elsewhere and refuses to overwrite them', async () => {

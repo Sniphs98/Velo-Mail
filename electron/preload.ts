@@ -37,9 +37,10 @@ const api: VeloApi = {
 		events: (from, to) => ipcRenderer.invoke(IPC.calendarEvents, from, to),
 		createEvent: (calendarId, event) =>
 			ipcRenderer.invoke(IPC.calendarCreateEvent, calendarId, event),
-		updateEvent: (id, event, occurrenceStart) =>
-			ipcRenderer.invoke(IPC.calendarUpdateEvent, id, event, occurrenceStart),
-		deleteEvent: (id) => ipcRenderer.invoke(IPC.calendarDeleteEvent, id),
+		updateEvent: (id, event, occurrence) =>
+			ipcRenderer.invoke(IPC.calendarUpdateEvent, id, event, occurrence),
+		deleteEvent: (id, recurrenceId) =>
+			ipcRenderer.invoke(IPC.calendarDeleteEvent, id, recurrenceId),
 		sync: () => ipcRenderer.invoke(IPC.calendarSync),
 		onChanged: (listener) => on(IPC.calendarChanged, listener),
 		onShowDay: (listener) => on<[number]>(IPC.calendarShowDay, listener)

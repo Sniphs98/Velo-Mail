@@ -4,10 +4,10 @@
 import { and, asc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm';
 import type { DAVCalendar, DAVClient } from 'tsdav';
 import { z } from 'zod';
-import type { Calendar, CalendarEvent, EventInput } from '../../src/lib/api';
+import type { Calendar, CalendarEvent, EventInput, OccurrenceChange } from '../../src/lib/api';
 import type { Database } from '../db';
 import { calendars, events } from '../db/schema';
-import { eventIcs, occurrences, parseEvent } from './ics';
+import { eventIcs, occurrenceIcs, occurrences, parseEvent, withoutOccurrence } from './ics';
 import type { CalendarSources, Connect } from './service';
 import { connect } from './service';
 
@@ -236,7 +236,8 @@ export class CalendarManager {
 					end: occurrence.end.getTime(),
 					allDay: event.allDay,
 					recurring: event.recurring,
-					reminder: parsed?.reminder ?? null
+					reminder: parsed?.reminder ?? null,
+					recurrenceId: occurrence.recurrenceId ?? null
 				});
 			}
 		}
@@ -268,12 +269,16 @@ export class CalendarManager {
 		await this.refresh(calendar.sourceId, calendarId);
 	}
 
-	async update(eventId: number, input: EventInput, occurrenceStart?: number) {
+	async update(eventId: number, input: EventInput, occurrence?: OccurrenceChange) {
 		const { event } = await this.event(eventId);
+		if (event.recurring && occurrence?.only) {
+			await this.replaceIcs(eventId, occurrenceIcs(input, event.ics, occurrence.recurrenceId));
+			return;
+		}
 		let change = input;
 		// A recurring event moves as a whole, by as much as the occurrence was moved.
-		if (event.recurring && occurrenceStart !== undefined) {
-			const shift = input.start - occurrenceStart;
+		if (event.recurring && occurrence) {
+			const shift = input.start - occurrence.start;
 			const duration = input.end - input.start;
 			const start = event.start.getTime() + shift;
 			change = { ...input, start, end: start + duration };
@@ -302,8 +307,14 @@ export class CalendarManager {
 		return row ?? null;
 	}
 
-	async delete(eventId: number) {
+	async delete(eventId: number, recurrenceId?: string) {
 		const { event, calendar } = await this.event(eventId);
+		const rest =
+			recurrenceId && event.recurring ? withoutOccurrence(event.ics, recurrenceId) : null;
+		if (rest) {
+			await this.replaceIcs(eventId, rest);
+			return;
+		}
 		const client = await this.client(calendar.sourceId);
 		const response = await client.deleteCalendarObject({
 			calendarObject: { url: event.href, etag: event.etag ?? undefined }
