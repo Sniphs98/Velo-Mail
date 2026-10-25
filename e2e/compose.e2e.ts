@@ -20,7 +20,7 @@ test('writes, sends, replies to and archives a message', async () => {
 
 	const received = list.getByRole('button', { name: /Termin am Freitag/ });
 	await expect(received).toBeVisible({ timeout: 10_000 });
-	await expect(sidebar.getByRole('button', { name: /Sent|Gesendet/ })).toBeVisible();
+	await expect(sidebar.getByRole('button', { name: /^(Sent|Gesendet)/ })).toBeVisible();
 
 	// Reply with "r": recipient, subject and quote are filled in.
 	await received.click();
@@ -45,7 +45,7 @@ test('writes, sends, replies to and archives a message', async () => {
 	await list.getByRole('button', { name: /Termin am Freitag/ }).click();
 	await page.keyboard.press('e');
 	await expect(list.getByText('Keine E-Mails')).toBeVisible();
-	await expect(sidebar.getByRole('button', { name: /Archive|Archiv/ })).toBeVisible();
+	await expect(sidebar.getByRole('button', { name: /^(Archive|Archiv)/ })).toBeVisible();
 	await app.close();
 });
 
