@@ -162,3 +162,65 @@ export const settings = sqliteTable('settings', {
 	key: text().primaryKey(),
 	value: text({ mode: 'json' }).notNull()
 });
+
+/**
+ * A CalDAV server with its login (iCloud, Nextcloud, Posteo, …). It may reuse
+ * a mail account's credentials, or have its own.
+ */
+export const calendarSources = sqliteTable('calendar_sources', {
+	id: integer().primaryKey({ autoIncrement: true }),
+	name: text().notNull(),
+	serverUrl: text().notNull(),
+	username: text().notNull(),
+	/** Password, encrypted with safeStorage like the mail accounts'. */
+	secret: blob({ mode: 'buffer' }).notNull(),
+	createdAt: createdAt()
+});
+
+export const calendars = sqliteTable(
+	'calendars',
+	{
+		id: integer().primaryKey({ autoIncrement: true }),
+		sourceId: integer()
+			.notNull()
+			.references(() => calendarSources.id, { onDelete: 'cascade' }),
+		url: text().notNull(),
+		name: text().notNull(),
+		color: text().notNull(),
+		/** Shown in the views; the user can hide a calendar. */
+		enabled: integer({ mode: 'boolean' }).notNull().default(true),
+		/** The server's change tag; when it is unchanged nothing is fetched. */
+		ctag: text()
+	},
+	(t) => [uniqueIndex('calendars_source_url').on(t.sourceId, t.url)]
+);
+
+/** One calendar object (VEVENT with its exceptions), as stored on the server. */
+export const events = sqliteTable(
+	'events',
+	{
+		id: integer().primaryKey({ autoIncrement: true }),
+		calendarId: integer()
+			.notNull()
+			.references(() => calendars.id, { onDelete: 'cascade' }),
+		/** Where the object lives on the server, and its version. */
+		href: text().notNull(),
+		etag: text(),
+		uid: text().notNull(),
+		/** The whole iCalendar text; recurrences are expanded from it when shown. */
+		ics: text().notNull(),
+		summary: text().notNull().default(''),
+		location: text(),
+		/** Of the (first) occurrence, in milliseconds. */
+		start: integer({ mode: 'timestamp_ms' }).notNull(),
+		end: integer({ mode: 'timestamp_ms' }).notNull(),
+		allDay: integer({ mode: 'boolean' }).notNull().default(false),
+		recurring: integer({ mode: 'boolean' }).notNull().default(false),
+		/** Last possible occurrence of a recurring event; null if it never ends. */
+		recurUntil: integer({ mode: 'timestamp_ms' })
+	},
+	(t) => [
+		uniqueIndex('events_calendar_href').on(t.calendarId, t.href),
+		index('events_calendar_start').on(t.calendarId, t.start)
+	]
+);
