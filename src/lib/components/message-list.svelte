@@ -8,6 +8,7 @@
 	import SenderAvatar from './sender-avatar.svelte';
 
 	let {
+		width,
 		title,
 		subtitle,
 		messages,
@@ -20,6 +21,8 @@
 		onsearchserver,
 		oncompose
 	}: {
+		/** In pixels; set by the divider next to it. */
+		width?: number;
 		title: string;
 		subtitle?: string;
 		messages: MessageSummary[];
@@ -68,6 +71,7 @@
 <section
 	aria-label="Nachrichtenliste"
 	class="flex w-80 shrink-0 flex-col gap-2 rounded-xl border bg-card p-2.5"
+	style:width={width ? `${width}px` : undefined}
 >
 	<div class="flex items-start gap-2 pl-1">
 		<div class="flex min-w-0 flex-1 flex-col">
@@ -124,7 +128,8 @@
 			{query ? 'Keine Treffer' : 'Keine E-Mails'}
 		</p>
 	{:else}
-		<ul class="-mx-1 flex flex-col gap-px overflow-y-auto px-1">
+		<!-- relative: keeps the sr-only labels inside the scrolling list, not below the page. -->
+		<ul class="relative -mx-1 flex flex-col gap-px overflow-y-auto px-1">
 			{#each messages as message (message.id)}
 				<li>
 					<button

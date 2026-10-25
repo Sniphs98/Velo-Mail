@@ -1,4 +1,14 @@
-import { app, BrowserWindow, dialog, nativeTheme, net, protocol, session, shell } from 'electron';
+import {
+	app,
+	BrowserWindow,
+	dialog,
+	Menu,
+	nativeTheme,
+	net,
+	protocol,
+	session,
+	shell
+} from 'electron';
 import { statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -54,6 +64,21 @@ function isOwnUrl(url: string): boolean {
 	return url.startsWith(`${appOrigin}/`) || (!!devServerUrl && url.startsWith(devServerUrl));
 }
 
+const isMac = process.platform === 'darwin';
+
+/** The page's ground (layout.css), so the frame and the app look like one surface. */
+function windowColors() {
+	return nativeTheme.shouldUseDarkColors
+		? { background: '#0a0a0a', symbols: '#d4d4d4' }
+		: { background: '#f5f5f5', symbols: '#404040' };
+}
+
+/** Window buttons drawn over the page on Windows and Linux (the page leaves room, +page.svelte). */
+function titleBarOverlay() {
+	const colors = windowColors();
+	return { color: colors.background, symbolColor: colors.symbols, height: 36 };
+}
+
 function createWindow() {
 	const window = new BrowserWindow({
 		width: 1280,
@@ -62,7 +87,12 @@ function createWindow() {
 		minHeight: 600,
 		show: false,
 		// The page's background (layout.css), so there is no flash while loading.
-		backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#f4f4f5',
+		backgroundColor: windowColors().background,
+		// No system title bar or menu: the page draws a slim bar of its own.
+		titleBarStyle: 'hidden',
+		...(isMac
+			? { trafficLightPosition: { x: 14, y: 11 } }
+			: { titleBarOverlay: titleBarOverlay() }),
 		title: 'Velo Mail',
 		icon: path.join(resourcesDir, 'icon.png'),
 		webPreferences: {
@@ -138,6 +168,15 @@ if (!app.requestSingleInstanceLock()) {
 		);
 		session.defaultSession.setPermissionCheckHandler(() => false);
 		sync = registerIpc(db, desktop, isOwnUrl);
+		// Windows and Linux would show File/Edit/View above the page; macOS keeps
+		// its menu bar for the usual shortcuts.
+		if (!isMac) Menu.setApplicationMenu(null);
+		nativeTheme.on('updated', () => {
+			for (const window of BrowserWindow.getAllWindows()) {
+				window.setBackgroundColor(windowColors().background);
+				if (!isMac) window.setTitleBarOverlay(titleBarOverlay());
+			}
+		});
 		serveRenderer();
 		createWindow();
 		app.on('activate', () => showWindow());

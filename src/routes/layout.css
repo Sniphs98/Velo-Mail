@@ -52,6 +52,8 @@
 html,
 body {
 	height: 100%;
+	/* Only the panes scroll, never the window itself. */
+	overflow: hidden;
 }
 
 body {
@@ -139,4 +141,23 @@ body {
 	html {
 		@apply font-sans;
 	}
+}
+
+/* Scrollbars in the theme: thin, rounded, quiet until hovered. */
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	border: 3px solid transparent;
+	border-radius: 9999px;
+	background-clip: content-box;
+	background-color: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+}
+::-webkit-scrollbar-thumb:hover {
+	background-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
 }

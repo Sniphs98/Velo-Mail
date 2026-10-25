@@ -21,7 +21,11 @@
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import UpdateNotice from './update-notice.svelte';
 
-	let { onaddaccount, onsettings }: { onaddaccount: () => void; onsettings: () => void } = $props();
+	let {
+		width,
+		onaddaccount,
+		onsettings
+	}: { width?: number; onaddaccount: () => void; onsettings: () => void } = $props();
 
 	let info = $state<AppInfo>();
 
@@ -47,7 +51,8 @@
 
 <nav
 	aria-label="Konten und Ordner"
-	class="flex w-52 shrink-0 flex-col gap-px overflow-y-auto rounded-xl border bg-card p-2"
+	class="relative flex w-52 shrink-0 flex-col gap-px overflow-y-auto rounded-xl border bg-card p-2"
+	style:width={width ? `${width}px` : undefined}
 >
 	<Button
 		variant={mail.isShowing({ inboxes: true }) ? 'secondary' : 'ghost'}
@@ -66,7 +71,7 @@
 	{#each accounts.list as account (account.id)}
 		{@const status = mail.status[account.id]}
 		<section aria-label={account.name} class="flex flex-col gap-0.5">
-			<div class="flex items-center gap-2 pt-3 pr-0.5 pb-0.5 pl-2">
+			<div class="group/account flex items-center gap-2 pt-3 pr-0.5 pb-0.5 pl-2">
 				<span class="size-2.5 shrink-0 rounded-full" style:background={account.color}></span>
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="truncate text-[13px] font-semibold">{account.name}</span>
@@ -86,6 +91,7 @@
 								{...props}
 								variant="ghost"
 								size="icon-sm"
+								class="opacity-0 group-hover/account:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
 								aria-label="Optionen für {account.name}"
 							>
 								<Ellipsis />
