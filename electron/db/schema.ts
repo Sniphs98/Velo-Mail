@@ -112,6 +112,10 @@ export const messageBodies = sqliteTable('message_bodies', {
 	html: text(),
 	/** Attachment names and the text of PDF attachments, for search only. */
 	attachmentText: text(),
+	/** An invitation's iCalendar text (text/calendar part), if the message carries one. */
+	calendar: text(),
+	/** The answer given to that invitation here: accepted, tentative or declined. */
+	calendarResponse: text(),
 	fetchedAt: createdAt()
 });
 
@@ -221,6 +225,8 @@ export const events = sqliteTable(
 	},
 	(t) => [
 		uniqueIndex('events_calendar_href').on(t.calendarId, t.href),
-		index('events_calendar_start').on(t.calendarId, t.start)
+		index('events_calendar_start').on(t.calendarId, t.start),
+		// Invitations find their event by UID.
+		index('events_uid').on(t.uid)
 	]
 );

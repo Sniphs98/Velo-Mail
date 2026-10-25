@@ -18,7 +18,38 @@ const pixel = Buffer.from(
 	'base64'
 );
 
+const invite = [
+	'BEGIN:VCALENDAR',
+	'VERSION:2.0',
+	'METHOD:REQUEST',
+	'BEGIN:VEVENT',
+	'UID:x@firma.de',
+	'DTSTART:20261103T090000Z',
+	'SUMMARY:Planung',
+	'END:VEVENT',
+	'END:VCALENDAR',
+	''
+].join('\r\n');
+
 describe('parseMessage', () => {
+	it('keeps the calendar part of an invitation', async () => {
+		const parsed = await parseMessage(
+			await compose({ text: 'Einladung', icalEvent: { method: 'REQUEST', content: invite } })
+		);
+		expect(parsed.calendar).toContain('SUMMARY:Planung');
+		expect(parsed.text).toBe('Einladung');
+	});
+
+	it('takes no calendar part without an event in it', async () => {
+		const parsed = await parseMessage(
+			await compose({
+				text: 'Kalender',
+				attachments: [{ filename: 'leer.ics', content: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n' }]
+			})
+		);
+		expect(parsed.calendar).toBeNull();
+	});
+
 	it('reads plain text and makes a snippet without quoted lines', async () => {
 		const parsed = await parseMessage(
 			await compose({

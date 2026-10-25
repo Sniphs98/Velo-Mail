@@ -34,6 +34,16 @@ describe('parseRecipients', () => {
 describe('buildMessage', () => {
 	const from = { name: 'Du', address: 'du@beispiel.de' };
 
+	it('sends an iTIP answer as text/calendar with its method', async () => {
+		const built = await buildMessage(from, message(), {
+			calendar: { method: 'REPLY', content: 'BEGIN:VCALENDAR\r\nMETHOD:REPLY\r\nEND:VCALENDAR\r\n' }
+		});
+		const raw = built.raw.toString();
+		expect(raw).toMatch(/^Content-Type: text\/calendar; charset=utf-8; method=REPLY$/m);
+		// The text stays readable for clients without calendar support.
+		expect(raw).toMatch(/^Content-Type: text\/plain; charset=utf-8$/m);
+	});
+
 	it('keeps the conversation headers and hides Bcc from the recipients', async () => {
 		const built = await buildMessage(
 			from,

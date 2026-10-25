@@ -33,6 +33,22 @@ export interface ParsedMessage {
 	attachments: ParsedAttachment[];
 	/** For the search index (attachment-text.ts). */
 	attachmentText: string | null;
+	/** An invitation's iCalendar text (itip.ts), if there is one. */
+	calendar: string | null;
+}
+
+/** Larger calendar parts are not taken for an invitation. */
+const maxCalendar = 1024 * 1024;
+
+/** The first text/calendar part with an event in it, e.g. from Outlook or Google. */
+function calendarPart(contents: AttachmentContent[]): string | null {
+	for (const file of contents) {
+		if (!/^(text\/calendar|application\/ics)$/i.test(file.contentType)) continue;
+		if (file.content.length > maxCalendar) continue;
+		const text = file.content.toString('utf8');
+		if (/^BEGIN:VEVENT/m.test(text)) return text;
+	}
+	return null;
 }
 
 function bytes(content: ArrayBuffer | string | Uint8Array): Buffer {
@@ -84,7 +100,8 @@ export async function parseMessage(source: Buffer): Promise<ParsedMessage> {
 		snippet: snippet(text ?? ''),
 		references: (email.references ?? '').match(/<[^>]+>/g) ?? [],
 		attachments: list,
-		attachmentText: await attachmentText(contents)
+		attachmentText: await attachmentText(contents),
+		calendar: calendarPart(contents)
 	};
 }
 
@@ -177,7 +194,8 @@ export async function fetchBody(
 				messageId: message.id,
 				text: parsed.text,
 				html: parsed.html,
-				attachmentText: parsed.attachmentText
+				attachmentText: parsed.attachmentText,
+				calendar: parsed.calendar
 			})
 			.onConflictDoUpdate({
 				target: messageBodies.messageId,
@@ -185,6 +203,7 @@ export async function fetchBody(
 					text: parsed.text,
 					html: parsed.html,
 					attachmentText: parsed.attachmentText,
+					calendar: parsed.calendar,
 					fetchedAt: new Date()
 				}
 			})
