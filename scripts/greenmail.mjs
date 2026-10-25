@@ -20,7 +20,9 @@ export const greenMail = {
 	user: { email: 'anna@beispiel.test', password: 'geheim' },
 	/** Mailboxes of their own for tests that run alongside those using `user`. */
 	invitee: { email: 'ben@beispiel.test', password: 'geheim' },
-	organizer: { email: 'lea@beispiel.test', password: 'geheim' }
+	organizer: { email: 'lea@beispiel.test', password: 'geheim' },
+	/** The account in the README screenshots (e2e/screenshots.ts). */
+	demo: { email: 'alex@example.com', password: 'demo' }
 };
 
 function download() {
@@ -45,7 +47,7 @@ function portOpen(port) {
 /** Starts GreenMail and resolves once IMAP and SMTP accept connections. */
 export async function startGreenMail() {
 	download();
-	const users = [greenMail.user, greenMail.invitee, greenMail.organizer]
+	const users = [greenMail.user, greenMail.invitee, greenMail.organizer, greenMail.demo]
 		.map(({ email, password }) => `${email.split('@')[0]}:${password}@${email.split('@')[1]}`)
 		.join(',');
 	const server = spawn(

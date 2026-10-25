@@ -24,6 +24,7 @@
 		"test:integration": "vitest --run --project integration",
 		"test": "npm run test:unit -- --run && npm run test:integration && npm run test:e2e",
 		"test:e2e": "npm run build && playwright test",
+		"screenshots": "npm run build && SCREENSHOTS=1 playwright test",
 		"db:generate": "drizzle-kit generate"
 	},
 	"devDependencies": {
