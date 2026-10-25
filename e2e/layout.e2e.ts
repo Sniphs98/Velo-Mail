@@ -35,3 +35,25 @@ test('only the panes scroll, and their widths stay as set', async () => {
 	).toBe(Math.round(after));
 	await second.app.close();
 });
+
+test('keeps the reading position while other mail arrives', async () => {
+	await clearInbox();
+	const long = Array.from({ length: 120 }, (_, i) => `Absatz ${i + 1}`).join('\n\n');
+	await sendTestMail({ subject: 'Langer Bericht', text: long });
+	const { app, window: page } = await launchApp();
+	await expect(await addTestAccount(page)).toBeHidden();
+	const list = page.getByRole('region', { name: 'Nachrichtenliste' });
+	await list.getByRole('button', { name: /Langer Bericht/ }).click({ timeout: 10_000 });
+	const pane = page.getByRole('article', { name: 'Nachricht', exact: true });
+	await expect(pane.getByText('Absatz 120')).toBeVisible();
+	await pane.evaluate((element) => (element.scrollTop = 800));
+
+	// New mail makes the app reload list and conversation a few times.
+	for (let i = 0; i < 3; i++) await sendTestMail({ subject: `Nachzügler ${i}` });
+	await expect(list.getByRole('listitem')).toHaveCount(4, { timeout: 10_000 });
+	await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 500)));
+
+	expect(await pane.evaluate((element) => element.scrollTop)).toBe(800);
+	await expect(pane.getByText('Inhalt wird geladen')).toBeHidden();
+	await app.close();
+});

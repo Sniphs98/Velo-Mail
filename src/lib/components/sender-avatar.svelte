@@ -17,13 +17,16 @@
 	} = $props();
 
 	let picture = $state<SenderPicture | null>(null);
+	// A derived only reports a change when the value changes, so a list or
+	// conversation loaded again (new objects, same sender) does not reload it.
+	const sender = $derived(address);
 
 	$effect(() => {
 		picture = null;
 		void pictures.version;
-		if (!address) return;
+		if (!sender) return;
 		let current = true;
-		pictures.get(address).then((found) => {
+		pictures.get(sender).then((found) => {
 			if (current) picture = found;
 		});
 		return () => {

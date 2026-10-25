@@ -54,4 +54,32 @@ describe('mail', () => {
 		);
 		stop();
 	});
+
+	it('keeps list and conversation when a change brings nothing new', async () => {
+		let changed = () => {};
+		const messages = vi.fn(async () => [message(1), message(2)]);
+		fakeVelo({
+			mail: {
+				messages,
+				thread: vi.fn(async () => [message(1)]),
+				onChanged: vi.fn((listener: () => void) => {
+					changed = listener;
+					return () => {};
+				})
+			}
+		});
+		const stop = mail.connect();
+		await mail.open(1);
+		await vi.waitFor(() => expect(mail.messages).toHaveLength(2));
+		const list = mail.messages;
+		const open = mail.thread;
+
+		// Another folder syncs: the cache changed, but not what is shown.
+		changed();
+		await vi.waitFor(() => expect(messages).toHaveBeenCalledTimes(2));
+		await new Promise((resolve) => setTimeout(resolve));
+		expect(mail.messages).toBe(list);
+		expect(mail.thread).toBe(open);
+		stop();
+	});
 });
