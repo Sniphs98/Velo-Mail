@@ -60,4 +60,17 @@ describe('SettingsDialog', () => {
 		await page.getByLabelText('Name').fill('');
 		await expect.element(save).toBeDisabled();
 	});
+
+	it('changes the color of an account at once', async () => {
+		const api = fakeVelo();
+		accounts.list = [
+			{ id: 3, name: 'Privat', email: 'du@beispiel.de', color: '#2563eb', signature: '' }
+		];
+		render(SettingsDialog, { open: true });
+		await page.getByRole('tab', { name: 'Konten' }).click();
+		await expect.element(page.getByRole('radio', { name: 'Blau' })).toBeChecked();
+		await page.getByRole('radio', { name: 'Grün' }).click();
+		expect(api.accounts.update).toHaveBeenCalledWith(3, { color: '#16a34a' });
+		await expect.element(page.getByRole('radio', { name: 'Grün' })).toBeChecked();
+	});
 });

@@ -46,7 +46,7 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 				id,
 				name: changes.name ?? 'Persönlich',
 				email: 'du@beispiel.de',
-				color: '#2563eb',
+				color: changes.color ?? '#2563eb',
 				signature: changes.signature ?? ''
 			})),
 			remove: vi.fn(async () => {}),

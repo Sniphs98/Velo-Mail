@@ -1,4 +1,5 @@
 import { asc, eq } from 'drizzle-orm';
+import { accountColors } from '../../src/lib/colors';
 import { z } from 'zod';
 import type {
 	Account,
@@ -25,7 +26,7 @@ export interface Credentials {
 }
 
 /** Account colors, assigned in turn (design: blue, orange, teal, …). */
-export const accountColors = ['#ea580c', '#0d9488', '#7c3aed', '#db2777', '#ca8a04', '#16a34a'];
+export { accountColors };
 
 const security = z.enum(['tls', 'starttls', 'none']);
 const host = z.string().trim().min(1).max(253);
@@ -44,7 +45,8 @@ export const serverSettingsSchema = z.object({
 export const accountChangesSchema = z
 	.object({
 		name: z.string().trim().min(1).max(100),
-		signature: z.string().max(10_000)
+		signature: z.string().max(10_000),
+		color: z.string().regex(/^#[0-9a-f]{6}$/i)
 	})
 	.partial()
 	.strict();

@@ -2,12 +2,15 @@
 	import {
 		Archive,
 		CalendarDays,
+		ChevronDown,
 		CircleAlert,
 		Ellipsis,
 		File,
 		Folder,
 		Inbox,
 		Mails,
+		Pin,
+		PinOff,
 		Plus,
 		Send,
 		Settings2,
@@ -19,7 +22,7 @@
 	import { mail } from '#lib/mail.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
-	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import { sidebar } from '#lib/sidebar.svelte.ts';
 	import { mode } from '#lib/calendar.svelte.ts';
 	import CalendarList from './calendar/calendar-list.svelte';
 	import UpdateNotice from './update-notice.svelte';
@@ -107,15 +110,35 @@
 
 		{#each accounts.list as account (account.id)}
 			{@const status = mail.status[account.id]}
+			{@const collapsed = sidebar.isCollapsed(account.id)}
 			<section aria-label={account.name} class="flex flex-col gap-0.5">
-				<div class="group/account flex items-center gap-2 pt-3 pr-0.5 pb-0.5 pl-2">
-					<span class="size-2.5 shrink-0 rounded-full" style:background={account.color}></span>
-					<span class="flex min-w-0 flex-1 flex-col">
-						<span class="truncate text-[13px] font-semibold">{account.name}</span>
-						<span class="truncate text-xs text-muted-foreground">{account.email}</span>
-					</span>
+				<div class="group/account flex items-center gap-1 pt-3 pr-0.5 pb-0.5">
+					<button
+						type="button"
+						class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-0.5 pl-0.5 text-left"
+						aria-expanded={!collapsed}
+						aria-label="{account.name} {collapsed ? 'aufklappen' : 'zuklappen'}"
+						onclick={() => sidebar.toggle(account.id)}
+					>
+						<ChevronDown
+							class="size-3.5 shrink-0 text-muted-foreground transition-transform {collapsed
+								? '-rotate-90'
+								: ''}"
+							aria-hidden="true"
+						/>
+						<!-- The account's color; it pulses while a sync takes longer than a moment. -->
+						<span
+							class="size-2.5 shrink-0 rounded-full"
+							class:syncing={status?.state === 'syncing'}
+							style:background={account.color}
+						></span>
+						<span class="flex min-w-0 flex-1 flex-col pl-0.5">
+							<span class="truncate text-[13px] font-semibold">{account.name}</span>
+							<span class="truncate text-xs text-muted-foreground">{account.email}</span>
+						</span>
+					</button>
 					{#if status?.state === 'syncing'}
-						<Spinner class="size-3.5 text-muted-foreground" aria-label="Wird synchronisiert" />
+						<span class="sr-only" role="status">Wird synchronisiert</span>
 					{:else if status?.state === 'error'}
 						<span title={status.error} class="text-destructive">
 							<CircleAlert class="size-4" aria-label="Synchronisierung fehlgeschlagen" />
@@ -148,19 +171,38 @@
 				{#each mail.mailboxes.filter((m) => m.accountId === account.id) as box (box.id)}
 					{@const Icon = box.role ? icons[box.role] : Folder}
 					{@const active = mail.isShowing({ mailboxId: box.id })}
-					<Button
-						variant={active ? 'secondary' : 'ghost'}
-						aria-current={active ? 'page' : undefined}
-						size="sm"
-						class="{itemClass} pl-6"
-						onclick={() => mail.show({ mailboxId: box.id })}
-					>
-						<Icon class="size-4" aria-hidden="true" />
-						<span class="flex-1 truncate text-left">{box.name}</span>
-						{#if box.unread > 0 && box.role !== 'trash' && box.role !== 'junk'}
-							<span class="text-xs font-semibold">{box.unread}</span>
-						{/if}
-					</Button>
+					{@const pinned = sidebar.isPinned(box)}
+					<!-- Folded, only pinned folders (and the open one) stay. -->
+					{#if !collapsed || pinned || active}
+						<div class="group/folder relative flex items-center">
+							<Button
+								variant={active ? 'secondary' : 'ghost'}
+								aria-current={active ? 'page' : undefined}
+								size="sm"
+								class="{itemClass} flex-1 pl-6"
+								onclick={() => mail.show({ mailboxId: box.id })}
+							>
+								<Icon class="size-4" aria-hidden="true" />
+								<span class="flex-1 truncate text-left">{box.name}</span>
+								{#if box.unread > 0 && box.role !== 'trash' && box.role !== 'junk'}
+									<span class="text-xs font-semibold group-hover/folder:invisible"
+										>{box.unread}</span
+									>
+								{/if}
+							</Button>
+							<button
+								type="button"
+								class="absolute right-1 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/folder:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100"
+								aria-label="{pinned ? 'Nicht mehr anpinnen' : 'Anpinnen'}: {box.name}"
+								title={pinned
+									? 'Nicht mehr anpinnen'
+									: 'Anpinnen: auch bei zugeklapptem Konto sichtbar'}
+								onclick={() => sidebar.pin(box, !pinned)}
+							>
+								{#if pinned}<PinOff class="size-3.5" />{:else}<Pin class="size-3.5" />{/if}
+							</button>
+						</div>
+					{/if}
 				{/each}
 			</section>
 		{/each}
@@ -189,3 +231,21 @@
 		<p class="px-2 pt-1.5 text-[11px] text-muted-foreground">{info.name} {info.version}</p>
 	{/if}
 </nav>
+
+<style>
+	/* Starts late, so a quick sync shows nothing at all. */
+	.syncing {
+		animation: pulse 1.6s ease-in-out 0.6s infinite;
+	}
+	@keyframes pulse {
+		50% {
+			opacity: 0.35;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.syncing {
+			animation: none;
+			opacity: 0.6;
+		}
+	}
+</style>
