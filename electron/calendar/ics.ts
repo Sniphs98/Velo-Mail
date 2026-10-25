@@ -259,6 +259,16 @@ export function eventIcs(
 		vevent.addPropertyWithValue('uid', uid);
 		root.addSubcomponent(vevent);
 	}
+	apply(vevent, input, previous !== undefined);
+	return text(root);
+}
+
+function text(root: ICAL.Component) {
+	return root.toString().replace(/\r?\n/g, '\r\n') + '\r\n';
+}
+
+/** Sets the fields of `input` on a VEVENT and counts up its SEQUENCE. */
+function apply(vevent: ICAL.Component, input: EventInput, changed: boolean) {
 	const event = new ICAL.Event(vevent);
 	event.summary = input.summary;
 	set(vevent, 'location', input.location);
@@ -269,8 +279,67 @@ export function eventIcs(
 	if (input.reminder !== undefined) setReminder(vevent, input.reminder, input.summary);
 	vevent.updatePropertyWithValue('dtstamp', ICAL.Time.now());
 	const sequence = Number(vevent.getFirstPropertyValue('sequence') ?? -1);
-	vevent.updatePropertyWithValue('sequence', previous ? sequence + 1 : 0);
-	return root.toString().replace(/\r?\n/g, '\r\n') + '\r\n';
+	vevent.updatePropertyWithValue('sequence', changed ? sequence + 1 : 0);
+}
+
+const keyOf = (vevent: ICAL.Component) =>
+	vevent.getFirstPropertyValue('recurrence-id')?.toString() ?? '';
+
+/** Sets a RECURRENCE-ID or EXDATE for an occurrence, in the series' time zone. */
+function setOccurrence(
+	vevent: ICAL.Component,
+	name: 'recurrence-id' | 'exdate',
+	series: ICAL.Component,
+	recurrenceId: string
+) {
+	const start = series.getFirstPropertyValue('dtstart') as ICAL.Time;
+	const value = ICAL.Time.fromString(recurrenceId, null);
+	const zoned = !value.isDate && !recurrenceId.endsWith('Z');
+	if (zoned) value.zone = start.zone;
+	const property =
+		name === 'exdate'
+			? vevent.addPropertyWithValue(name, value)
+			: vevent.updatePropertyWithValue(name, value);
+	const tzid = series.getFirstProperty('dtstart')?.getParameter('tzid');
+	if (zoned && typeof tzid === 'string') property.setParameter('tzid', tzid);
+}
+
+/**
+ * The series in `previous` with only one occurrence changed: an exception
+ * (RECURRENCE-ID) is added, or the existing one is changed.
+ */
+export function occurrenceIcs(input: EventInput, previous: string, recurrenceId: string): string {
+	const root = component(previous);
+	const series = master(root);
+	if (!series) throw new Error('Den Termin gibt es nicht mehr.');
+	let vevent = root
+		.getAllSubcomponents('vevent')
+		.find((v) => v !== series && keyOf(v) === recurrenceId);
+	if (!vevent) {
+		vevent = new ICAL.Component('vevent');
+		vevent.addPropertyWithValue('uid', series.getFirstPropertyValue('uid'));
+		setOccurrence(vevent, 'recurrence-id', series, recurrenceId);
+		vevent.addPropertyWithValue('sequence', Number(series.getFirstPropertyValue('sequence') ?? 0));
+		// The series' reminders apply to the occurrence too.
+		for (const alarm of series.getAllSubcomponents('valarm')) {
+			vevent.addSubcomponent(new ICAL.Component(structuredClone(alarm.toJSON())));
+		}
+		root.addSubcomponent(vevent);
+	}
+	apply(vevent, input, true);
+	return text(root);
+}
+
+/** The series in `ics` without one occurrence (EXDATE), or null if there is no series. */
+export function withoutOccurrence(ics: string, recurrenceId: string): string | null {
+	const root = component(ics);
+	const series = root.getAllSubcomponents('vevent').find((v) => !v.hasProperty('recurrence-id'));
+	if (!series) return null;
+	for (const vevent of root.getAllSubcomponents('vevent')) {
+		if (vevent !== series && keyOf(vevent) === recurrenceId) root.removeSubcomponent(vevent);
+	}
+	setOccurrence(series, 'exdate', series, recurrenceId);
+	return text(root);
 }
 
 function set(vevent: ICAL.Component, name: string, value: string | undefined) {

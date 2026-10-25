@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { alarmsIn, eventIcs, occurrences, parseEvent } from './ics';
+import {
+	alarmsIn,
+	eventIcs,
+	occurrenceIcs,
+	occurrences,
+	parseEvent,
+	withoutOccurrence
+} from './ics';
 
 const wrap = (...lines: string[]) =>
 	['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Test//DE', ...lines, 'END:VCALENDAR'].join('\r\n');
@@ -276,5 +283,90 @@ describe('reminders', () => {
 		);
 		expect(parseEvent(eventIcs({ ...input, reminder: 0 }, created))?.reminder).toBe(0);
 		expect(parseEvent(eventIcs({ ...input, reminder: null }, created))?.reminder).toBeNull();
+	});
+});
+
+describe('single occurrences', () => {
+	const series = wrap(
+		...berlin,
+		'BEGIN:VEVENT',
+		'UID:s1',
+		'DTSTAMP:20261001T000000Z',
+		'SEQUENCE:2',
+		'DTSTART;TZID=Europe/Berlin:20261102T090000',
+		'DTEND;TZID=Europe/Berlin:20261102T100000',
+		'RRULE:FREQ=WEEKLY;COUNT=3',
+		'SUMMARY:Jour fixe',
+		'BEGIN:VALARM',
+		'ACTION:DISPLAY',
+		'TRIGGER:-PT10M',
+		'END:VALARM',
+		'END:VEVENT'
+	);
+	const month = [new Date(Date.UTC(2026, 10, 1)), new Date(Date.UTC(2026, 11, 1))] as const;
+
+	it('changes one occurrence in the series time zone, keeping its reminder', () => {
+		const [, second] = occurrences(series, ...month);
+		expect(second.recurrenceId).toBe('2026-11-09T09:00:00');
+		const ics = occurrenceIcs(
+			{
+				summary: 'Jour fixe (verschoben)',
+				start: Date.UTC(2026, 10, 10, 13),
+				end: Date.UTC(2026, 10, 10, 14),
+				allDay: false
+			},
+			series,
+			second.recurrenceId!
+		);
+		expect(ics).toContain('RECURRENCE-ID;TZID=Europe/Berlin:20261109T090000');
+		expect(
+			occurrences(ics, ...month).map((o) => [o.start.toISOString(), o.summary, o.recurrenceId])
+		).toEqual([
+			['2026-11-02T08:00:00.000Z', 'Jour fixe', '2026-11-02T09:00:00'],
+			['2026-11-10T13:00:00.000Z', 'Jour fixe (verschoben)', '2026-11-09T09:00:00'],
+			['2026-11-16T08:00:00.000Z', 'Jour fixe', '2026-11-16T09:00:00']
+		]);
+		// The series stays as it was; the moved occurrence reminds 10 minutes before its new time.
+		expect(parseEvent(ics)).toMatchObject({ summary: 'Jour fixe', reminder: 10 });
+		expect(
+			alarmsIn(ics, new Date(Date.UTC(2026, 10, 10, 12)), new Date(Date.UTC(2026, 10, 10, 13))).map(
+				(a) => a.at
+			)
+		).toEqual([new Date(Date.UTC(2026, 10, 10, 12, 50))]);
+	});
+
+	it('leaves out one occurrence, and drops its changes', () => {
+		const changed = occurrenceIcs(
+			{
+				summary: 'Anders',
+				start: Date.UTC(2026, 10, 9, 12),
+				end: Date.UTC(2026, 10, 9, 13),
+				allDay: false
+			},
+			series,
+			'2026-11-09T09:00:00'
+		);
+		const ics = withoutOccurrence(changed, '2026-11-09T09:00:00')!;
+		expect(ics).toContain('EXDATE;TZID=Europe/Berlin:20261109T090000');
+		expect(ics).not.toContain('Anders');
+		expect(occurrences(ics, ...month).map((o) => o.start.toISOString())).toEqual([
+			'2026-11-02T08:00:00.000Z',
+			'2026-11-16T08:00:00.000Z'
+		]);
+	});
+
+	it('handles all-day series', () => {
+		const daily = wrap(
+			'BEGIN:VEVENT',
+			'UID:d1',
+			'DTSTART;VALUE=DATE:20261102',
+			'DTEND;VALUE=DATE:20261103',
+			'RRULE:FREQ=DAILY;COUNT=3',
+			'SUMMARY:Messe',
+			'END:VEVENT'
+		);
+		const ics = withoutOccurrence(daily, '2026-11-03')!;
+		expect(ics).toContain('EXDATE;VALUE=DATE:20261103');
+		expect(occurrences(ics, ...month)).toHaveLength(2);
 	});
 });
