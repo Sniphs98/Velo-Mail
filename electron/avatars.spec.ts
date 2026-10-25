@@ -9,6 +9,7 @@ import {
 	isPublicDomain,
 	organizationalDomain,
 	parseBimi,
+	providerSite,
 	type Fetched
 } from './avatars';
 
@@ -39,6 +40,16 @@ describe('helpers', () => {
 		expect(isPublicDomain('nas.local')).toBe(false);
 		expect(isPublicDomain('192.168.0.1')).toBe(false);
 		expect(isPublicDomain('beispiel.test')).toBe(false);
+	});
+
+	it("tells a mail provider's own mails from its users'", () => {
+		expect(providerSite('no-reply@yahoo.com', null)).toBe('yahoo.com');
+		expect(providerSite('kontakt@yahoo.de', 'Yahoo Mail')).toBe('yahoo.com');
+		expect(providerSite('news@gmail.com', 'Lea')).toBe('google.com');
+		expect(providerSite('lea.hoffmann@yahoo.com', 'Lea Hoffmann')).toBeNull();
+		// "Yahoo" must be a word of its own.
+		expect(providerSite('max@yahoo.com', 'Maxyahoo')).toBeNull();
+		expect(providerSite('info@firma.de', 'Yahoo')).toBeNull();
 	});
 
 	it('reads the logo from a BIMI record', () => {
@@ -80,9 +91,12 @@ describe('Avatars', () => {
 		avatars = new Avatars({
 			db,
 			now: () => now,
-			fetchBytes: async (url, maxBytes) => {
+			fetchBytes: async (url, maxBytes, options) => {
 				requested.push(url);
 				const response = responses[url];
+				if (response && options?.truncate) {
+					return { ...response, data: response.data.subarray(0, maxBytes) };
+				}
 				return response && response.data.length <= maxBytes ? response : null;
 			},
 			resolveTxt: async (name) => {
@@ -113,6 +127,32 @@ describe('Avatars', () => {
 		const picture = await avatars.find('thomas@firma.de');
 		expect(picture?.kind).toBe('icon');
 		expect(decoded(picture?.url)).toBe('touch');
+	});
+
+	it('reads only the head of a big home page', async () => {
+		const head = '<link rel="icon" href="/logo.png" sizes="192x192">';
+		responses['https://shop.de/'] = html(head + '<p>Angebote</p>'.repeat(100_000));
+		responses['https://shop.de/logo.png'] = png('logo');
+		expect(decoded((await avatars.find('service@shop.de'))?.url)).toBe('logo');
+	});
+
+	it('tries www. when the bare domain does not answer', async () => {
+		responses['https://www.firma.de/'] = html('<link rel="apple-touch-icon" href="/t.png">');
+		responses['https://www.firma.de/t.png'] = png('www');
+		expect(decoded((await avatars.find('thomas@firma.de'))?.url)).toBe('www');
+	});
+
+	it("asks DuckDuckGo's icon service last, with the domain only", async () => {
+		responses['https://icons.duckduckgo.com/ip3/firma.de.ico'] = png('ddg');
+		expect(decoded((await avatars.find('thomas@firma.de'))?.url)).toBe('ddg');
+		expect(requested.filter((url) => url.includes('duckduckgo')).join()).not.toContain('thomas');
+	});
+
+	it("shows Yahoo's logo on Yahoo's own mails, not on its users'", async () => {
+		records['default._bimi.yahoo.com'] = [['v=BIMI1; l=https://s.yimg.com/yahoo.svg']];
+		responses['https://s.yimg.com/yahoo.svg'] = svg('Y');
+		expect(decoded((await avatars.find('no-reply@yahoo.com', 'Yahoo'))?.url)).toBe('<svg>Y</svg>');
+		expect(await avatars.find('lea@yahoo.com', 'Lea Hoffmann')).toBeNull();
 	});
 
 	it('ignores logos that are not images or too big', async () => {

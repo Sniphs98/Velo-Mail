@@ -406,7 +406,7 @@ export interface VeloApi {
 		/** Searches on the servers for older messages; returns how many were added. */
 		searchServer(query: SearchQuery): Promise<number>;
 		/** The sender's picture, looked up once and cached; null shows initials. */
-		avatar(address: string): Promise<SenderPicture | null>;
+		avatar(address: string, name?: string | null): Promise<SenderPicture | null>;
 		/** The invitation the message carries, or null. */
 		invitation(messageId: number): Promise<Invitation | null>;
 		/**

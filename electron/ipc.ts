@@ -58,8 +58,12 @@ async function fetchText(url: string): Promise<string | null> {
 	}
 }
 
-/** Downloads at most `maxBytes` over https; null otherwise. */
-async function fetchBytes(url: string, maxBytes: number): Promise<Fetched | null> {
+/** Downloads at most `maxBytes` over https (or their start with `truncate`); null otherwise. */
+async function fetchBytes(
+	url: string,
+	maxBytes: number,
+	{ truncate = false } = {}
+): Promise<Fetched | null> {
 	try {
 		const response = await net.fetch(url, {
 			signal: AbortSignal.timeout(6000),
@@ -68,12 +72,16 @@ async function fetchBytes(url: string, maxBytes: number): Promise<Fetched | null
 		});
 		// Redirects must stay on https.
 		if (!response.ok || !response.url.startsWith('https://') || !response.body) return null;
-		if (Number(response.headers.get('content-length') ?? 0) > maxBytes) return null;
+		if (!truncate && Number(response.headers.get('content-length') ?? 0) > maxBytes) return null;
 		const chunks: Uint8Array[] = [];
 		let size = 0;
 		for await (const chunk of response.body) {
+			if (size + chunk.length > maxBytes) {
+				if (!truncate) return null;
+				chunks.push(chunk.subarray(0, maxBytes - size));
+				break;
+			}
 			size += chunk.length;
-			if (size > maxBytes) return null;
 			chunks.push(chunk);
 		}
 		return {
@@ -310,10 +318,10 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	handle(IPC.mailTrustSender, (_event, address: unknown) =>
 		trustSender(db, z.email().parse(address))
 	);
-	handle(IPC.mailAvatar, async (_event, address: unknown) => {
+	handle(IPC.mailAvatar, async (_event, address: unknown, name: unknown) => {
 		const valid = z.email().safeParse(address);
 		if (!valid.success || !(await readSettings(db)).avatars) return null;
-		return avatars.find(valid.data);
+		return avatars.find(valid.data, z.string().max(500).nullish().parse(name) ?? null);
 	});
 	handle(IPC.mailReplySource, (_event, id: unknown) =>
 		sync.replySource(z.number().int().parse(id))
