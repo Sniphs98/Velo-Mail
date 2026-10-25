@@ -253,6 +253,34 @@ export interface EventInput {
 	allDay: boolean;
 }
 
+export type ParticipantStatus =
+	'accepted' | 'tentative' | 'declined' | 'delegated' | 'needs-action';
+
+/** The answers one can give to an invitation. */
+export type InvitationResponse = 'accepted' | 'tentative' | 'declined';
+
+/** An invitation (or cancellation, or someone's answer) that came by mail. */
+export interface Invitation {
+	/** request: invited or changed; cancel: called off; reply: an attendee answered. */
+	method: 'request' | 'cancel' | 'reply' | 'other';
+	summary: string;
+	location: string | null;
+	description: string | null;
+	start: number;
+	end: number;
+	allDay: boolean;
+	recurring: boolean;
+	organizer: { name?: string; address: string } | null;
+	attendees: { name?: string; address: string; status: ParticipantStatus }[];
+	/** The own answer so far, from the calendar or this message. */
+	response: InvitationResponse | null;
+	/** The calendar the event is in; null if it is in none. */
+	calendarId: number | null;
+	inCalendar: boolean;
+	/** The calendar already has a newer version of the event. */
+	outdated: boolean;
+}
+
 /** Which messages to list: one mailbox, or the inboxes of all accounts. */
 export type MessageQuery = { mailboxId: number } | { inboxes: true };
 
@@ -340,6 +368,19 @@ export interface VeloApi {
 		searchServer(query: string): Promise<number>;
 		/** The sender's picture, looked up once and cached; null shows initials. */
 		avatar(address: string): Promise<SenderPicture | null>;
+		/** The invitation the message carries, or null. */
+		invitation(messageId: number): Promise<Invitation | null>;
+		/**
+		 * Answers an invitation: puts it into the calendar (or takes it out when
+		 * declined) and tells the organizer by mail.
+		 */
+		respondToInvitation(
+			messageId: number,
+			response: InvitationResponse,
+			calendarId: number | null
+		): Promise<void>;
+		/** Takes a cancelled event (or occurrence) out of the calendar. */
+		removeCancelledEvent(messageId: number): Promise<void>;
 		/** Syncs an account (or all) now instead of waiting for the next round. */
 		sync(accountId?: number): Promise<void>;
 		/** Called whenever the cache changed; returns a function that unsubscribes. */
@@ -405,6 +446,9 @@ export const IPC = {
 	mailAvatar: 'mail:avatar',
 	mailOpenAttachment: 'mail:open-attachment',
 	mailSaveAttachment: 'mail:save-attachment',
+	mailInvitation: 'mail:invitation',
+	mailRespondToInvitation: 'mail:respond-to-invitation',
+	mailRemoveCancelledEvent: 'mail:remove-cancelled-event',
 	/** Main → renderer. */
 	mailChanged: 'mail:changed',
 	mailStatus: 'mail:status',

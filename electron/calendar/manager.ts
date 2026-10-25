@@ -249,20 +249,26 @@ export class CalendarManager {
 	}
 
 	async create(calendarId: number, input: EventInput) {
+		const uid = crypto.randomUUID();
+		await this.createIcs(calendarId, eventIcs(input, undefined, uid));
+	}
+
+	/** Stores a calendar object as it is, e.g. an accepted invitation. */
+	async createIcs(calendarId: number, ics: string) {
 		const calendar = await this.calendar(calendarId);
 		const client = await this.client(calendar.sourceId);
-		const uid = crypto.randomUUID();
 		const response = await client.createCalendarObject({
 			calendar: { url: calendar.url },
-			filename: `${uid}.ics`,
-			iCalString: eventIcs(input, undefined, uid)
+			// The UID can hold any character; the file name only safe ones.
+			filename: `${crypto.randomUUID()}.ics`,
+			iCalString: ics
 		});
 		await check(response, 'Speichern');
 		await this.refresh(calendar.sourceId, calendarId);
 	}
 
 	async update(eventId: number, input: EventInput, occurrenceStart?: number) {
-		const { event, calendar } = await this.event(eventId);
+		const { event } = await this.event(eventId);
 		let change = input;
 		// A recurring event moves as a whole, by as much as the occurrence was moved.
 		if (event.recurring && occurrenceStart !== undefined) {
@@ -271,16 +277,28 @@ export class CalendarManager {
 			const start = event.start.getTime() + shift;
 			change = { ...input, start, end: start + duration };
 		}
+		await this.replaceIcs(eventId, eventIcs(change, event.ics));
+	}
+
+	/** Replaces a stored object, unless it was changed elsewhere in the meantime. */
+	async replaceIcs(eventId: number, ics: string) {
+		const { event, calendar } = await this.event(eventId);
 		const client = await this.client(calendar.sourceId);
 		const response = await client.updateCalendarObject({
-			calendarObject: {
-				url: event.href,
-				etag: event.etag ?? undefined,
-				data: eventIcs(change, event.ics)
-			}
+			calendarObject: { url: event.href, etag: event.etag ?? undefined, data: ics }
 		});
 		await check(response, 'Speichern');
 		await this.refresh(calendar.sourceId, calendar.id);
+	}
+
+	/** The stored event with this UID (in any calendar), or null. */
+	async byUid(uid: string) {
+		const [row] = await this.deps.db
+			.select({ id: events.id, calendarId: events.calendarId, ics: events.ics })
+			.from(events)
+			.where(eq(events.uid, uid))
+			.limit(1);
+		return row ?? null;
 	}
 
 	async delete(eventId: number) {

@@ -65,6 +65,10 @@ const api: VeloApi = {
 		body: (id) => ipcRenderer.invoke(IPC.mailBody, id),
 		openAttachment: (id) => ipcRenderer.invoke(IPC.mailOpenAttachment, id),
 		saveAttachment: (id) => ipcRenderer.invoke(IPC.mailSaveAttachment, id),
+		invitation: (id) => ipcRenderer.invoke(IPC.mailInvitation, id),
+		respondToInvitation: (id, response, calendarId) =>
+			ipcRenderer.invoke(IPC.mailRespondToInvitation, id, response, calendarId),
+		removeCancelledEvent: (id) => ipcRenderer.invoke(IPC.mailRemoveCancelledEvent, id),
 		sync: (accountId) => ipcRenderer.invoke(IPC.mailSync, accountId),
 		onChanged: (listener) => on(IPC.mailChanged, listener),
 		onStatus: (listener) => on<[SyncStatus]>(IPC.mailStatus, listener),
