@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { DAVClient } from 'tsdav';
 import { radicale } from '../scripts/radicale.mjs';
-import { launchApp } from './app';
+import { addTestCalendar, launchApp } from './app';
 
 /** The server as another app sees it, with a calendar of this test's own. */
 async function server(name: string) {
@@ -112,5 +112,58 @@ test('connects a CalDAV calendar, shows its events and creates, changes and dele
 	// The month shows the remaining event too.
 	await view.getByRole('radio', { name: 'Monat' }).click();
 	await expect(view.getByRole('button', { name: /Zahnarzt/ })).toBeVisible();
+	await app.close();
+});
+
+test('changes and deletes single occurrences of a series', async () => {
+	test.setTimeout(60_000);
+	const name = `Serie ${Date.now()}`;
+	const { client, calendar } = await server(name);
+	await client.createCalendarObject({
+		calendar,
+		filename: 'sport.ics',
+		iCalString: [
+			'BEGIN:VCALENDAR',
+			'VERSION:2.0',
+			'PRODID:-//Test//DE',
+			'BEGIN:VEVENT',
+			`UID:sport-${Date.now()}`,
+			'DTSTAMP:20261001T000000Z',
+			`DTSTART:${today(8)}`,
+			`DTEND:${today(9)}`,
+			'RRULE:FREQ=WEEKLY;COUNT=3',
+			'SUMMARY:Laufen',
+			'END:VEVENT',
+			'END:VCALENDAR',
+			''
+		].join('\r\n')
+	});
+	const onServer = async () => String((await client.fetchCalendarObjects({ calendar }))[0].data);
+
+	const { app, window: page } = await launchApp();
+	const view = await addTestCalendar(page, name);
+
+	// Only this week's run moves to another title.
+	await view.getByRole('button', { name: /Laufen/ }).click();
+	const editor = page.getByRole('dialog', { name: 'Termin bearbeiten' });
+	await expect(editor.getByRole('radio', { name: 'Nur diesen Termin' })).toBeChecked();
+	await editor.getByLabel('Titel').fill('Laufen am See');
+	await editor.getByRole('button', { name: 'Speichern' }).click();
+	await expect(view.getByRole('button', { name: /Laufen am See/ })).toBeVisible();
+	expect(await onServer()).toMatch(/RECURRENCE-ID[^\r\n]*\r\n/);
+
+	// Next week is still the series, and only that one is deleted.
+	await view.getByRole('button', { name: 'Weiter' }).click();
+	await view.getByRole('button', { name: /^Laufen/ }).click();
+	await page
+		.getByRole('dialog', { name: 'Termin bearbeiten' })
+		.getByRole('button', { name: 'Löschen' })
+		.click();
+	await expect(view.getByRole('button', { name: /Laufen/ })).toBeHidden();
+	expect(await onServer()).toMatch(/^EXDATE/m);
+
+	// The week after is untouched.
+	await view.getByRole('button', { name: 'Weiter' }).click();
+	await expect(view.getByRole('button', { name: /^Laufen/ })).toBeVisible();
 	await app.close();
 });

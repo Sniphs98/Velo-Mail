@@ -249,7 +249,8 @@ GMX, Web.de, …). Google und Microsoft kommen mit OAuth2.
       SCHEDULE-AGENT=CLIENT, damit iCloud nicht zusätzlich antwortet
 - [x] Erinnerungen (VALARM) als Desktop-Benachrichtigung; Klick zeigt den Tag,
       Erinnerung im Termin-Dialog wählbar, abschaltbar in den Einstellungen
-- [ ] Einzelne Termine einer Serie ändern
+- [x] Einzelne Termine einer Serie ändern oder löschen (RECURRENCE-ID, EXDATE),
+      wahlweise die ganze Serie
 - [ ] Termine per Ziehen verschieben
 
 ## Tests

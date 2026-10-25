@@ -22,6 +22,7 @@ const event = (over: Partial<CalendarEvent>): CalendarEvent => ({
 	allDay: false,
 	recurring: false,
 	reminder: null,
+	recurrenceId: null,
 	...over
 });
 
@@ -100,7 +101,8 @@ describe('EventDialog', () => {
 		end: at(15),
 		allDay: false,
 		recurring: false,
-		reminder: 15
+		reminder: 15,
+		recurrenceId: null
 	};
 
 	it('creates an event in the chosen calendar', async () => {
@@ -139,21 +141,52 @@ describe('EventDialog', () => {
 		);
 	});
 
-	it('changes a series from the occurrence, makes all-day events whole days, deletes', async () => {
+	it('changes a whole series from an occurrence, making all-day events whole days', async () => {
 		const api = fakeVelo();
 		render(EventDialog, {
 			open: true,
-			draft: { ...draft, id: 7, summary: 'Jour fixe', recurring: true },
+			draft: {
+				...draft,
+				id: 7,
+				summary: 'Jour fixe',
+				recurring: true,
+				recurrenceId: '2026-11-03T14:00:00Z'
+			},
 			calendars
 		});
-		await expect.element(page.getByText('Änderungen gelten für die ganze Serie')).toBeVisible();
+		await expect.element(page.getByText('Wiederholender Termin')).toBeVisible();
+		await expect.element(page.getByRole('radio', { name: 'Nur diesen Termin' })).toBeChecked();
+		await page.getByRole('radio', { name: 'Alle Termine' }).click();
 		await page.getByRole('switch', { name: 'Ganztägig' }).click();
 		await page.getByRole('button', { name: 'Speichern' }).click();
 		expect(api.calendar.updateEvent).toHaveBeenCalledWith(
 			7,
 			expect.objectContaining({ allDay: true, start: at(0), end: at(24) }),
-			at(14)
+			{ start: at(14), recurrenceId: '2026-11-03T14:00:00Z', only: false }
 		);
+	});
+
+	it('changes or deletes only one occurrence', async () => {
+		const api = fakeVelo();
+		const occurrence = {
+			...draft,
+			id: 7,
+			summary: 'Jour fixe',
+			recurring: true,
+			recurrenceId: '2026-11-03T14:00:00Z'
+		};
+		const { rerender } = render(EventDialog, { open: true, draft: occurrence, calendars });
+		await page.getByLabelText('Titel').fill('Jour fixe (Raum 4)');
+		await page.getByRole('button', { name: 'Speichern' }).click();
+		expect(api.calendar.updateEvent).toHaveBeenCalledWith(
+			7,
+			expect.objectContaining({ summary: 'Jour fixe (Raum 4)' }),
+			{ start: at(14), recurrenceId: '2026-11-03T14:00:00Z', only: true }
+		);
+
+		await rerender({ open: true, draft: { ...occurrence } });
+		await page.getByRole('button', { name: 'Löschen' }).click();
+		expect(api.calendar.deleteEvent).toHaveBeenCalledWith(7, '2026-11-03T14:00:00Z');
 	});
 
 	it('refuses an end before the start', async () => {

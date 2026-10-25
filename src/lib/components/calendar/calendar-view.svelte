@@ -26,7 +26,8 @@
 		end: 0,
 		allDay: false,
 		recurring: false,
-		reminder: null
+		reminder: null,
+		recurrenceId: null
 	});
 
 	const writable = $derived(calendar.calendars.filter((c) => c.enabled));
@@ -47,7 +48,8 @@
 			allDay: false,
 			recurring: false,
 			// What most calendars suggest for a new event.
-			reminder: 15
+			reminder: 15,
+			recurrenceId: null
 		};
 		editing = true;
 	}
@@ -63,7 +65,8 @@
 			end: event.end,
 			allDay: event.allDay,
 			recurring: event.recurring,
-			reminder: event.reminder
+			reminder: event.reminder,
+			recurrenceId: event.recurrenceId
 		};
 		editing = true;
 	}

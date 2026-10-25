@@ -12,6 +12,8 @@
 		recurring: boolean;
 		/** Minutes before the start; null for none. */
 		reminder: number | null;
+		/** The occurrence of a series being changed. */
+		recurrenceId: string | null;
 	}
 
 	/** The reminders offered, in minutes before the start. */
@@ -60,6 +62,11 @@
 	});
 	let error = $state<string>();
 	let busy = $state(false);
+	/** For an occurrence of a series: change only it, or the whole series. */
+	let scope = $state<'only' | 'all'>('only');
+	const occurrence = $derived(
+		draft.id !== undefined && draft.recurring && draft.recurrenceId !== null
+	);
 
 	// Filled from the draft each time the dialog opens.
 	$effect(() => {
@@ -77,6 +84,7 @@
 			allDay: draft.allDay,
 			reminder: draft.reminder === null ? '' : String(draft.reminder)
 		};
+		scope = 'only';
 		error = undefined;
 	});
 
@@ -119,7 +127,13 @@
 		try {
 			if (draft.id === undefined) await api.calendar.createEvent(form.calendarId, event);
 			else
-				await api.calendar.updateEvent(draft.id, event, draft.recurring ? draft.start : undefined);
+				await api.calendar.updateEvent(
+					draft.id,
+					event,
+					occurrence
+						? { start: draft.start, recurrenceId: draft.recurrenceId!, only: scope === 'only' }
+						: undefined
+				);
 			open = false;
 		} catch (cause) {
 			error = ipcErrorMessage(cause);
@@ -132,7 +146,10 @@
 		if (draft.id === undefined) return;
 		busy = true;
 		try {
-			await velo()?.calendar.deleteEvent(draft.id);
+			await velo()?.calendar.deleteEvent(
+				draft.id,
+				occurrence && scope === 'only' ? draft.recurrenceId! : undefined
+			);
 			open = false;
 		} catch (cause) {
 			error = ipcErrorMessage(cause);
@@ -151,7 +168,7 @@
 			{#if draft.recurring}
 				<Dialog.Description class="flex items-center gap-1.5">
 					<Repeat class="size-3.5" aria-hidden="true" />
-					Wiederholender Termin – Änderungen gelten für die ganze Serie.
+					Wiederholender Termin
 				</Dialog.Description>
 			{/if}
 		</Dialog.Header>
@@ -162,6 +179,25 @@
 				save();
 			}}
 		>
+			{#if occurrence}
+				<div
+					role="radiogroup"
+					aria-label="Änderungen gelten für"
+					class="grid grid-cols-2 rounded-lg bg-muted p-0.5"
+				>
+					{#each [{ value: 'only', label: 'Nur diesen Termin' }, { value: 'all', label: 'Alle Termine' }] as const as choice (choice.value)}
+						<button
+							type="button"
+							role="radio"
+							aria-checked={scope === choice.value}
+							class="rounded-md px-2.5 py-1 text-xs text-muted-foreground aria-checked:bg-card aria-checked:font-medium aria-checked:text-foreground aria-checked:shadow-sm"
+							onclick={() => (scope = choice.value)}
+						>
+							{choice.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
 			<Field.Field>
 				<Field.Label for="event-summary">Titel</Field.Label>
 				<Input id="event-summary" bind:value={form.summary} placeholder="Ohne Titel" />
