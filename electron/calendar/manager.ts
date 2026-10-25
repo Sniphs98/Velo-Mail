@@ -20,7 +20,7 @@ export interface CalendarManagerDeps {
 }
 
 /** Calendar colors, in turn, when the server has none. */
-export const calendarColors = ['#2563eb', '#16a34a', '#ea580c', '#9333ea', '#db2777', '#0891b2'];
+export const calendarColors = ['#ea580c', '#16a34a', '#9333ea', '#db2777', '#0d9488', '#ca8a04'];
 
 function nameOf(calendar: DAVCalendar) {
 	return typeof calendar.displayName === 'string' && calendar.displayName.trim()
