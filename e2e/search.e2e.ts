@@ -40,6 +40,26 @@ test('searches subject, sender and content', async () => {
 	await expect(list.getByRole('listitem')).toHaveCount(1);
 	await expect(list.getByRole('listitem')).toContainText('Rechnung Oktober');
 
+	// Filters, also without words: sender, attachments, time.
+	await list.getByRole('searchbox', { name: 'Suchen' }).fill('');
+	await list.getByRole('button', { name: 'Filter', exact: true }).click();
+	await list.getByLabel('Absender').fill('stadtwerke');
+	await expect(list.getByRole('heading', { name: 'Suche' })).toBeVisible();
+	await expect(list.getByRole('listitem')).toHaveCount(1);
+	await expect(list.getByRole('listitem')).toContainText('Rechnung Oktober');
+	await list.getByLabel('Absender').fill('');
+	await list.getByRole('button', { name: 'Mit Anhang', exact: true }).click();
+	await expect(list.getByRole('listitem')).toHaveCount(1);
+	await list.getByRole('button', { name: 'Mit Anhang', exact: true }).click();
+	// Today: these three, and whatever earlier tests left in "Gesendet" on the server.
+	await list.getByRole('combobox', { name: 'Zeitraum' }).selectOption({ label: 'Heute' });
+	for (const subject of ['Angebot Website-Relaunch', 'Buchclub', 'Rechnung Oktober']) {
+		await expect(list.getByRole('listitem').filter({ hasText: subject })).toHaveCount(1);
+	}
+	await expect(list.getByText(/^\d+ Treffer in allen Konten$/)).toBeVisible();
+	await list.getByRole('button', { name: 'Zurücksetzen' }).click();
+	await expect(list.getByRole('heading', { name: 'Alle Posteingänge' })).toBeVisible();
+
 	await list.getByRole('searchbox', { name: 'Suchen' }).fill('gibtsnicht');
 	await expect(list.getByText('Keine Treffer')).toBeVisible();
 	await list.getByRole('button', { name: 'Auf dem Server weitersuchen' }).click();

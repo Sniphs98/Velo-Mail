@@ -67,6 +67,18 @@
 	});
 	const mailboxAccount = $derived(accounts.list.find((a) => a.id === mailbox?.accountId));
 
+	/** "12 Treffer in allen Konten", "… in Arbeit", "… in 2 Konten". */
+	const hits = $derived.by(() => {
+		const chosen = accounts.list.filter((a) => mail.filters.accounts.includes(a.id));
+		const where =
+			chosen.length === 0 || chosen.length === accounts.list.length
+				? 'allen Konten'
+				: chosen.length === 1
+					? chosen[0].name
+					: `${chosen.length} Konten`;
+		return `${mail.messages.length} Treffer in ${where}`;
+	});
+
 	function reply(kind: 'reply' | 'replyAll' | 'forward') {
 		const latest = mail.thread.at(-1);
 		if (latest) compose.start(latest.accountId, { kind, messageId: latest.id });
@@ -169,17 +181,17 @@
 		{:else}
 			<MessageList
 				width={layout.list}
-				title={mail.query.trim() ? 'Suche' : (mailbox?.name ?? 'Alle Posteingänge')}
-				subtitle={mail.query.trim()
-					? `${mail.messages.length} Treffer in allen Konten`
-					: mailboxAccount?.email}
+				title={mail.searching ? 'Suche' : (mailbox?.name ?? 'Alle Posteingänge')}
+				subtitle={mail.searching ? hits : mailboxAccount?.email}
 				messages={mail.messages}
 				accounts={accounts.list}
 				selectedId={mail.selectedId}
-				showAccount={(!mailbox || !!mail.query.trim()) && accounts.list.length > 1}
+				showAccount={(!mailbox || mail.searching) && accounts.list.length > 1}
 				onselect={select}
 				query={mail.query}
 				onsearch={(query) => mail.search(query)}
+				filters={mail.filters}
+				onfilter={(filters) => mail.filter(filters)}
 				onsearchserver={() => mail.searchServer()}
 				oncompose={accounts.list.length > 0 ? newMessage : undefined}
 			/>

@@ -3,8 +3,11 @@ import {
 	type Mailbox,
 	type MessageQuery,
 	type MessageSummary,
+	type SearchFilters,
+	type SearchQuery,
 	type SyncStatus
 } from '#lib/api.ts';
+import { isSearching, noFilters } from '#lib/search.ts';
 
 /**
  * True if `next` differs from `current`. Syncing a large folder reports a
@@ -24,8 +27,18 @@ class Mail {
 	/** The open conversation, oldest first. */
 	thread = $state<MessageSummary[]>([]);
 	status = $state<Record<number, SyncStatus>>({});
-	/** While not empty, the list shows search results instead of the folder. */
+	/** The words searched for; with them or with filters the list shows results. */
 	query = $state('');
+	filters = $state<SearchFilters>({ ...noFilters });
+
+	/** The search as the main process takes it. */
+	get searchQuery(): SearchQuery {
+		return { ...$state.snapshot(this.filters), text: this.query.trim() };
+	}
+
+	get searching() {
+		return isSearching(this.searchQuery);
+	}
 
 	unreadInboxes = $derived(
 		this.mailboxes.filter((m) => m.role === 'inbox').reduce((sum, m) => sum + m.unread, 0)
@@ -34,16 +47,16 @@ class Mail {
 	async load() {
 		const api = velo();
 		if (!api) return;
-		const query = this.query.trim();
+		const search = this.searchQuery;
 		const selected = this.selectedId;
 		const [mailboxes, messages, thread] = await Promise.all([
 			api.mail.mailboxes(),
-			query ? api.mail.search(query) : api.mail.messages($state.snapshot(this.view)),
+			isSearching(search) ? api.mail.search(search) : api.mail.messages($state.snapshot(this.view)),
 			// The open conversation may have new replies or fetched contents.
 			selected === null ? undefined : api.mail.thread(selected)
 		]);
 		// A newer search may have started meanwhile.
-		if (query !== this.query.trim()) return;
+		if (JSON.stringify(search) !== JSON.stringify(this.searchQuery)) return;
 		if (differs(this.mailboxes, mailboxes)) this.mailboxes = mailboxes;
 		if (differs(this.messages, messages)) this.messages = messages;
 		if (
@@ -63,15 +76,24 @@ class Mail {
 		await this.load();
 	}
 
+	/** Narrows the search by account, sender, time and more. */
+	async filter(filters: SearchFilters) {
+		this.filters = filters;
+		this.selectedId = null;
+		this.thread = [];
+		await this.load();
+	}
+
 	/** Searches the servers for older messages; returns how many were found. */
 	async searchServer() {
-		const found = (await velo()?.mail.searchServer(this.query.trim())) ?? 0;
+		const found = (await velo()?.mail.searchServer(this.searchQuery)) ?? 0;
 		await this.load();
 		return found;
 	}
 
 	async show(view: MessageQuery) {
 		this.query = '';
+		this.filters = { ...noFilters };
 		this.view = view;
 		this.selectedId = null;
 		this.thread = [];
