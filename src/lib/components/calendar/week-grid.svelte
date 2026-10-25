@@ -1,19 +1,22 @@
 <script lang="ts">
 	import type { CalendarEvent } from '#lib/api.ts';
 	import { sameDay, timeOf } from '#lib/calendar/dates.ts';
-	import { placeEvents } from '#lib/calendar/layout.ts';
+	import { dragged, placeEvents } from '#lib/calendar/layout.ts';
 
 	let {
 		days,
 		events,
 		onslot,
-		onopen
+		onopen,
+		onmove
 	}: {
 		days: Date[];
 		events: CalendarEvent[];
 		/** A free slot was clicked: start of the half hour, in ms. */
 		onslot: (start: number) => void;
 		onopen: (event: CalendarEvent) => void;
+		/** An event was dragged to a new time (and maybe day). */
+		onmove?: (event: CalendarEvent, start: number, end: number) => void;
 	} = $props();
 
 	/** Pixels per hour. */
@@ -40,6 +43,73 @@
 		const end = start + 24 * 3600_000;
 		return event.start < end && event.end > start;
 	};
+
+	/** The event being dragged: where it was picked up and where it would land. */
+	let drag = $state<{
+		event: CalendarEvent;
+		x: number;
+		y: number;
+		day: number;
+		moved: boolean;
+		start: number;
+		end: number;
+		over: number;
+	} | null>(null);
+	/** Set after a drag, so the click that ends it does not open the event. */
+	let dropped = false;
+
+	const keyOf = (event: CalendarEvent) => `${event.id}:${event.start}`;
+
+	function pick(pointer: PointerEvent, event: CalendarEvent, day: Date) {
+		if (!onmove || pointer.button !== 0) return;
+		// Keeps the moves coming while the pointer leaves the event.
+		try {
+			(pointer.currentTarget as HTMLElement).setPointerCapture(pointer.pointerId);
+		} catch {
+			// Not an active pointer (synthetic events); moves still arrive while over it.
+		}
+		drag = {
+			event,
+			x: pointer.clientX,
+			y: pointer.clientY,
+			day: day.getTime(),
+			moved: false,
+			start: event.start,
+			end: event.end,
+			over: day.getTime()
+		};
+	}
+
+	function follow(pointer: PointerEvent) {
+		if (!drag) return;
+		const dy = pointer.clientY - drag.y;
+		if (!drag.moved && Math.hypot(pointer.clientX - drag.x, dy) < 4) return;
+		// The day column under the pointer, if any.
+		const column = document
+			.elementsFromPoint(pointer.clientX, pointer.clientY)
+			.find((element) => element instanceof HTMLElement && element.dataset.day) as
+			HTMLElement | undefined;
+		const over = column ? Number(column.dataset.day) : drag.over;
+		const landing = dragged(drag.event, dy, hour, over - drag.day);
+		drag = { ...drag, moved: true, over, ...landing };
+	}
+
+	function drop() {
+		if (!drag) return;
+		const { event, moved, start, end } = drag;
+		drag = null;
+		if (!moved) return;
+		dropped = true;
+		if (start !== event.start) onmove?.(event, start, end);
+	}
+
+	function open(event: CalendarEvent) {
+		if (dropped) {
+			dropped = false;
+			return;
+		}
+		onopen(event);
+	}
 
 	function slot(event: MouseEvent, day: Date) {
 		if (event.target !== event.currentTarget) return;
@@ -105,15 +175,20 @@
 						{@const short = placed.height < 40}
 						<button
 							type="button"
-							class="absolute overflow-hidden rounded-md border border-card px-1.5 text-left text-xs leading-tight text-white"
+							class="absolute touch-none overflow-hidden rounded-md border border-card px-1.5 text-left text-xs leading-tight text-white"
 							class:py-0.5={!short}
 							class:text-[11px]={short}
+							class:opacity-40={drag?.moved && keyOf(drag.event) === keyOf(event)}
 							style:top="{(placed.top / 60) * hour}px"
 							style:height="{(placed.height / 60) * hour}px"
 							style:left="calc({(placed.column / placed.columns) * 100}% + 2px)"
 							style:width="calc({100 / placed.columns}% - 4px)"
 							style:background={event.color}
-							onclick={() => onopen(event)}
+							onclick={() => open(event)}
+							onpointerdown={(pointer) => pick(pointer, event, day)}
+							onpointermove={follow}
+							onpointerup={drop}
+							onpointercancel={() => (drag = null)}
 						>
 							<span class="block truncate font-medium">
 								{event.summary || '(Ohne Titel)'}
@@ -126,6 +201,19 @@
 							{/if}
 						</button>
 					{/each}
+					{#if drag?.moved && drag.over === day.getTime()}
+						{@const top = (drag.start - day.getTime()) / 60_000}
+						<div
+							class="pointer-events-none absolute inset-x-0.5 rounded-md border-2 border-dashed px-1.5 py-0.5 text-xs font-medium"
+							style:top="{(top / 60) * hour}px"
+							style:height="{Math.max(20, ((drag.end - drag.start) / 3_600_000) * hour)}px"
+							style:border-color={drag.event.color}
+							style:color={drag.event.color}
+							data-testid="drag-preview"
+						>
+							{timeOf(drag.start)} – {timeOf(drag.end)}
+						</div>
+					{/if}
 					{#if sameDay(day, new Date(now))}
 						{@const minutes = (now - day.getTime()) / 60_000}
 						<div

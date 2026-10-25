@@ -251,7 +251,8 @@ GMX, Web.de, …). Google und Microsoft kommen mit OAuth2.
       Erinnerung im Termin-Dialog wählbar, abschaltbar in den Einstellungen
 - [x] Einzelne Termine einer Serie ändern oder löschen (RECURRENCE-ID, EXDATE),
       wahlweise die ganze Serie
-- [ ] Termine per Ziehen verschieben
+- [x] Termine per Ziehen verschieben (Woche und Tag, auch auf einen anderen Tag,
+      in Viertelstunden; bei Serien nur das gezogene Vorkommen)
 
 ## Tests
 

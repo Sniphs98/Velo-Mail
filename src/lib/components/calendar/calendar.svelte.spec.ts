@@ -63,6 +63,45 @@ describe('WeekGrid', () => {
 		);
 		expect(onslot).toHaveBeenCalledWith(at(14));
 	});
+
+	it('moves an event by dragging it, snapped to quarter hours', async () => {
+		const onopen = vi.fn();
+		const onmove = vi.fn();
+		render(WeekGrid, {
+			props: { days: [day], events: [event({})], onslot: () => {}, onopen, onmove }
+		});
+		const planning = page.getByRole('button', { name: /Planung/ }).element() as HTMLElement;
+		const { left, top } = planning.getBoundingClientRect();
+		const pointer = (type: string, y: number) =>
+			planning.dispatchEvent(
+				new PointerEvent(type, {
+					bubbles: true,
+					button: 0,
+					pointerId: 1,
+					clientX: left + 5,
+					clientY: top + y
+				})
+			);
+
+		// 48 px per hour: 35 px are 43.75 minutes, shown snapped to 45; 70 px end 1:30 later.
+		pointer('pointerdown', 5);
+		pointer('pointermove', 40);
+		await expect.element(page.getByTestId('drag-preview')).toHaveTextContent('09:45 – 10:45');
+		pointer('pointermove', 75);
+		pointer('pointerup', 75);
+		planning.click();
+		expect(onmove).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), at(10, 30), at(11, 30));
+		// The click that ends the drag does not open the event.
+		expect(onopen).not.toHaveBeenCalled();
+
+		// A press without moving is a click.
+		pointer('pointerdown', 5);
+		pointer('pointermove', 6);
+		pointer('pointerup', 6);
+		planning.click();
+		expect(onopen).toHaveBeenCalledTimes(1);
+		expect(onmove).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe('MonthGrid', () => {

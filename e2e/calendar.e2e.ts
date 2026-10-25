@@ -167,3 +167,61 @@ test('changes and deletes single occurrences of a series', async () => {
 	await expect(view.getByRole('button', { name: /^Laufen/ })).toBeVisible();
 	await app.close();
 });
+
+test('moves an event by dragging it to another time and day', async () => {
+	const name = `Ziehen ${Date.now()}`;
+	const { client, calendar } = await server(name);
+	await client.createCalendarObject({
+		calendar,
+		filename: 'termin.ics',
+		iCalString: [
+			'BEGIN:VCALENDAR',
+			'VERSION:2.0',
+			'PRODID:-//Test//DE',
+			'BEGIN:VEVENT',
+			`UID:ziehen-${Date.now()}`,
+			'DTSTAMP:20261001T000000Z',
+			`DTSTART:${today(10)}`,
+			`DTEND:${today(11)}`,
+			'SUMMARY:Kundentermin',
+			'END:VEVENT',
+			'END:VCALENDAR',
+			''
+		].join('\r\n')
+	});
+
+	const { app, window: page } = await launchApp();
+	const view = await addTestCalendar(page, name);
+	const event = view.getByRole('button', { name: /Kundentermin/ });
+	await expect(event).toBeVisible();
+
+	// Two hours later and one day over (back if today is the last day shown).
+	const midnight = new Date().setHours(0, 0, 0, 0);
+	const next = new Date(midnight).setDate(new Date(midnight).getDate() + 1);
+	const previous = new Date(midnight).setDate(new Date(midnight).getDate() - 1);
+	const target = (await view.locator(`[data-day="${next}"]`).count()) ? next : previous;
+	const box = (await event.boundingBox())!;
+	const column = (await view.locator(`[data-day="${target}"]`).boundingBox())!;
+	await page.mouse.move(box.x + 10, box.y + 10);
+	await page.mouse.down();
+	await page.mouse.move(column.x + 10, box.y + 10 + 50, { steps: 5 });
+	await page.mouse.move(column.x + 10, box.y + 10 + 96, { steps: 5 });
+	await expect(view.getByTestId('drag-preview')).toHaveText('12:00 – 13:00');
+	await page.mouse.up();
+
+	await expect(
+		view.locator(`[data-day="${target}"]`).getByRole('button', { name: /Kundentermin/ })
+	).toContainText('12:00 – 13:00');
+	const moved = new Date(target);
+	moved.setHours(12);
+	const utc = moved
+		.toISOString()
+		.replace(/[-:]/g, '')
+		.replace(/\.\d+Z$/, 'Z');
+	await expect
+		.poll(async () => String((await client.fetchCalendarObjects({ calendar }))[0].data))
+		.toContain(`DTSTART:${utc}`);
+	// The drop did not open the event.
+	await expect(page.getByRole('dialog', { name: 'Termin bearbeiten' })).toBeHidden();
+	await app.close();
+});
