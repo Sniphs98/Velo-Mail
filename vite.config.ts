@@ -73,7 +73,7 @@ export default defineConfig({
 					name: 'integration',
 					environment: 'node',
 					include: ['electron/**/*.integration.spec.ts'],
-					globalSetup: ['scripts/greenmail-setup.mjs'],
+					globalSetup: ['scripts/test-servers.mjs'],
 					testTimeout: 30_000
 				}
 			}
