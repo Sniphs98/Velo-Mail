@@ -8,6 +8,19 @@ import path from 'node:path';
 import { latestRelease } from './release';
 import { selfUpdateSupport } from './self-update';
 
+/**
+ * electron-updater is CommonJS: imported from ESM its exports arrive under
+ * `default`, the named export is missing (in Electron, at least).
+ */
+export function autoUpdaterOf(module: {
+	autoUpdater?: AppUpdater;
+	default?: { autoUpdater?: AppUpdater };
+}): AppUpdater {
+	const updater = module.autoUpdater ?? module.default?.autoUpdater;
+	if (!updater) throw new Error('electron-updater ließ sich nicht laden.');
+	return updater;
+}
+
 /** The NSIS installer leaves "Uninstall Velo Mail.exe" next to the program. */
 function hasNsisUninstaller() {
 	try {
@@ -45,7 +58,7 @@ export class Updater {
 	/** electron-updater, loaded only when installing: it expects an installed app. */
 	private async autoUpdater() {
 		if (!this.updater) {
-			const { autoUpdater } = await import('electron-updater');
+			const autoUpdater = autoUpdaterOf(await import('electron-updater'));
 			autoUpdater.autoDownload = false;
 			// A downloaded update installs on quit if the user never restarts for it.
 			autoUpdater.autoInstallOnAppQuit = true;
