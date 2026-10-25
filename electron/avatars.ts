@@ -1,6 +1,8 @@
 // Sender pictures, looked up in the order PLAN.md gives: the brand logo the
-// domain publishes over BIMI, then its icon, then the sender's Gravatar.
-// Results, misses included, are cached in sender_avatars for a while.
+// domain publishes over BIMI, then its icon (from the home page, or as a last
+// resort from DuckDuckGo's icon service, which only learns the domain), then
+// the sender's Gravatar. Results, misses included, are cached in
+// sender_avatars for a while.
 import { createHash } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import type { SenderPicture } from '../src/lib/api';
@@ -14,8 +16,15 @@ export interface Fetched {
 
 export interface AvatarDeps {
 	db: Database;
-	/** GET over https; null on any failure, a non-2xx status or a body over `maxBytes`. */
-	fetchBytes(url: string, maxBytes: number): Promise<Fetched | null>;
+	/**
+	 * GET over https; null on any failure, a non-2xx status or a body over
+	 * `maxBytes`, unless `truncate` asks for its first `maxBytes` instead.
+	 */
+	fetchBytes(
+		url: string,
+		maxBytes: number,
+		options?: { truncate?: boolean }
+	): Promise<Fetched | null>;
 	resolveTxt(name: string): Promise<string[][]>;
 	now?(): number;
 }
@@ -51,6 +60,58 @@ const twoLevelSuffixes = new Set(
 
 export function isFreemail(domain: string) {
 	return freemail.has(domain);
+}
+
+/** Mail providers' own sites, and the words their own mails carry in the sender name. */
+const providers: { domains: string[]; site: string; words: string[] }[] = [
+	{ domains: ['yahoo.com', 'yahoo.de', 'ymail.com'], site: 'yahoo.com', words: ['yahoo'] },
+	{
+		domains: ['gmail.com', 'googlemail.com', 'gmail.de'],
+		site: 'google.com',
+		words: ['google', 'gmail']
+	},
+	{
+		domains: [
+			'outlook.com',
+			'outlook.de',
+			'hotmail.com',
+			'hotmail.de',
+			'live.com',
+			'live.de',
+			'msn.com'
+		],
+		site: 'microsoft.com',
+		words: ['microsoft', 'outlook', 'hotmail']
+	},
+	{ domains: ['icloud.com', 'me.com', 'mac.com'], site: 'apple.com', words: ['apple', 'icloud'] },
+	{ domains: ['aol.com', 'aol.de'], site: 'aol.com', words: ['aol'] },
+	{
+		domains: ['gmx.de', 'gmx.net', 'gmx.at', 'gmx.ch', 'gmx.com'],
+		site: 'gmx.net',
+		words: ['gmx']
+	},
+	{ domains: ['web.de'], site: 'web.de', words: ['web.de'] },
+	{ domains: ['t-online.de'], site: 't-online.de', words: ['t-online', 'telekom'] },
+	{ domains: ['proton.me', 'protonmail.com', 'pm.me'], site: 'proton.me', words: ['proton'] }
+];
+
+/** Addresses that machines send from, not people. */
+const automated =
+	/^(no-?reply|do-?not-?reply|noreply-\w+|mailer-daemon|notifications?|news(letter)?|info|service|support|security|accounts?|team)$/i;
+
+/**
+ * The provider's own site if a mail from its domain comes from the provider
+ * itself ("Yahoo <no-reply@yahoo.com>"), not from someone with an address there.
+ */
+export function providerSite(address: string, name: string | null) {
+	const [local, domain] = address.toLowerCase().split('@');
+	const provider = providers.find((p) => p.domains.includes(domain));
+	if (!provider) return null;
+	const sender = (name ?? '').toLowerCase();
+	const branded = provider.words.some((word) =>
+		new RegExp(`(^|[^a-z])${word.replace('.', '\\.')}([^a-z]|$)`).test(sender)
+	);
+	return branded || automated.test(local) ? provider.site : null;
 }
 
 /** "news.mail.google.com" → "google.com", "shop.example.co.uk" → "example.co.uk". */
@@ -122,23 +183,26 @@ export class Avatars {
 
 	constructor(private readonly deps: AvatarDeps) {}
 
-	/** The picture for an address as a data: URL, or null to show initials. */
-	find(address: string): Promise<SenderPicture | null> {
+	/**
+	 * The picture for an address as a data: URL, or null to show initials. The
+	 * sender's name tells a provider's own mail from its users' (providerSite).
+	 */
+	find(address: string, name: string | null = null): Promise<SenderPicture | null> {
 		const key = address.trim().toLowerCase();
 		let running = this.pending.get(key);
 		if (!running) {
-			running = this.lookup(key).finally(() => this.pending.delete(key));
+			running = this.lookup(key, name).finally(() => this.pending.delete(key));
 			this.pending.set(key, running);
 		}
 		return running;
 	}
 
-	private async lookup(address: string): Promise<SenderPicture | null> {
+	private async lookup(address: string, name: string | null): Promise<SenderPicture | null> {
 		const domain = address.split('@')[1] ?? '';
 		if (!isPublicDomain(domain)) return null;
-		if (!isFreemail(domain)) {
-			const organization = organizationalDomain(domain);
-			const logo = await this.cached('domain', organization, () => this.domainLogo(organization));
+		const site = isFreemail(domain) ? providerSite(address, name) : organizationalDomain(domain);
+		if (site) {
+			const logo = await this.cached('domain', site, () => this.domainLogo(site));
 			if (logo) return logo;
 		}
 		return this.cached('address', address, () => this.gravatar(address));
@@ -186,20 +250,29 @@ export class Avatars {
 	}
 
 	private async favicon(domain: string) {
-		const base = `https://${domain}/`;
-		const page = await this.deps.fetchBytes(base, 512 * 1024);
-		const linked =
-			page && /^text\/html\b/i.test(page.contentType)
-				? iconLinks(page.data.toString('utf8'), base)
-				: [];
-		const candidates = [...new Set([...linked.slice(0, 3), `${base}apple-touch-icon.png`])];
-		for (const url of candidates) {
-			const icon = await this.deps.fetchBytes(url, maxBytes);
-			if (isImage(icon)) return icon;
+		// Many sites answer only under www., or send the bare domain there.
+		for (const base of [`https://${domain}/`, `https://www.${domain}/`]) {
+			// The icons are linked in the head; big pages are read only that far.
+			const page = await this.deps.fetchBytes(base, 256 * 1024, { truncate: true });
+			const linked =
+				page && /^text\/html\b/i.test(page.contentType)
+					? iconLinks(page.data.toString('utf8'), base)
+					: [];
+			const candidates = [...new Set([...linked.slice(0, 3), `${base}apple-touch-icon.png`])];
+			for (const url of candidates) {
+				const icon = await this.deps.fetchBytes(url, maxBytes);
+				if (isImage(icon)) return icon;
+			}
+			// The classic favicon is often tiny, so only after those.
+			const fallback = await this.deps.fetchBytes(`${base}favicon.ico`, maxBytes);
+			if (isImage(fallback)) return fallback;
 		}
-		// The classic favicon is often tiny, so only as a last resort.
-		const fallback = await this.deps.fetchBytes(`${base}favicon.ico`, maxBytes);
-		return isImage(fallback) ? fallback : null;
+		// Sites behind consent walls or bot checks: DuckDuckGo's icon service.
+		const service = await this.deps.fetchBytes(
+			`https://icons.duckduckgo.com/ip3/${domain}.ico`,
+			maxBytes
+		);
+		return isImage(service) ? service : null;
 	}
 
 	private async gravatar(address: string): Promise<Found> {

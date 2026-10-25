@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { Paperclip, PenLine, Search, X } from '@lucide/svelte';
-	import type { Account, MessageSummary } from '#lib/api.ts';
+	import { Paperclip, PenLine, Search, SlidersHorizontal, X } from '@lucide/svelte';
+	import type { Account, MessageSummary, SearchFilters } from '#lib/api.ts';
+	import { activeFilters, noFilters } from '#lib/search.ts';
 	import { listDate } from '#lib/format.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import SearchFiltersPanel from './search-filters.svelte';
 	import SenderAvatar from './sender-avatar.svelte';
 
 	let {
@@ -18,6 +20,8 @@
 		onselect,
 		query = '',
 		onsearch = () => {},
+		filters = noFilters,
+		onfilter = () => {},
 		onsearchserver,
 		oncompose
 	}: {
@@ -34,6 +38,9 @@
 		/** The search shown in the field; results are in `messages`. */
 		query?: string;
 		onsearch?: (query: string) => void;
+		/** Narrows the search by account, sender, time, attachments, unread. */
+		filters?: SearchFilters;
+		onfilter?: (filters: SearchFilters) => void;
 		/** Searches the servers for older messages; resolves with how many. */
 		onsearchserver?: () => Promise<number>;
 		/** Starts a new message; the button is hidden without it. */
@@ -43,6 +50,17 @@
 	let typed = $state('');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let serverResult = $state<'searching' | number>();
+	let showFilters = $state(false);
+
+	const filterCount = $derived(activeFilters(filters));
+	const searching = $derived(Boolean(query.trim()) || filterCount > 0);
+	// The server knows words, senders, days and unread; not "has attachments".
+	const serverSearchable = $derived(
+		Boolean(query.trim() || filters.from.trim()) ||
+			filters.since !== null ||
+			filters.until !== null ||
+			filters.unread
+	);
 
 	// Follows a reset from outside (e.g. opening a folder).
 	$effect(() => {
@@ -50,6 +68,7 @@
 	});
 	$effect(() => {
 		void query;
+		void filters;
 		serverResult = undefined;
 	});
 
@@ -100,7 +119,7 @@
 			type="search"
 			placeholder="Suchen"
 			aria-label="Suchen"
-			class="h-8 rounded-lg border-transparent bg-muted pr-9 pl-8 text-sm"
+			class="h-8 rounded-lg border-transparent bg-muted pr-16 pl-8 text-sm"
 			value={typed}
 			oninput={(event) => input(event.currentTarget.value)}
 			onkeydown={(event) => {
@@ -110,22 +129,39 @@
 				}
 			}}
 		/>
-		{#if typed}
+		<div class="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
+			{#if typed}
+				<Button variant="ghost" size="icon-xs" aria-label="Suche löschen" onclick={() => input('')}>
+					<X />
+				</Button>
+			{/if}
 			<Button
 				variant="ghost"
 				size="icon-xs"
-				class="absolute top-1/2 right-1 -translate-y-1/2"
-				aria-label="Suche löschen"
-				onclick={() => input('')}
+				class="relative aria-expanded:bg-background"
+				aria-label="Filter"
+				aria-expanded={showFilters}
+				title="Nach Konto, Zeitraum, Absender filtern"
+				onclick={() => (showFilters = !showFilters)}
 			>
-				<X />
+				<SlidersHorizontal />
+				{#if filterCount > 0}
+					<span
+						class="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground"
+					>
+						{filterCount}<span class="sr-only"> aktiv</span>
+					</span>
+				{/if}
 			</Button>
-		{/if}
+		</div>
 	</div>
+	{#if showFilters}
+		<SearchFiltersPanel {filters} {accounts} {onfilter} />
+	{/if}
 
 	{#if messages.length === 0}
 		<p class="py-10 text-center text-sm text-muted-foreground">
-			{query ? 'Keine Treffer' : 'Keine E-Mails'}
+			{searching ? 'Keine Treffer' : 'Keine E-Mails'}
 		</p>
 	{:else}
 		<!-- relative: keeps the sr-only labels inside the scrolling list, not below the page. -->
@@ -180,7 +216,7 @@
 			{/each}
 		</ul>
 	{/if}
-	{#if query && onsearchserver}
+	{#if searching && serverSearchable && onsearchserver}
 		<div
 			class="mt-auto flex items-center justify-center gap-2 pt-2 text-[13px] text-muted-foreground"
 		>

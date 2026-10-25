@@ -6,13 +6,14 @@ class Pictures {
 	version = $state(0);
 	private cache = new Map<string, Promise<SenderPicture | null>>();
 
-	get(address: string): Promise<SenderPicture | null> {
+	/** The name tells a provider's own mail ("Yahoo") from its users' (avatars.ts). */
+	get(address: string, name: string | null = null): Promise<SenderPicture | null> {
 		const key = address.toLowerCase();
 		let picture = this.cache.get(key);
 		if (!picture) {
 			picture =
 				velo()
-					?.mail.avatar(key)
+					?.mail.avatar(key, name)
 					.catch(() => null) ?? Promise.resolve(null);
 			this.cache.set(key, picture);
 		}

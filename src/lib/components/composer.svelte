@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Paperclip, Send, Trash2, X } from '@lucide/svelte';
 	import { accounts } from '#lib/accounts.svelte.ts';
 	import { compose } from '#lib/compose.svelte.ts';
@@ -6,14 +7,20 @@
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import * as NativeSelect from '#lib/components/ui/native-select/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
+	import AddressInput from './address-input.svelte';
 	import RichEditor from './rich-editor.svelte';
 
 	let showCc = $state(false);
 	let to = $state<HTMLInputElement>();
 
-	// A new message starts in "An"; a reply already has its recipients.
+	// A new message starts in "An"; a reply already has its recipients. Once per
+	// draft: running again later would pull the focus out of the text.
+	let focusedFor: object | undefined;
 	$effect(() => {
-		if (compose.open && to && !compose.draft.to) to.focus();
+		const draft = compose.draft;
+		if (!compose.open || !to || focusedFor === draft) return;
+		focusedFor = draft;
+		if (!untrack(() => draft.to)) to.focus();
 	});
 
 	// Saves the draft two seconds after the last change.
@@ -91,11 +98,12 @@
 				<div class="flex items-center gap-3 border-b">
 					<label class="flex min-w-0 flex-1 items-center gap-3">
 						<span class="w-16 text-sm text-muted-foreground">An</span>
-						<input
+						<AddressInput
+							label="An"
 							class={fieldClass}
-							bind:this={to}
+							bind:inputRef={to}
 							bind:value={compose.draft.to}
-							autocomplete="off"
+							onvalue={() => compose.changed()}
 						/>
 					</label>
 					{#if !showCc}
@@ -111,11 +119,21 @@
 				{#if showCc}
 					<label class="flex items-center gap-3 border-b">
 						<span class="w-16 text-sm text-muted-foreground">Cc</span>
-						<input class={fieldClass} bind:value={compose.draft.cc} autocomplete="off" />
+						<AddressInput
+							label="Cc"
+							class={fieldClass}
+							bind:value={compose.draft.cc}
+							onvalue={() => compose.changed()}
+						/>
 					</label>
 					<label class="flex items-center gap-3 border-b">
 						<span class="w-16 text-sm text-muted-foreground">Bcc</span>
-						<input class={fieldClass} bind:value={compose.draft.bcc} autocomplete="off" />
+						<AddressInput
+							label="Bcc"
+							class={fieldClass}
+							bind:value={compose.draft.bcc}
+							onvalue={() => compose.changed()}
+						/>
 					</label>
 				{/if}
 				<label class="flex items-center gap-3 border-b">

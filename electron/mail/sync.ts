@@ -3,7 +3,8 @@
 // and messages deleted on the server. Bodies are fetched when a message is
 // opened (phase 5).
 import { and, eq, inArray, max, min } from 'drizzle-orm';
-import type { FetchMessageObject, ImapFlow, ListResponse } from 'imapflow';
+import type { FetchMessageObject, ImapFlow, ListResponse, SearchObject } from 'imapflow';
+import type { SearchQuery } from '../../src/lib/api';
 import type { Database } from '../db';
 import { mailboxes, messages, type Address } from '../db/schema';
 
@@ -137,11 +138,23 @@ async function insertRows(db: Database, rows: (typeof messages.$inferInsert)[]) 
  * Searches a folder on the server and stores the hits the cache does not have
  * yet (older than the first sync's window); the caller holds no lock.
  */
+/** IMAP SEARCH criteria for a search; null if it narrows nothing the server knows. */
+export function serverCriteria(query: SearchQuery): SearchObject | null {
+	const criteria: SearchObject = {};
+	if (query.text.trim()) criteria.text = query.text.trim();
+	if (query.from.trim()) criteria.from = query.from.trim();
+	// SINCE and BEFORE are whole days; the local search narrows to the hour.
+	if (query.since !== null) criteria.since = new Date(query.since);
+	if (query.until !== null) criteria.before = new Date(query.until + 24 * 3600_000);
+	if (query.unread) criteria.seen = false;
+	return Object.keys(criteria).length > 0 ? criteria : null;
+}
+
 export async function searchOnServer(
 	db: Database,
 	client: ImapFlow,
 	mailbox: typeof mailboxes.$inferSelect,
-	text: string,
+	criteria: SearchObject,
 	limit = 200
 ) {
 	const lock = await client.getMailboxLock(mailbox.path);
@@ -154,7 +167,7 @@ export async function searchOnServer(
 		// hits come with the next sync, which counts on having every UID above
 		// the newest one it stored.
 		if (oldest === null) return 0;
-		const found = (await client.search({ text }, { uid: true })) || [];
+		const found = (await client.search(criteria, { uid: true })) || [];
 		const missing = found.filter((uid) => uid < oldest).slice(-limit);
 		if (missing.length === 0) return 0;
 		const rows: (typeof messages.$inferInsert)[] = [];

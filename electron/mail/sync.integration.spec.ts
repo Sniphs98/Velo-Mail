@@ -3,6 +3,7 @@ import { ImapFlow } from 'imapflow';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { samplePdf } from '../testing/sample-pdf';
+import { noFilters } from '../../src/lib/search';
 import { greenMail, sendTestMail, withImap } from '../../scripts/greenmail.mjs';
 import type { ServerSettings } from '../../src/lib/api';
 import { imapOptions } from '../accounts/connection';
@@ -407,10 +408,12 @@ describe('writing against GreenMail', () => {
 		await manager.syncNow(accountId);
 		const [message] = await listMessages(db, { inboxes: true });
 		await manager.body(message.id);
-		expect((await searchMessages(db, 'steuernummer')).map((m) => m.subject)).toEqual([
-			'Post vom Amt'
-		]);
-		expect((await searchMessages(db, 'bescheid')).map((m) => m.subject)).toEqual(['Post vom Amt']);
+		expect(
+			(await searchMessages(db, { ...noFilters, text: 'steuernummer' })).map((m) => m.subject)
+		).toEqual(['Post vom Amt']);
+		expect(
+			(await searchMessages(db, { ...noFilters, text: 'bescheid' })).map((m) => m.subject)
+		).toEqual(['Post vom Amt']);
 	});
 
 	it('refuses to forward attachments of another account', async () => {
@@ -425,11 +428,28 @@ describe('writing against GreenMail', () => {
 		await manager.syncNow(accountId);
 		// As if the old one were outside the first sync's window.
 		await db.delete(messages).where(eq(messages.subject, 'Uralte Rechnung'));
-		expect(await searchMessages(db, '4711')).toEqual([]);
+		expect(await searchMessages(db, { ...noFilters, text: '4711' })).toEqual([]);
 
-		expect(await manager.searchServer('Rechnung')).toBe(1);
-		expect((await searchMessages(db, 'uralte')).map((m) => m.subject)).toEqual(['Uralte Rechnung']);
-		expect(await manager.searchServer('Rechnung')).toBe(0);
+		expect(await manager.searchServer({ ...noFilters, text: 'Rechnung' })).toBe(1);
+		expect(
+			(await searchMessages(db, { ...noFilters, text: 'uralte' })).map((m) => m.subject)
+		).toEqual(['Uralte Rechnung']);
+		expect(await manager.searchServer({ ...noFilters, text: 'Rechnung' })).toBe(0);
+	});
+
+	it('searches the server by sender and only in the chosen accounts', async () => {
+		await sendTestMail({ subject: 'Von Lea', from: 'Lea Kraus <lea@kraus.test>' });
+		await sendTestMail({ subject: 'Von Jonas' });
+		await sendTestMail({ subject: 'Neuer' });
+		await manager.syncNow(accountId);
+		// As if Lea's were older than the cache reaches.
+		await db.delete(messages).where(eq(messages.subject, 'Von Lea'));
+		// GreenMail matches FROM only on the whole address; real servers also on parts.
+		const fromLea = { ...noFilters, text: '', from: 'lea@kraus.test' };
+
+		expect(await manager.searchServer({ ...fromLea, accounts: [accountId + 1] })).toBe(0);
+		expect(await manager.searchServer(fromLea)).toBe(1);
+		expect((await searchMessages(db, fromLea)).map((m) => m.subject)).toEqual(['Von Lea']);
 	});
 
 	it('archives and deletes messages', async () => {

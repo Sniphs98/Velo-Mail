@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { avatarColor, initials } from '#lib/avatar.ts';
 	import type { SenderPicture } from '#lib/api.ts';
+	import { untrack } from 'svelte';
 	import { pictures } from '#lib/pictures.svelte.ts';
 
 	let {
@@ -26,9 +27,14 @@
 		void pictures.version;
 		if (!sender) return;
 		let current = true;
-		pictures.get(sender).then((found) => {
-			if (current) picture = found;
-		});
+		pictures
+			.get(
+				sender,
+				untrack(() => name)
+			)
+			.then((found) => {
+				if (current) picture = found;
+			});
 		return () => {
 			current = false;
 		};

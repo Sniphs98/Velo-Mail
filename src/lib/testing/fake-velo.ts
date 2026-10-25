@@ -119,6 +119,7 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			search: vi.fn(async () => []),
 			searchServer: vi.fn(async () => 0),
 			trustSender: vi.fn(async () => {}),
+			suggestAddresses: vi.fn(async () => []),
 			avatar: vi.fn(async () => null),
 			body: vi.fn(async () => ({
 				html: null,

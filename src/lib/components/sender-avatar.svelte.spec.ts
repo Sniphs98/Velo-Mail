@@ -18,7 +18,8 @@ describe('SenderAvatar', () => {
 		const api = fakeVelo({ mail: { avatar: vi.fn(async () => null) } });
 		const screen = render(SenderAvatar, { name: 'Anna Becker', address: 'Anna@Firma.de' });
 		await expect.element(screen.getByText('AB')).toBeInTheDocument();
-		expect(api.mail.avatar).toHaveBeenCalledWith('anna@firma.de');
+		// The name goes along, so a provider's own mail can show its logo.
+		expect(api.mail.avatar).toHaveBeenCalledWith('anna@firma.de', 'Anna Becker');
 		expect(screen.container.querySelector('img')).toBeNull();
 	});
 

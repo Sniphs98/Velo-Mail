@@ -299,6 +299,24 @@ export interface Invitation {
 	outdated: boolean;
 }
 
+/** What a search narrows to besides its words; all of them may be left open. */
+export interface SearchFilters {
+	/** Only these accounts; empty for all. */
+	accounts: number[];
+	/** Words of the sender's name or address. */
+	from: string;
+	/** Milliseconds: from `since` (inclusive) to `until` (exclusive); null for open. */
+	since: number | null;
+	until: number | null;
+	attachments: boolean;
+	unread: boolean;
+}
+
+export interface SearchQuery extends SearchFilters {
+	/** Words in subject, sender, content and attachments; von:/betreff: narrow a word. */
+	text: string;
+}
+
 /** Which messages to list: one mailbox, or the inboxes of all accounts. */
 export type MessageQuery = { mailboxId: number } | { inboxes: true };
 
@@ -384,11 +402,13 @@ export interface VeloApi {
 		/** Moves messages (whole conversations) to the archive or the trash. */
 		move(messageIds: number[], to: 'archive' | 'trash'): Promise<void>;
 		/** Local full-text search over subject, sender and content, newest first. */
-		search(query: string): Promise<MessageSummary[]>;
+		search(query: SearchQuery): Promise<MessageSummary[]>;
 		/** Searches on the servers for older messages; returns how many were added. */
-		searchServer(query: string): Promise<number>;
+		searchServer(query: SearchQuery): Promise<number>;
+		/** People matching what was typed, from mails received and sent; best first. */
+		suggestAddresses(text: string): Promise<{ name?: string; address: string }[]>;
 		/** The sender's picture, looked up once and cached; null shows initials. */
-		avatar(address: string): Promise<SenderPicture | null>;
+		avatar(address: string, name?: string | null): Promise<SenderPicture | null>;
 		/** The invitation the message carries, or null. */
 		invitation(messageId: number): Promise<Invitation | null>;
 		/**
@@ -466,6 +486,7 @@ export const IPC = {
 	mailSearchServer: 'mail:search-server',
 	mailTrustSender: 'mail:trust-sender',
 	mailAvatar: 'mail:avatar',
+	mailSuggestAddresses: 'mail:suggest-addresses',
 	mailOpenAttachment: 'mail:open-attachment',
 	mailSaveAttachment: 'mail:save-attachment',
 	mailInvitation: 'mail:invitation',

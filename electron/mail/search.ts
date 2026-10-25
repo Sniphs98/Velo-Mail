@@ -10,16 +10,18 @@ const columns: Record<string, string> = {
 	subject: 'subject'
 };
 
-export function toFtsQuery(input: string): string | null {
+/** With `column`, every word must match there (e.g. the sender filter). */
+export function toFtsQuery(input: string, column?: 'sender' | 'subject'): string | null {
 	const parts: string[] = [];
 	for (const token of input.match(/(?:\w+:)?"[^"]*"?|\S+/g) ?? []) {
 		const field = token.match(/^(\w+):(.*)$/);
-		const column = field ? columns[field[1].toLowerCase()] : undefined;
-		const term = (column ? field![2] : token).replace(/^"|"$/g, '').trim();
+		const named = field ? columns[field[1].toLowerCase()] : undefined;
+		const term = (named ? field![2] : token).replace(/^"|"$/g, '').trim();
 		// Only letters and digits make tokens; the rest separates them.
 		if (!/[\p{L}\p{N}]/u.test(term)) continue;
 		const phrase = `"${term.replace(/"/g, '""')}"*`;
-		parts.push(column ? `${column} : ${phrase}` : phrase);
+		const where = column ?? named;
+		parts.push(where ? `${where} : ${phrase}` : phrase);
 	}
 	return parts.length > 0 ? parts.join(' ') : null;
 }

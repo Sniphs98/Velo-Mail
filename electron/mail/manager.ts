@@ -9,6 +9,7 @@ import type {
 	OutgoingMessage,
 	ReplySource,
 	SavedDraft,
+	SearchQuery,
 	SyncStatus
 } from '../../src/lib/api';
 import type { Credentials } from '../accounts/service';
@@ -26,7 +27,7 @@ import {
 	unseenAbove,
 	withoutBody
 } from './queries';
-import { searchOnServer, setSeen, syncMailbox, syncMailboxes } from './sync';
+import { searchOnServer, serverCriteria, setSeen, syncMailbox, syncMailboxes } from './sync';
 
 export interface SyncManagerDeps {
 	db: Database;
@@ -178,9 +179,12 @@ export class SyncManager {
 	 * Searches every connected account's folders (not trash and spam) on the
 	 * server and stores older hits the cache did not have; returns how many.
 	 */
-	async searchServer(text: string) {
+	async searchServer(query: SearchQuery) {
+		const criteria = serverCriteria(query);
+		if (!criteria) return 0;
 		let added = 0;
 		for (const [accountId, session] of this.sessions) {
+			if (query.accounts.length > 0 && !query.accounts.includes(accountId)) continue;
 			const boxes = await this.deps.db
 				.select()
 				.from(mailboxes)
@@ -189,7 +193,7 @@ export class SyncManager {
 			const found = await this.run(session, async () => {
 				let count = 0;
 				for (const box of searchable) {
-					count += await searchOnServer(this.deps.db, session.client, box, text);
+					count += await searchOnServer(this.deps.db, session.client, box, criteria);
 				}
 				return count;
 			});

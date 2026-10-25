@@ -203,6 +203,9 @@ Lokale Volltextsuche über FTS5 (Absender, Betreff, Inhalt), Fallback auf IMAP
       Papierkorb und Spam, holt nur Mails, die älter sind als der Cache
 - [x] Suche in Anhängen: Dateinamen und Text von PDFs (unpdf), sobald der
       Inhalt einer Mail geladen ist
+- [x] Filter unter dem Suchfeld, auch ohne Suchwörter: mehrere Konten,
+      Zeitraum (Heute, 7/30 Tage, 12 Monate, von–bis), Absender, mit Anhang,
+      ungelesen; die Suche auf dem Server nutzt sie mit (FROM, SINCE, BEFORE)
 
 ### Phase 8 – Feinschliff
 
