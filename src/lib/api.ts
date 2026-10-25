@@ -56,6 +56,8 @@ export interface Account {
 export interface AccountChanges {
 	name?: string;
 	signature?: string;
+	/** "#RRGGBB", e.g. one of accountColors. */
+	color?: string;
 }
 
 export type Theme = 'system' | 'light' | 'dark';

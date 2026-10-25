@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { accountColors } from '#lib/colors.ts';
 	import { Monitor, Moon, Sun } from '@lucide/svelte';
 	import { ipcErrorMessage } from '#lib/account-messages.ts';
 	import { accounts } from '#lib/accounts.svelte.ts';
@@ -50,6 +51,26 @@
 	const changed = (account: Account) =>
 		edits[account.id] &&
 		(edits[account.id].name !== account.name || edits[account.id].signature !== account.signature);
+
+	const colorNames: Record<string, string> = {
+		'#ea580c': 'Orange',
+		'#0d9488': 'Petrol',
+		'#7c3aed': 'Violett',
+		'#db2777': 'Pink',
+		'#ca8a04': 'Senf',
+		'#16a34a': 'Grün',
+		'#2563eb': 'Blau',
+		'#525252': 'Grau'
+	};
+
+	async function setColor(account: Account, color: string) {
+		error = undefined;
+		try {
+			await accounts.update(account.id, { color });
+		} catch (cause) {
+			error = ipcErrorMessage(cause);
+		}
+	}
 
 	async function save(account: Account) {
 		error = undefined;
@@ -183,6 +204,29 @@
 							<div class="flex items-center gap-2.5">
 								<span class="size-2.5 rounded-full" style:background={account.color}></span>
 								<span class="truncate text-sm font-semibold">{account.email}</span>
+							</div>
+							<div class="flex flex-col gap-2">
+								<span id="account-{account.id}-color" class="text-sm font-medium">Farbe</span>
+								<div
+									role="radiogroup"
+									aria-labelledby="account-{account.id}-color"
+									class="flex flex-wrap gap-2"
+								>
+									{#each accountColors as color (color)}
+										<button
+											type="button"
+											role="radio"
+											aria-checked={account.color === color}
+											aria-label={colorNames[color] ?? color}
+											class="size-6 rounded-full ring-offset-2 ring-offset-background transition-shadow aria-checked:ring-2 aria-checked:ring-foreground"
+											style:background={color}
+											onclick={() => setColor(account, color)}
+										></button>
+									{/each}
+								</div>
+								<Field.Description>
+									Markiert die Mails des Kontos, wenn mehrere zusammen angezeigt werden.
+								</Field.Description>
 							</div>
 							<Field.Field>
 								<Field.Label for="account-{account.id}-name">Name</Field.Label>

@@ -112,6 +112,12 @@ describe('AccountService', () => {
 		expect(await service.credentials(99)).toBeNull();
 	});
 
+	it('changes the color, only to a real one', async () => {
+		await service.add(input('du@beispiel.de'));
+		expect(await service.update(1, { color: '#16a34a' })).toMatchObject({ color: '#16a34a' });
+		await expect(service.update(1, { color: 'red; background: url(x)' })).rejects.toThrow();
+	});
+
 	it('changes the name and the signature', async () => {
 		await service.add(input('du@beispiel.de'));
 		expect(await service.update(1, { signature: 'Grüße\nDu' })).toMatchObject({
