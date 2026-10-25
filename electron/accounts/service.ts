@@ -25,7 +25,7 @@ export interface Credentials {
 }
 
 /** Account colors, assigned in turn (design: blue, orange, teal, …). */
-export const accountColors = ['#2563eb', '#ea580c', '#0d9488', '#7c3aed', '#db2777', '#ca8a04'];
+export const accountColors = ['#ea580c', '#0d9488', '#7c3aed', '#db2777', '#ca8a04', '#16a34a'];
 
 const security = z.enum(['tls', 'starttls', 'none']);
 const host = z.string().trim().min(1).max(253);

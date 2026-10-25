@@ -11,7 +11,7 @@ const styles = `
 	img { max-width: 100%; height: auto; }
 	table { max-width: 100%; }
 	blockquote { margin: 0 0 0 4px; padding-left: 12px; border-left: 3px solid #e4e4e7; color: #52525b; }
-	a { color: #2563eb; }
+	a { color: #18181b; text-underline-offset: 2px; }
 `;
 
 export function contentSecurityPolicy(remote: boolean) {

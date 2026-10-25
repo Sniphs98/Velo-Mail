@@ -197,7 +197,8 @@
 		margin: 0;
 	}
 	:global(.mail-editor a) {
-		color: var(--color-blue-600);
+		color: var(--foreground);
+		text-underline-offset: 2px;
 		text-decoration: underline;
 	}
 	:global(.mail-editor blockquote) {
