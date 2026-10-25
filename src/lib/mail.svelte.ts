@@ -6,6 +6,15 @@ import {
 	type SyncStatus
 } from '#lib/api.ts';
 
+/**
+ * True if `next` differs from `current`. Syncing a large folder reports a
+ * change after every batch; replacing equal data would redraw the list and
+ * the open conversation each time.
+ */
+function differs<T>(current: T, next: T) {
+	return JSON.stringify($state.snapshot(current)) !== JSON.stringify(next);
+}
+
 /** Folders, the message list and the open message; kept fresh by the main process. */
 class Mail {
 	mailboxes = $state<Mailbox[]>([]);
@@ -35,9 +44,16 @@ class Mail {
 		]);
 		// A newer search may have started meanwhile.
 		if (query !== this.query.trim()) return;
-		this.mailboxes = mailboxes;
-		this.messages = messages;
-		if (thread && thread.length > 0 && this.selectedId === selected) this.thread = thread;
+		if (differs(this.mailboxes, mailboxes)) this.mailboxes = mailboxes;
+		if (differs(this.messages, messages)) this.messages = messages;
+		if (
+			thread &&
+			thread.length > 0 &&
+			this.selectedId === selected &&
+			differs(this.thread, thread)
+		) {
+			this.thread = thread;
+		}
 	}
 
 	async search(query: string) {

@@ -52,6 +52,21 @@ describe('ReadingPane', () => {
 		await expect.element(page.getByRole('article', { name: 'Nachricht von Anna' })).toBeVisible();
 	});
 
+	it('keeps the open message as it is when the conversation is loaded again', async () => {
+		// While a large folder syncs, every batch reloads the open conversation.
+		const api = fakeVelo();
+		const { rerender } = render(ReadingPane, {
+			thread: [message(1, 'Anna', 'Hallo')],
+			onreply: () => {},
+			onmove: () => {}
+		});
+		await expect.element(page.getByText('Hallo!')).toBeVisible();
+		await rerender({ thread: [message(1, 'Anna', 'Hallo')] });
+		await rerender({ thread: [{ ...message(1, 'Anna', 'Hallo'), seen: false }] });
+		await expect.element(page.getByText('Hallo!')).toBeVisible();
+		expect(api.mail.body).toHaveBeenCalledTimes(1);
+	});
+
 	it('offers reply, forward, archive and delete', async () => {
 		fakeVelo();
 		const onreply = vi.fn();

@@ -14,9 +14,13 @@
 	let remote = $state(false);
 	let notice = $state<string>();
 	let height = $state(120);
+	// Only a different message loads again: while a folder syncs, the open
+	// conversation is reloaded as new objects with the same ids, and loading
+	// each time made the content flicker and jump back to the top.
+	const message = $derived(messageId);
 
 	$effect(() => {
-		const id = messageId;
+		const id = message;
 		body = undefined;
 		error = undefined;
 		remote = false;
