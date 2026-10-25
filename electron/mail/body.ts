@@ -64,9 +64,13 @@ export async function parseMessage(source: Buffer): Promise<ParsedMessage> {
 	email.attachments.forEach((attachment, index) => {
 		const content = bytes(attachment.content);
 		const contentId = attachment.contentId?.replace(/^<|>$/g, '') ?? null;
-		const inline = Boolean(
-			contentId && attachment.disposition !== 'attachment' && html?.includes(`cid:${contentId}`)
-		);
+		const inline =
+			Boolean(
+				contentId && attachment.disposition !== 'attachment' && html?.includes(`cid:${contentId}`)
+			) ||
+			// An invitation's calendar part without a file name is no attachment;
+			// the invitation card shows it.
+			(!attachment.filename && /^(text\/calendar|application\/ics)$/i.test(attachment.mimeType));
 		// Inline images become data: URLs, so the HTML needs no further requests.
 		if (
 			inline &&

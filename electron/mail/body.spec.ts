@@ -38,6 +38,12 @@ describe('parseMessage', () => {
 		);
 		expect(parsed.calendar).toContain('SUMMARY:Planung');
 		expect(parsed.text).toBe('Einladung');
+		// The calendar part is shown as the invitation, not as an attachment;
+		// an invite.ics with a name (Google sends both) stays one.
+		expect(parsed.attachments).toEqual([
+			expect.objectContaining({ contentType: 'text/calendar', filename: null, inline: true }),
+			expect.objectContaining({ filename: 'invite.ics', inline: false })
+		]);
 	});
 
 	it('takes no calendar part without an event in it', async () => {
