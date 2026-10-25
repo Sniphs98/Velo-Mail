@@ -1,6 +1,7 @@
 // Keeps the calendars of every source in sync (on start, every few minutes and
 // after each change) and writes changes back to the server, guarded by ETags
 // so an event changed elsewhere in the meantime is not overwritten.
+import { m } from '../../src/lib/paraglide/messages.js';
 import { and, asc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm';
 import type { DAVCalendar, DAVClient } from 'tsdav';
 import { z } from 'zod';
@@ -38,8 +39,8 @@ async function check(response: Response, what: string) {
 	if (!response.ok) {
 		throw new Error(
 			response.status === 412
-				? 'Der Termin wurde inzwischen woanders geändert. Bitte noch einmal versuchen.'
-				: `${what} fehlgeschlagen (${response.status}).`
+				? m.error_event_changed()
+				: m.error_request_failed({ what, status: response.status })
 		);
 	}
 }
@@ -70,7 +71,7 @@ export class CalendarManager {
 		if (!client) {
 			client = (async () => {
 				const login = await this.deps.sources.credentials(sourceId);
-				if (!login) throw new Error('Den Kalender gibt es nicht mehr.');
+				if (!login) throw new Error(m.error_calendar_gone());
 				return (this.deps.connect ?? connect)(login);
 			})();
 			// A failed login is tried again next time.
@@ -246,7 +247,7 @@ export class CalendarManager {
 
 	private async calendar(calendarId: number) {
 		const [row] = await this.deps.db.select().from(calendars).where(eq(calendars.id, calendarId));
-		if (!row) throw new Error('Den Kalender gibt es nicht mehr.');
+		if (!row) throw new Error(m.error_calendar_gone());
 		return row;
 	}
 
@@ -319,7 +320,7 @@ export class CalendarManager {
 		const response = await client.deleteCalendarObject({
 			calendarObject: { url: event.href, etag: event.etag ?? undefined }
 		});
-		await check(response, 'Löschen');
+		await check(response, m.delete());
 		await this.deps.db.delete(events).where(eq(events.id, eventId));
 		await this.refresh(calendar.sourceId, calendar.id);
 	}
@@ -330,7 +331,7 @@ export class CalendarManager {
 			.from(events)
 			.innerJoin(calendars, eq(calendars.id, events.calendarId))
 			.where(eq(events.id, eventId));
-		if (!row) throw new Error('Den Termin gibt es nicht mehr.');
+		if (!row) throw new Error(m.error_event_gone());
 		return row;
 	}
 

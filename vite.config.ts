@@ -3,10 +3,18 @@ import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
+		// Texts in English and German (messages/*.json). The language: the one
+		// chosen in the settings, else the system's, else English.
+		paraglideVitePlugin({
+			project: './project.inlang',
+			outdir: './src/lib/paraglide',
+			strategy: ['localStorage', 'preferredLanguage', 'baseLocale']
+		}),
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
@@ -48,7 +56,9 @@ export default defineConfig({
 						instances: [{ browser: 'chromium', headless: true }]
 					},
 					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
-					exclude: ['src/lib/server/**']
+					exclude: ['src/lib/server/**'],
+					// The tests check the German texts; English has tests of its own.
+					setupFiles: ['src/lib/testing/german.ts']
 				}
 			},
 
@@ -62,7 +72,8 @@ export default defineConfig({
 						'electron/**/*.{test,spec}.ts',
 						'scripts/**/*.{test,spec}.js'
 					],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', '**/*.integration.spec.ts']
+					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', '**/*.integration.spec.ts'],
+					setupFiles: ['src/lib/testing/german.ts']
 				}
 			},
 
@@ -74,6 +85,7 @@ export default defineConfig({
 					environment: 'node',
 					include: ['electron/**/*.integration.spec.ts'],
 					globalSetup: ['scripts/test-servers.mjs'],
+					setupFiles: ['src/lib/testing/german.ts'],
 					testTimeout: 30_000
 				}
 			}

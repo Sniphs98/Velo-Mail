@@ -1,3 +1,4 @@
+import { m } from '../src/lib/paraglide/messages.js';
 import {
 	app,
 	BrowserWindow,
@@ -14,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { openDatabase, type Database } from './db';
 import { Desktop } from './desktop';
+import { useLanguage } from './i18n';
 import { IPC } from '../src/lib/api';
 import { registerIpc } from './ipc';
 import type { SyncManager } from './mail/manager';
@@ -150,6 +152,8 @@ if (!app.requestSingleInstanceLock()) {
 	app.on('second-instance', () => showWindow());
 
 	app.whenReady().then(() => {
+		// Until the settings are read; for an error that comes first.
+		useLanguage('system', app.getLocale());
 		try {
 			db = openDatabase(
 				path.join(app.getPath('userData'), 'velo-mail.db'),
@@ -157,8 +161,8 @@ if (!app.requestSingleInstanceLock()) {
 			);
 		} catch (error) {
 			dialog.showErrorBox(
-				'Velo Mail kann nicht starten',
-				`Die Datenbank ließ sich nicht öffnen:\n${error instanceof Error ? error.message : error}`
+				m.error_start_title(),
+				m.error_database({ error: error instanceof Error ? error.message : String(error) })
 			);
 			app.exit(1);
 			return;

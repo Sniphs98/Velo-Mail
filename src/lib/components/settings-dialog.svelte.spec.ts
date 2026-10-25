@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { accounts } from '#lib/accounts.svelte.ts';
+import { page as language } from '#lib/language.ts';
+import { localStorageKey } from '#lib/paraglide/runtime.js';
 import { fakeVelo } from '#lib/testing/fake-velo.ts';
+import { inLocale } from '#lib/testing/german.ts';
 import SettingsDialog from './settings-dialog.svelte';
 
 describe('SettingsDialog', () => {
@@ -72,5 +75,31 @@ describe('SettingsDialog', () => {
 		await page.getByRole('radio', { name: 'Grün' }).click();
 		expect(api.accounts.update).toHaveBeenCalledWith(3, { color: '#16a34a' });
 		await expect.element(page.getByRole('radio', { name: 'Grün' })).toBeChecked();
+	});
+
+	it('switches the language and reloads the page', async () => {
+		const api = fakeVelo();
+		const reload = vi.spyOn(language, 'reload').mockImplementation(() => {});
+		render(SettingsDialog, { open: true });
+
+		await page.getByRole('combobox', { name: 'Sprache' }).selectOptions('English');
+		await vi.waitFor(() => expect(reload).toHaveBeenCalledOnce());
+		expect(api.settings.set).toHaveBeenCalledWith({ language: 'en' });
+		expect(localStorage.getItem(localStorageKey)).toBe('en');
+
+		await page.getByRole('combobox', { name: 'Sprache' }).selectOptions('System');
+		await vi.waitFor(() => expect(reload).toHaveBeenCalledTimes(2));
+		expect(localStorage.getItem(localStorageKey)).toBeNull();
+		reload.mockRestore();
+	});
+
+	it('speaks English', async () => {
+		fakeVelo();
+		await inLocale('en', async () => {
+			render(SettingsDialog, { open: true });
+			await expect.element(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+			await expect.element(page.getByRole('switch', { name: 'Notifications' })).toBeVisible();
+			await expect.element(page.getByRole('radio', { name: 'Dark' })).toBeVisible();
+		});
 	});
 });

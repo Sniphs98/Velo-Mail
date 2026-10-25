@@ -10,8 +10,12 @@ import { radicale } from '../scripts/radicale.mjs';
  * profile of its own, or with `userData` from an earlier start; that is where
  * its database lives.
  */
-export async function launchApp(userData = mkdtempSync(path.join(tmpdir(), 'velo-e2e-'))) {
-	const args = ['.'];
+export async function launchApp(
+	userData = mkdtempSync(path.join(tmpdir(), 'velo-e2e-')),
+	// The system language the app sees; the tests are written against German.
+	lang: 'de' | 'en' = 'de'
+) {
+	const args = ['.', `--lang=${lang}`];
 	// Chromium refuses its sandbox as root (containers, CI).
 	if (process.getuid?.() === 0) args.push('--no-sandbox');
 	const app = await electron.launch({

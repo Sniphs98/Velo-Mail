@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
+	import { dateFormat } from '#lib/language.ts';
 	import type { CalendarEvent } from '#lib/api.ts';
 	import { sameDay, timeOf } from '#lib/calendar/dates.ts';
 	import { dragged, placeEvents } from '#lib/calendar/layout.ts';
@@ -21,7 +23,7 @@
 
 	/** Pixels per hour. */
 	const hour = 48;
-	const weekday = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
+	const weekday = dateFormat({ weekday: 'short' });
 
 	let scroller = $state<HTMLDivElement>();
 	let now = $state(Date.now());
@@ -142,7 +144,7 @@
 						style:background={event.color}
 						onclick={() => onopen(event)}
 					>
-						{event.summary || '(Ohne Titel)'}
+						{event.summary || m.event_untitled()}
 					</button>
 				{/each}
 			</div>
@@ -191,7 +193,7 @@
 							onpointercancel={() => (drag = null)}
 						>
 							<span class="block truncate font-medium">
-								{event.summary || '(Ohne Titel)'}
+								{event.summary || m.event_untitled()}
 								{#if short}<span class="font-normal opacity-90">{timeOf(event.start)}</span>{/if}
 							</span>
 							{#if !short}

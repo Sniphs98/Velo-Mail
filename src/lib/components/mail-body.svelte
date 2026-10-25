@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { Download, ExternalLink, ImageOff, Paperclip } from '@lucide/svelte';
 	import { ipcErrorMessage } from '#lib/account-messages.ts';
 	import { velo, type MessageBody } from '#lib/api.ts';
@@ -61,8 +62,7 @@
 		try {
 			const opened = await velo()?.mail.openAttachment(id);
 			if (opened === false) {
-				notice =
-					'Dieser Dateityp wird aus Sicherheitsgründen nicht geöffnet. Du kannst ihn speichern.';
+				notice = m.attachment_blocked();
 			}
 		} catch (e) {
 			notice = ipcErrorMessage(e);
@@ -80,21 +80,22 @@
 </script>
 
 {#if error}
-	<p class="text-sm text-destructive">Der Inhalt konnte nicht geladen werden: {error}</p>
+	<p class="text-sm text-destructive">{m.body_load_failed({ error })}</p>
 {:else if !body}
 	<p class="flex items-center gap-2 text-sm text-muted-foreground">
-		<Spinner /> Inhalt wird geladen …
+		<Spinner />
+		{m.body_loading()}
 	</p>
 {:else}
 	{#if body.remoteContent && !remote}
 		<div class="flex items-center gap-3 rounded-xl bg-muted px-3.5 py-2.5 text-sm">
 			<ImageOff class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 			<span class="flex-1 text-muted-foreground">
-				Externe Bilder wurden blockiert, damit der Absender nicht sieht, wann du die Mail liest.
+				{m.remote_blocked()}
 			</span>
-			<Button variant="outline" size="sm" onclick={() => (remote = true)}>Bilder laden</Button>
+			<Button variant="outline" size="sm" onclick={() => (remote = true)}>{m.remote_load()}</Button>
 			{#if sender}
-				<Button variant="ghost" size="sm" onclick={trust}>Immer von diesem Absender</Button>
+				<Button variant="ghost" size="sm" onclick={trust}>{m.remote_trust()}</Button>
 			{/if}
 		</div>
 	{/if}
@@ -103,7 +104,7 @@
 		<!-- HTML mails are designed for a light page, so they keep one in dark mode. -->
 		<div class="dark:rounded-xl dark:bg-white dark:p-4">
 			<iframe
-				title="Inhalt der Nachricht"
+				title={m.body_frame()}
 				class="w-full border-0"
 				style:height="{height}px"
 				sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
@@ -114,20 +115,20 @@
 	{:else if body.text}
 		<div class="text-sm leading-relaxed break-words whitespace-pre-wrap">{body.text}</div>
 	{:else}
-		<p class="text-sm text-muted-foreground">Diese Nachricht hat keinen Text.</p>
+		<p class="text-sm text-muted-foreground">{m.body_empty()}</p>
 	{/if}
 
 	{#if body.attachments.length > 0}
-		<ul aria-label="Anhänge" class="flex flex-wrap gap-2">
+		<ul aria-label={m.attachments()} class="flex flex-wrap gap-2">
 			{#each body.attachments as file (file.id)}
 				<li class="flex items-center gap-2 rounded-xl border py-1.5 pr-1.5 pl-3 text-sm">
 					<Paperclip class="size-4 text-muted-foreground" aria-hidden="true" />
-					<span class="max-w-56 truncate">{file.filename ?? 'Anhang'}</span>
+					<span class="max-w-56 truncate">{file.filename ?? m.attachment()}</span>
 					<span class="text-xs text-muted-foreground">{fileSize(file.size)}</span>
 					<Button
 						variant="ghost"
 						size="icon-sm"
-						aria-label="{file.filename ?? 'Anhang'} öffnen"
+						aria-label={m.attachment_open({ name: file.filename ?? m.attachment() })}
 						onclick={() => open(file.id)}
 					>
 						<ExternalLink />
@@ -135,7 +136,7 @@
 					<Button
 						variant="ghost"
 						size="icon-sm"
-						aria-label="{file.filename ?? 'Anhang'} speichern"
+						aria-label={m.attachment_save({ name: file.filename ?? m.attachment() })}
 						onclick={() => save(file.id)}
 					>
 						<Download />

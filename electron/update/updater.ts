@@ -1,6 +1,7 @@
 // Installing updates with electron-updater: it reads the latest*.yml files the
 // release workflow attaches to each GitHub release, downloads the matching
 // installer and runs it on restart. Only where self-update.ts allows it.
+import { m } from '../../src/lib/paraglide/messages.js';
 import { app, net } from 'electron';
 import type { AppUpdater } from 'electron-updater';
 import { readdirSync } from 'node:fs';
@@ -17,7 +18,7 @@ export function autoUpdaterOf(module: {
 	default?: { autoUpdater?: AppUpdater };
 }): AppUpdater {
 	const updater = module.autoUpdater ?? module.default?.autoUpdater;
-	if (!updater) throw new Error('electron-updater ließ sich nicht laden.');
+	if (!updater) throw new Error(m.error_updater_load());
 	return updater;
 }
 
@@ -78,12 +79,12 @@ export class Updater {
 	install() {
 		const can = support();
 		if (!can.supported) {
-			throw new Error(`Selbst aktualisieren geht nicht für ${can.reason}.`);
+			throw new Error(m.error_self_update({ reason: can.reason }));
 		}
 		this.downloading ??= (async () => {
 			const updater = await this.autoUpdater();
 			const result = await updater.checkForUpdates();
-			if (!result?.isUpdateAvailable) throw new Error('Es gibt keine neuere Version.');
+			if (!result?.isUpdateAvailable) throw new Error(m.error_no_newer_version());
 			await updater.downloadUpdate();
 		})().finally(() => (this.downloading = undefined));
 		return this.downloading;

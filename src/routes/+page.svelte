@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { MailOpen } from '@lucide/svelte';
 	import { accounts } from '#lib/accounts.svelte.ts';
 	import { mail } from '#lib/mail.svelte.ts';
@@ -63,20 +64,23 @@
 
 	const mailbox = $derived.by(() => {
 		const view = mail.view;
-		return 'mailboxId' in view ? mail.mailboxes.find((m) => m.id === view.mailboxId) : undefined;
+		return 'mailboxId' in view
+			? mail.mailboxes.find((box) => box.id === view.mailboxId)
+			: undefined;
 	});
 	const mailboxAccount = $derived(accounts.list.find((a) => a.id === mailbox?.accountId));
 
-	/** "12 Treffer in allen Konten", "… in Arbeit", "… in 2 Konten". */
+	/** "12 results in all accounts", "… in Work", "… in 2 accounts". */
 	const hits = $derived.by(() => {
 		const chosen = accounts.list.filter((a) => mail.filters.accounts.includes(a.id));
 		const where =
 			chosen.length === 0 || chosen.length === accounts.list.length
-				? 'allen Konten'
+				? m.search_in_all_accounts()
 				: chosen.length === 1
 					? chosen[0].name
-					: `${chosen.length} Konten`;
-		return `${mail.messages.length} Treffer in ${where}`;
+					: m.search_in_accounts({ count: chosen.length });
+		const count = mail.messages.length;
+		return count === 1 ? m.search_hit({ where }) : m.search_hits({ count, where });
 	});
 
 	function reply(kind: 'reply' | 'replyAll' | 'forward') {
@@ -174,14 +178,14 @@
 			onaddcalendar={() => (addingCalendar = true)}
 			onsettings={() => (showSettings = true)}
 		/>
-		<ResizeHandle bind:value={layout.sidebar} {...sidebarWidth} label="Breite der Seitenleiste" />
+		<ResizeHandle bind:value={layout.sidebar} {...sidebarWidth} label={m.sidebar_width()} />
 
 		{#if mode.current === 'calendar'}
 			<CalendarView bind:this={calendarView} onaddcalendar={() => (addingCalendar = true)} />
 		{:else}
 			<MessageList
 				width={layout.list}
-				title={mail.searching ? 'Suche' : (mailbox?.name ?? 'Alle Posteingänge')}
+				title={mail.searching ? m.search_title() : (mailbox?.name ?? m.all_inboxes())}
 				subtitle={mail.searching ? hits : mailboxAccount?.email}
 				messages={mail.messages}
 				accounts={accounts.list}
@@ -195,10 +199,10 @@
 				onsearchserver={() => mail.searchServer()}
 				oncompose={accounts.list.length > 0 ? newMessage : undefined}
 			/>
-			<ResizeHandle bind:value={layout.list} {...listWidth} label="Breite der Nachrichtenliste" />
+			<ResizeHandle bind:value={layout.list} {...listWidth} label={m.list_width()} />
 
 			<article
-				aria-label="Nachricht"
+				aria-label={m.reading_pane()}
 				class="relative flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-xl border bg-card p-4 text-center"
 				class:justify-start={mail.thread.length > 0 || compose.open}
 			>
@@ -218,13 +222,13 @@
 				{:else}
 					<MailOpen class="size-10 text-muted-foreground/40" aria-hidden="true" />
 					{#if accounts.list.length === 0}
-						<h2 class="font-heading text-lg font-semibold">Willkommen bei Velo Mail</h2>
+						<h2 class="font-heading text-lg font-semibold">{m.welcome_title()}</h2>
 						<p class="max-w-sm text-sm text-muted-foreground">
-							Füge ein E-Mail-Konto hinzu, um deine Nachrichten hier zu lesen.
+							{m.welcome_text()}
 						</p>
-						<Button class="mt-2" onclick={() => (addingAccount = true)}>Konto hinzufügen</Button>
+						<Button class="mt-2" onclick={() => (addingAccount = true)}>{m.account_add()}</Button>
 					{:else}
-						<p class="text-sm text-muted-foreground">Keine Nachricht ausgewählt</p>
+						<p class="text-sm text-muted-foreground">{m.no_message_selected()}</p>
 					{/if}
 				{/if}
 			</article>

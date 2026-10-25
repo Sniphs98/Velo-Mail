@@ -1,6 +1,7 @@
 // Building outgoing messages: recipients, headers that keep conversations
 // together, attachments. The same raw message is sent over SMTP and stored
 // in "Gesendet" (or in "Entwürfe" as a draft).
+import { m } from '../../src/lib/paraglide/messages.js';
 import addressparser from 'nodemailer/lib/addressparser';
 import MailComposer from 'nodemailer/lib/mail-composer';
 import { z } from 'zod';
@@ -26,7 +27,9 @@ export function parseRecipients(value: string): Recipient[] {
 		);
 	return flat(addressparser(value)).map((recipient) => {
 		if (!email.safeParse(recipient.address).success) {
-			throw new Error(`Keine gültige Adresse: ${recipient.address || recipient.name}`);
+			throw new Error(
+				m.error_invalid_address({ address: recipient.address || recipient.name || '' })
+			);
 		}
 		return recipient.name ? recipient : { address: recipient.address };
 	});
@@ -67,7 +70,7 @@ export async function buildMessage(
 	const cc = parseRecipients(message.cc);
 	const bcc = parseRecipients(message.bcc);
 	if (!draft && to.length + cc.length + bcc.length === 0) {
-		throw new Error('Die Nachricht hat keinen Empfänger.');
+		throw new Error(m.error_no_recipient());
 	}
 	const mail = new MailComposer({
 		from,

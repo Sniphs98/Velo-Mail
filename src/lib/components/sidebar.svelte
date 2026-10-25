@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import {
 		Archive,
 		CalendarDays,
@@ -62,13 +63,13 @@
 </script>
 
 <nav
-	aria-label="Konten und Ordner"
+	aria-label={m.sidebar_label()}
 	class="relative flex w-52 shrink-0 flex-col gap-px overflow-y-auto rounded-xl border bg-card p-2"
 	style:width={width ? `${width}px` : undefined}
 >
 	<div
 		role="tablist"
-		aria-label="Bereich"
+		aria-label={m.sidebar_area()}
 		class="mb-2 grid shrink-0 grid-cols-2 rounded-lg bg-muted p-0.5"
 	>
 		<button
@@ -78,7 +79,8 @@
 			class="flex items-center justify-center gap-1.5 rounded-md py-1 text-xs text-muted-foreground aria-selected:bg-card aria-selected:font-medium aria-selected:text-foreground aria-selected:shadow-sm"
 			onclick={() => (mode.current = 'mail')}
 		>
-			<Mails class="size-3.5" aria-hidden="true" /> Mail
+			<Mails class="size-3.5" aria-hidden="true" />
+			{m.sidebar_mail()}
 		</button>
 		<button
 			type="button"
@@ -87,7 +89,8 @@
 			class="flex items-center justify-center gap-1.5 rounded-md py-1 text-xs text-muted-foreground aria-selected:bg-card aria-selected:font-medium aria-selected:text-foreground aria-selected:shadow-sm"
 			onclick={() => (mode.current = 'calendar')}
 		>
-			<CalendarDays class="size-3.5" aria-hidden="true" /> Kalender
+			<CalendarDays class="size-3.5" aria-hidden="true" />
+			{m.sidebar_calendar()}
 		</button>
 	</div>
 
@@ -102,7 +105,7 @@
 			onclick={() => mail.show({ inboxes: true })}
 		>
 			<Inbox class="size-4" aria-hidden="true" />
-			<span class="flex-1 text-left">Alle Posteingänge</span>
+			<span class="flex-1 text-left">{m.all_inboxes()}</span>
 			{#if mail.unreadInboxes > 0}
 				<span class="text-xs font-semibold">{mail.unreadInboxes}</span>
 			{/if}
@@ -117,7 +120,9 @@
 						type="button"
 						class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-0.5 pl-0.5 text-left"
 						aria-expanded={!collapsed}
-						aria-label="{account.name} {collapsed ? 'aufklappen' : 'zuklappen'}"
+						aria-label={collapsed
+							? m.sidebar_expand({ name: account.name })
+							: m.sidebar_collapse({ name: account.name })}
 						onclick={() => sidebar.toggle(account.id)}
 					>
 						<ChevronDown
@@ -138,10 +143,10 @@
 						</span>
 					</button>
 					{#if status?.state === 'syncing'}
-						<span class="sr-only" role="status">Wird synchronisiert</span>
+						<span class="sr-only" role="status">{m.sidebar_syncing()}</span>
 					{:else if status?.state === 'error'}
 						<span title={status.error} class="text-destructive">
-							<CircleAlert class="size-4" aria-label="Synchronisierung fehlgeschlagen" />
+							<CircleAlert class="size-4" aria-label={m.sidebar_sync_failed()} />
 						</span>
 					{/if}
 					<DropdownMenu.Root>
@@ -152,7 +157,7 @@
 									variant="ghost"
 									size="icon-sm"
 									class="opacity-0 group-hover/account:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-									aria-label="Optionen für {account.name}"
+									aria-label={m.sidebar_account_options({ name: account.name })}
 								>
 									<Ellipsis />
 								</Button>
@@ -160,10 +165,10 @@
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content align="end">
 							<DropdownMenu.Item onclick={() => velo()?.mail.sync(account.id)}>
-								Jetzt synchronisieren
+								{m.sidebar_sync_now()}
 							</DropdownMenu.Item>
 							<DropdownMenu.Item variant="destructive" onclick={() => accounts.remove(account.id)}>
-								Konto entfernen
+								{m.account_remove()}
 							</DropdownMenu.Item>
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
@@ -193,10 +198,10 @@
 							<button
 								type="button"
 								class="absolute right-1 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/folder:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100"
-								aria-label="{pinned ? 'Nicht mehr anpinnen' : 'Anpinnen'}: {box.name}"
-								title={pinned
-									? 'Nicht mehr anpinnen'
-									: 'Anpinnen: auch bei zugeklapptem Konto sichtbar'}
+								aria-label={pinned
+									? m.sidebar_unpin_folder({ name: box.name })
+									: m.sidebar_pin_folder({ name: box.name })}
+								title={pinned ? m.sidebar_unpin() : m.sidebar_pin_hint()}
 								onclick={() => sidebar.pin(box, !pinned)}
 							>
 								{#if pinned}<PinOff class="size-3.5" />{:else}<Pin class="size-3.5" />{/if}
@@ -215,17 +220,17 @@
 	{#if mode.current === 'calendar'}
 		<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onaddcalendar}>
 			<Plus class="size-4" aria-hidden="true" />
-			Kalender hinzufügen
+			{m.calendar_add()}
 		</Button>
 	{:else}
 		<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onaddaccount}>
 			<Plus class="size-4" aria-hidden="true" />
-			Konto hinzufügen
+			{m.account_add()}
 		</Button>
 	{/if}
 	<Button variant="ghost" size="sm" class="{itemClass} shrink-0" onclick={onsettings}>
 		<Settings2 class="size-4" aria-hidden="true" />
-		Einstellungen
+		{m.settings_title()}
 	</Button>
 	{#if info}
 		<p class="px-2 pt-1.5 text-[11px] text-muted-foreground">{info.name} {info.version}</p>

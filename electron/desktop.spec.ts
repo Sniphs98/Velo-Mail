@@ -14,7 +14,7 @@ describe('notificationsFor', () => {
 	it('announces each message with its sender and subject', () => {
 		expect(notificationsFor('Arbeit', [mail(1, 'Anna Becker'), mail(2, null, '')])).toEqual([
 			{ title: 'Anna Becker', body: 'Hallo', messageId: 1 },
-			{ title: '2@beispiel.de', body: '(kein Betreff)', messageId: 2 }
+			{ title: '2@beispiel.de', body: '(Kein Betreff)', messageId: 2 }
 		]);
 	});
 

@@ -1,4 +1,5 @@
 // Date arithmetic for the calendar views, in local time. Weeks start on Monday.
+import { dateFormat, timeFormat } from '#lib/language.ts';
 
 export type CalendarView = 'day' | 'week' | 'month';
 
@@ -47,27 +48,22 @@ export function step(view: CalendarView, cursor: Date, direction: 1 | -1) {
 	return addDays(cursor, (view === 'week' ? 7 : 1) * direction);
 }
 
-const monthYear = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
-const dayMonth = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short' });
-const full = new Intl.DateTimeFormat('de-DE', {
-	weekday: 'long',
-	day: 'numeric',
-	month: 'long',
-	year: 'numeric'
-});
-const clock = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' });
+const monthYear = () => dateFormat({ month: 'long', year: 'numeric' });
+const dayMonth = () => dateFormat({ day: 'numeric', month: 'short' });
+const full = () => dateFormat({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const clock = timeFormat;
 
 /** "Oktober 2026", "26. Okt. – 1. Nov. 2026" or "Montag, 26. Oktober 2026". */
 export function viewTitle(view: CalendarView, cursor: Date) {
-	if (view === 'month') return monthYear.format(cursor);
-	if (view === 'day') return full.format(cursor);
+	if (view === 'month') return monthYear().format(cursor);
+	if (view === 'day') return full().format(cursor);
 	const [first] = visibleDays('week', cursor);
 	const last = addDays(first, 6);
-	return `${dayMonth.format(first)} – ${dayMonth.format(last)} ${last.getFullYear()}`;
+	return `${dayMonth().format(first)} – ${dayMonth().format(last)} ${last.getFullYear()}`;
 }
 
 export function timeOf(ms: number) {
-	return clock.format(ms);
+	return clock().format(ms);
 }
 
 /** Calendar week number (ISO 8601). */

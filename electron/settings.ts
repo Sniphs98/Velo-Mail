@@ -7,6 +7,7 @@ import { settings } from './db/schema';
 
 export const settingsSchema = z.object({
 	theme: z.enum(['system', 'light', 'dark']),
+	language: z.enum(['system', 'en', 'de']),
 	notifications: z.boolean(),
 	tray: z.boolean(),
 	avatars: z.boolean(),
@@ -16,6 +17,7 @@ export const settingsSchema = z.object({
 
 export const defaultSettings: Settings = {
 	theme: 'system',
+	language: 'system',
 	notifications: true,
 	tray: false,
 	avatars: true,

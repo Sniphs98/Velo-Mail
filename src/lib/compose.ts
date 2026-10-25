@@ -1,4 +1,5 @@
 // Starting points for writing: replies, reply-to-all and forwards.
+import { m } from '#lib/paraglide/messages.js';
 import type { AttachmentInfo, ReplySource } from '#lib/api.ts';
 import { fullDate } from '#lib/format.ts';
 import { escapeHtml, quoteHtml, textToHtml } from '#lib/mail-text.ts';
@@ -43,16 +44,16 @@ export function replyDraft(
 	messageId: number
 ): Draft {
 	const own = source.accountEmail.toLowerCase();
-	const sender = source.from?.name || source.from?.address || 'unbekannt';
+	const sender = source.from?.name || source.from?.address || m.sender_unknown();
 	const base = { accountId: source.accountId, bcc: '', forwarded: [] };
 
 	if (kind === 'forward') {
 		const header = [
-			'---------- Weitergeleitete Nachricht ----------',
-			`Von: ${source.from ? formatAddress(source.from) : 'unbekannt'}`,
-			`Datum: ${fullDate(source.date)}`,
-			`Betreff: ${source.subject}`,
-			`An: ${list(source.to)}`
+			m.forward_header(),
+			`${m.forward_from()}: ${source.from ? formatAddress(source.from) : m.sender_unknown()}`,
+			`${m.forward_date()}: ${fullDate(source.date)}`,
+			`${m.forward_subject()}: ${source.subject}`,
+			`${m.forward_to()}: ${list(source.to)}`
 		];
 		return {
 			...base,
@@ -85,7 +86,7 @@ export function replyDraft(
 		to: list([...to, ...others]),
 		cc: list(cc),
 		subject: prefixSubject(source.subject, 'Re'),
-		html: quoteHtml(`Am ${fullDate(source.date)} schrieb ${sender}:`, source.text),
+		html: quoteHtml(m.reply_quote({ date: fullDate(source.date), sender }), source.text),
 		replyTo: messageId,
 		inReplyTo: source.messageId ?? undefined,
 		references: source.messageId ? [...source.references, source.messageId] : source.references

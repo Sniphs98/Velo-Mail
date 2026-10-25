@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { Ellipsis } from '@lucide/svelte';
 	import { velo } from '#lib/api.ts';
 	import { calendar } from '#lib/calendar.svelte.ts';
@@ -18,7 +19,7 @@
 							variant="ghost"
 							size="icon-sm"
 							class="opacity-0 group-hover/source:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-							aria-label="Optionen für {source.name}"
+							aria-label={m.sidebar_account_options({ name: source.name })}
 						>
 							<Ellipsis />
 						</Button>
@@ -26,13 +27,13 @@
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end">
 					<DropdownMenu.Item onclick={() => velo()?.calendar.sync()}>
-						Jetzt abgleichen
+						{m.sidebar_sync_now()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item
 						variant="destructive"
 						onclick={() => velo()?.calendar.removeSource(source.id)}
 					>
-						Kalender entfernen
+						{m.calendar_remove()}
 					</DropdownMenu.Item>
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>

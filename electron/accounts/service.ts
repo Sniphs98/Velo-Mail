@@ -1,3 +1,4 @@
+import { m } from '../../src/lib/paraglide/messages.js';
 import { asc, eq } from 'drizzle-orm';
 import { accountColors } from '../../src/lib/colors';
 import { z } from 'zod';
@@ -122,7 +123,7 @@ export class AccountService {
 			.set(changes)
 			.where(eq(accounts.id, z.number().int().parse(id)))
 			.returning(accountFields);
-		if (!account) throw new Error('Das Konto gibt es nicht mehr.');
+		if (!account) throw new Error(m.error_account_gone());
 		return account;
 	}
 

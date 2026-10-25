@@ -1,6 +1,7 @@
 // Reading and writing iCalendar (RFC 5545) with ical.js: the fields a calendar
 // view needs, occurrences of recurring events in a range, and the text to send
 // back when an event is created or changed.
+import { m } from '../../src/lib/paraglide/messages.js';
 import ICAL from 'ical.js';
 
 export interface ParsedEvent {
@@ -311,7 +312,7 @@ function setOccurrence(
 export function occurrenceIcs(input: EventInput, previous: string, recurrenceId: string): string {
 	const root = component(previous);
 	const series = master(root);
-	if (!series) throw new Error('Den Termin gibt es nicht mehr.');
+	if (!series) throw new Error(m.error_event_gone());
 	let vevent = root
 		.getAllSubcomponents('vevent')
 		.find((v) => v !== series && keyOf(v) === recurrenceId);
