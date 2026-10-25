@@ -284,6 +284,9 @@ Version wird über das Label am Pull Request bestimmt:
 | `breaking`     | Major, 1.2.3 → 2.0.0 |
 | `kein-release` | kein Release         |
 
+Ein beim Merge ausgelassenes Release lässt sich von Hand nachholen: Actions →
+Auto-Release → „Run workflow“, dort wählen, wie die Version steigt.
+
 **`release.yml`** – nach dem Auto-Release oder bei einem Tag `v*.*.*`
 
 1. Komplette CI noch einmal
