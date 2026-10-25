@@ -10,7 +10,7 @@ import {
 	visibleDays,
 	weekNumber
 } from './dates';
-import { placeEvents } from './layout';
+import { dragged, placeEvents } from './layout';
 
 describe('dates', () => {
 	it('starts weeks on Monday and shows six weeks for a month', () => {
@@ -87,5 +87,33 @@ describe('placeEvents', () => {
 			['nacht', 0, 60],
 			['kurz', 720, 20]
 		]);
+	});
+});
+
+describe('dragged', () => {
+	const event = {
+		start: new Date(2026, 10, 3, 10).getTime(),
+		end: new Date(2026, 10, 3, 11).getTime()
+	};
+	const day = (d: number) => new Date(2026, 10, d).getTime();
+
+	it('snaps to quarter hours and keeps the length', () => {
+		// 48 px per hour: 30 px are 37.5 minutes, snapped to 45.
+		expect(dragged(event, 30, 48, 0)).toEqual({
+			start: new Date(2026, 10, 3, 10, 45).getTime(),
+			end: new Date(2026, 10, 3, 11, 45).getTime()
+		});
+		expect(dragged(event, -5, 48, 0)).toEqual(event);
+		expect(dragged(event, -24, 48, 0).start).toBe(new Date(2026, 10, 3, 9, 30).getTime());
+	});
+
+	it('moves to another day at the same time, across a clock change', () => {
+		expect(dragged(event, 0, 48, day(5) - day(3)).start).toBe(new Date(2026, 10, 5, 10).getTime());
+		const october = {
+			start: new Date(2026, 9, 24, 10).getTime(),
+			end: new Date(2026, 9, 24, 11).getTime()
+		};
+		const shift = new Date(2026, 9, 26).getTime() - new Date(2026, 9, 24).getTime();
+		expect(dragged(october, 0, 48, shift).start).toBe(new Date(2026, 9, 26, 10).getTime());
 	});
 });
