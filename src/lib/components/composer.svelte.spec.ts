@@ -4,9 +4,9 @@ import { render } from 'vitest-browser-svelte';
 import { accounts } from '#lib/accounts.svelte.ts';
 import { compose } from '#lib/compose.svelte.ts';
 import { fakeVelo } from '#lib/testing/fake-velo.ts';
-import ComposeDialog from './compose-dialog.svelte';
+import Composer from './composer.svelte';
 
-describe('ComposeDialog', () => {
+describe('Composer', () => {
 	afterEach(() => {
 		compose.open = false;
 		accounts.list = [];
@@ -15,7 +15,7 @@ describe('ComposeDialog', () => {
 
 	it('writes and sends a new message', async () => {
 		const api = fakeVelo();
-		render(ComposeDialog);
+		render(Composer);
 		await compose.start(1);
 
 		await page.getByLabelText('An', { exact: true }).fill('Anna <anna@firma.de>');
@@ -23,7 +23,7 @@ describe('ComposeDialog', () => {
 		await page.getByLabelText('Nachricht', { exact: true }).fill('Wie geht es dir?');
 		await page.getByRole('button', { name: 'Senden' }).click();
 
-		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('region')).not.toBeInTheDocument();
 		expect(api.mail.send).toHaveBeenCalledWith(
 			expect.objectContaining({
 				accountId: 1,
@@ -37,7 +37,7 @@ describe('ComposeDialog', () => {
 
 	it('starts a reply with recipient, subject and quote, and saves it as a draft', async () => {
 		const api = fakeVelo();
-		render(ComposeDialog);
+		render(Composer);
 		await compose.start(1, { kind: 'reply', messageId: 5 });
 
 		await expect.element(page.getByRole('heading', { name: 'Antworten' })).toBeVisible();
@@ -72,7 +72,7 @@ describe('ComposeDialog', () => {
 				signature: 'Lukas\nFirma GmbH'
 			}
 		];
-		render(ComposeDialog);
+		render(Composer);
 		await compose.start(1);
 		const signature = () =>
 			page.getByRole('textbox', { name: 'Nachricht' }).element().querySelector('.signature');
@@ -85,9 +85,22 @@ describe('ComposeDialog', () => {
 		expect(compose.draft.accountId).toBe(2);
 	});
 
+	it('starts in "An" and closes with Escape, keeping a draft', async () => {
+		const api = fakeVelo();
+		render(Composer);
+		await compose.start(1);
+		await expect.element(page.getByLabelText('An', { exact: true })).toHaveFocus();
+		await userEvent.keyboard('anna@firma.de');
+		await userEvent.keyboard('{Escape}');
+		await expect.element(page.getByRole('region')).not.toBeInTheDocument();
+		expect(api.mail.saveDraft).toHaveBeenCalledWith(
+			expect.objectContaining({ to: 'anna@firma.de' })
+		);
+	});
+
 	it('formats text and sends it with a plain-text version', async () => {
 		const api = fakeVelo();
-		render(ComposeDialog);
+		render(Composer);
 		await compose.start(1);
 		await page.getByLabelText('An', { exact: true }).fill('anna@firma.de');
 		const editor = page.getByRole('textbox', { name: 'Nachricht' });
@@ -103,7 +116,7 @@ describe('ComposeDialog', () => {
 		await userEvent.keyboard('Punkt');
 		await page.getByRole('button', { name: 'Senden' }).click();
 
-		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('region')).not.toBeInTheDocument();
 		const [message] = vi.mocked(api.mail.send).mock.calls[0];
 		expect(message.html).toBe(
 			'<p><strong>Wichtig</strong> und normal</p><ul><li><p>Punkt</p></li></ul>'
@@ -113,7 +126,7 @@ describe('ComposeDialog', () => {
 
 	it('adds a link to the selected text', async () => {
 		const api = fakeVelo();
-		render(ComposeDialog);
+		render(Composer);
 		await compose.start(1);
 		await page.getByLabelText('An', { exact: true }).fill('anna@firma.de');
 		await page.getByRole('textbox', { name: 'Nachricht' }).click();
@@ -154,7 +167,7 @@ describe('ComposeDialog', () => {
 				}))
 			}
 		});
-		render(ComposeDialog);
+		render(Composer);
 		await compose.start(1, { kind: 'forward', messageId: 5 });
 
 		await expect.element(page.getByRole('heading', { name: 'Weiterleiten' })).toBeVisible();
@@ -180,11 +193,11 @@ describe('ComposeDialog', () => {
 				})
 			}
 		});
-		render(ComposeDialog);
+		render(Composer);
 		await compose.start(1);
 		await page.getByLabelText('An', { exact: true }).fill('Jonas');
 		await page.getByRole('button', { name: 'Senden' }).click();
 		await expect.element(page.getByRole('alert')).toHaveTextContent('Keine gültige Adresse: Jonas');
-		await expect.element(page.getByRole('dialog')).toBeVisible();
+		await expect.element(page.getByRole('region')).toBeVisible();
 	});
 });

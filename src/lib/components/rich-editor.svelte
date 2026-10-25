@@ -132,7 +132,7 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<!-- mousedown is cancelled so the editor keeps focus and its selection. -->
-	<div role="toolbar" aria-label="Formatierung" class="flex gap-0.5 px-4 pt-2">
+	<div role="toolbar" aria-label="Formatierung" class="-ml-2 flex gap-0.5 pt-2">
 		{#each tools as tool (tool.name)}
 			<Button
 				variant="ghost"
@@ -148,7 +148,7 @@
 		{/each}
 	</div>
 	{#if linkHref !== undefined}
-		<div class="flex items-center gap-2 px-5 pt-2">
+		<div class="flex items-center gap-2 pt-2">
 			<input
 				bind:this={linkInput}
 				bind:value={linkHref}
@@ -171,7 +171,7 @@
 	{/if}
 	<div
 		bind:this={element}
-		class="min-h-[40vh] flex-1 cursor-text overflow-y-auto px-5 py-3"
+		class="min-h-[40vh] flex-1 cursor-text py-3"
 		onclick={(event) => {
 			if (event.target === element) editor?.commands.focus('end');
 		}}

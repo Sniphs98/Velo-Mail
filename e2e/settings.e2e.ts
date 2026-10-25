@@ -20,7 +20,7 @@ test('keeps theme, signature and background mode', async () => {
 	await expect(dialog).toBeHidden();
 
 	await page.keyboard.press('c');
-	const composer = page.getByRole('dialog', { name: 'Neue Nachricht' });
+	const composer = page.getByRole('region', { name: 'Neue Nachricht' });
 	const signature = composer.getByRole('textbox', { name: 'Nachricht' }).locator('.signature');
 	await expect(signature).toContainText('Viele Grüße');
 	await expect(signature).toContainText('Anna');
@@ -34,7 +34,7 @@ test('keeps theme, signature and background mode', async () => {
 	await page.keyboard.press('c');
 	await expect(
 		page
-			.getByRole('dialog', { name: 'Neue Nachricht' })
+			.getByRole('region', { name: 'Neue Nachricht' })
 			.getByRole('textbox', { name: 'Nachricht' })
 			.locator('.signature')
 	).toContainText('Viele Grüße');
