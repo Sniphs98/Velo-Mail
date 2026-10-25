@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { inLocale } from '#lib/testing/german.ts';
 import { eventTime, fileSize, listDate } from './format';
 
 const now = new Date(2026, 9, 24, 15, 0); // Saturday
@@ -12,6 +13,14 @@ describe('listDate', () => {
 		expect(listDate(new Date(2025, 9, 12, 8, 0).getTime(), now)).toBe('12.10.25');
 	});
 
+	it('follows the language', async () => {
+		await inLocale('en', () => {
+			expect(listDate(new Date(2026, 9, 23, 23, 59).getTime(), now)).toBe('Yesterday');
+			expect(listDate(new Date(2026, 9, 19, 8, 0).getTime(), now)).toBe('Mon');
+			expect(listDate(new Date(2026, 9, 12, 8, 0).getTime(), now)).toBe('10/12');
+		});
+	});
+
 	it('shows the time for dates in the future (wrong clocks)', () => {
 		expect(listDate(new Date(2026, 9, 25, 8, 0).getTime(), now)).toBe('08:00');
 	});
@@ -22,6 +31,10 @@ describe('fileSize', () => {
 		expect(fileSize(512)).toBe('512 B');
 		expect(fileSize(12_800)).toBe('13 KB');
 		expect(fileSize(3_500_000)).toBe('3,3 MB');
+	});
+
+	it('writes the decimal point of the language', async () => {
+		await inLocale('en', () => expect(fileSize(3_500_000)).toBe('3.3 MB'));
 	});
 });
 

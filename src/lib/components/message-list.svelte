@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { Paperclip, PenLine, Search, SlidersHorizontal, X } from '@lucide/svelte';
 	import type { Account, MessageSummary, SearchFilters } from '#lib/api.ts';
 	import { activeFilters, noFilters } from '#lib/search.ts';
@@ -88,7 +89,7 @@
 </script>
 
 <section
-	aria-label="Nachrichtenliste"
+	aria-label={m.list_label()}
 	class="flex w-80 shrink-0 flex-col gap-2 rounded-xl border bg-card p-2.5"
 	style:width={width ? `${width}px` : undefined}
 >
@@ -102,8 +103,8 @@
 		{#if oncompose}
 			<Button
 				size="icon-sm"
-				aria-label="Neue Nachricht (C)"
-				title="Neue Nachricht (C)"
+				aria-label={m.compose_new_shortcut()}
+				title={m.compose_new_shortcut()}
 				onclick={oncompose}
 			>
 				<PenLine />
@@ -117,8 +118,8 @@
 		/>
 		<Input
 			type="search"
-			placeholder="Suchen"
-			aria-label="Suchen"
+			placeholder={m.search_placeholder()}
+			aria-label={m.search_placeholder()}
 			class="h-8 rounded-lg border-transparent bg-muted pr-16 pl-8 text-sm"
 			value={typed}
 			oninput={(event) => input(event.currentTarget.value)}
@@ -131,7 +132,12 @@
 		/>
 		<div class="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
 			{#if typed}
-				<Button variant="ghost" size="icon-xs" aria-label="Suche löschen" onclick={() => input('')}>
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					aria-label={m.search_clear()}
+					onclick={() => input('')}
+				>
 					<X />
 				</Button>
 			{/if}
@@ -139,9 +145,9 @@
 				variant="ghost"
 				size="icon-xs"
 				class="relative aria-expanded:bg-background"
-				aria-label="Filter"
+				aria-label={m.filter_button()}
 				aria-expanded={showFilters}
-				title="Nach Konto, Zeitraum, Absender filtern"
+				title={m.filter_hint()}
 				onclick={() => (showFilters = !showFilters)}
 			>
 				<SlidersHorizontal />
@@ -149,7 +155,7 @@
 					<span
 						class="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground"
 					>
-						{filterCount}<span class="sr-only"> aktiv</span>
+						{filterCount}<span class="sr-only"> {m.filter_active()}</span>
 					</span>
 				{/if}
 			</Button>
@@ -161,7 +167,7 @@
 
 	{#if messages.length === 0}
 		<p class="py-10 text-center text-sm text-muted-foreground">
-			{searching ? 'Keine Treffer' : 'Keine E-Mails'}
+			{searching ? m.search_no_results() : m.list_empty()}
 		</p>
 	{:else}
 		<!-- relative: keeps the sr-only labels inside the scrolling list, not below the page. -->
@@ -184,28 +190,28 @@
 							<span class="flex items-center justify-between gap-2">
 								<span class="flex min-w-0 items-center gap-1.5">
 									<span class="truncate text-sm" class:font-semibold={!message.seen}>
-										{message.fromName || message.fromAddress || 'Unbekannt'}
+										{message.fromName || message.fromAddress || m.sender_unknown()}
 									</span>
 									{#if message.threadSize > 1}
 										<span class="text-xs text-muted-foreground">
-											{message.threadSize} <span class="sr-only">Nachrichten</span>
+											{message.threadSize} <span class="sr-only">{m.list_messages()}</span>
 										</span>
 									{/if}
 								</span>
 								<span class="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
 									{#if message.hasAttachments}
 										<Paperclip class="size-3.5" aria-hidden="true" />
-										<span class="sr-only">Mit Anhang</span>
+										<span class="sr-only">{m.with_attachment()}</span>
 									{/if}
 									{listDate(message.date)}
 									{#if !message.seen}
 										<span class="size-2 rounded-full bg-primary" aria-hidden="true"></span>
-										<span class="sr-only">Ungelesen</span>
+										<span class="sr-only">{m.unread()}</span>
 									{/if}
 								</span>
 							</span>
 							<span class="truncate text-xs" class:font-semibold={!message.seen}>
-								{message.subject || '(Kein Betreff)'}
+								{message.subject || m.no_subject()}
 							</span>
 							{#if message.snippet}
 								<span class="truncate text-xs text-muted-foreground">{message.snippet}</span>
@@ -221,16 +227,18 @@
 			class="mt-auto flex items-center justify-center gap-2 pt-2 text-[13px] text-muted-foreground"
 		>
 			{#if serverResult === 'searching'}
-				<Spinner /> Suche auf dem Server …
+				<Spinner /> {m.search_server_running()}
 			{:else if serverResult !== undefined}
 				<span role="status">
 					{serverResult === 0
-						? 'Auf dem Server nichts Älteres gefunden'
-						: `${serverResult} ältere ${serverResult === 1 ? 'Nachricht' : 'Nachrichten'} vom Server geholt`}
+						? m.search_server_none()
+						: serverResult === 1
+							? m.search_server_one()
+							: m.search_server_many({ count: serverResult })}
 				</span>
 			{:else}
 				<Button variant="outline" size="sm" onclick={searchServer}>
-					Auf dem Server weitersuchen
+					{m.search_server()}
 				</Button>
 			{/if}
 		</div>

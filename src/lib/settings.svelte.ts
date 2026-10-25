@@ -4,6 +4,7 @@ import { velo, type Settings } from '#lib/api.ts';
 class AppSettings {
 	value = $state<Settings>({
 		theme: 'system',
+		language: 'system',
 		notifications: true,
 		tray: false,
 		avatars: true,

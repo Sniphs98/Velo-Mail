@@ -2,6 +2,7 @@
 // new messages by UID, flag changes (via CONDSTORE when the server has it),
 // and messages deleted on the server. Bodies are fetched when a message is
 // opened (phase 5).
+import { m } from '../../src/lib/paraglide/messages.js';
 import { and, eq, inArray, max, min } from 'drizzle-orm';
 import type { FetchMessageObject, ImapFlow, ListResponse, SearchObject } from 'imapflow';
 import type { SearchQuery } from '../../src/lib/api';
@@ -50,20 +51,20 @@ export async function syncMailboxes(db: Database, accountId: number, client: Ima
 	return stored.filter((box) => paths.has(box.path));
 }
 
-/** German names for special folders, whatever the server calls them. */
-const roleNames: Record<Role, string> = {
-	inbox: 'Posteingang',
-	sent: 'Gesendet',
-	drafts: 'Entwürfe',
-	trash: 'Papierkorb',
-	archive: 'Archiv',
-	junk: 'Spam',
-	all: 'Alle Nachrichten'
+/** Names for special folders in the app's language, whatever the server calls them. */
+const roleNames: Record<Role, () => string> = {
+	inbox: m.folder_inbox,
+	sent: m.folder_sent,
+	drafts: m.folder_drafts,
+	trash: m.folder_trash,
+	archive: m.folder_archive,
+	junk: m.folder_junk,
+	all: m.folder_all
 };
 
 function displayName(box: ListResponse) {
 	const role = box.specialUse && roles[box.specialUse];
-	return role ? roleNames[role] : box.name;
+	return role ? roleNames[role]() : box.name;
 }
 
 export interface MailboxChanges {

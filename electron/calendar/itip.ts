@@ -1,6 +1,7 @@
 // Invitations by mail (iTIP, RFC 5546; iMIP, RFC 6047): reading a REQUEST or
 // CANCEL, the REPLY that answers it, and the copy that goes into the calendar
 // with the own answer in it.
+import { m } from '../../src/lib/paraglide/messages.js';
 import ICAL from 'ical.js';
 import type { Invitation, InvitationResponse, ParticipantStatus } from '../../src/lib/api';
 import { parseEvent, withoutOccurrence } from './ics';
@@ -178,7 +179,7 @@ export function replyIcs(
 	response: InvitationResponse
 ): string {
 	const source = parse(invitation);
-	if (!source) throw new Error('Die Einladung lässt sich nicht lesen.');
+	if (!source) throw new Error(m.error_invitation_unreadable());
 	const root = calendarRoot();
 	root.addPropertyWithValue('method', 'REPLY');
 	copyZones(source, root);
@@ -208,7 +209,7 @@ export function calendarIcs(
 	response: InvitationResponse
 ): string {
 	const source = parse(invitation);
-	if (!source) throw new Error('Die Einladung lässt sich nicht lesen.');
+	if (!source) throw new Error(m.error_invitation_unreadable());
 	const incoming = source.getAllSubcomponents('vevent');
 	const base = stored ? parse(stored) : null;
 	// A new version of the whole series replaces everything stored.

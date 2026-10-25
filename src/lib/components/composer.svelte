@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { untrack } from 'svelte';
 	import { Paperclip, Send, Trash2, X } from '@lucide/svelte';
 	import { accounts } from '#lib/accounts.svelte.ts';
@@ -36,10 +37,10 @@
 
 	const title = $derived(
 		compose.draft.replyTo
-			? 'Antworten'
+			? m.compose_reply()
 			: compose.draft.subject.match(/^\s*(fwd?|wg):/i)
-				? 'Weiterleiten'
-				: 'Neue Nachricht'
+				? m.compose_forward()
+				: m.compose_new()
 	);
 
 	const fieldClass =
@@ -65,7 +66,7 @@
 	>
 		<div class="-mt-1 flex items-center justify-between pb-2">
 			<h2 class="font-heading text-lg leading-tight font-semibold">{title}</h2>
-			<Button variant="ghost" size="icon-sm" aria-label="Schließen" onclick={() => compose.close()}>
+			<Button variant="ghost" size="icon-sm" aria-label={m.close()} onclick={() => compose.close()}>
 				<X />
 			</Button>
 		</div>
@@ -81,7 +82,7 @@
 			<div class="flex flex-col">
 				{#if accounts.list.length > 1}
 					<label class="flex items-center gap-3 border-b">
-						<span class="w-16 text-sm text-muted-foreground">Von</span>
+						<span class="w-16 text-sm text-muted-foreground">{m.compose_from()}</span>
 						<NativeSelect.Root
 							class="my-2 w-auto border-transparent"
 							bind:value={compose.draft.accountId}
@@ -97,9 +98,9 @@
 				{/if}
 				<div class="flex items-center gap-3 border-b">
 					<label class="flex min-w-0 flex-1 items-center gap-3">
-						<span class="w-16 text-sm text-muted-foreground">An</span>
+						<span class="w-16 text-sm text-muted-foreground">{m.compose_to()}</span>
 						<AddressInput
-							label="An"
+							label={m.compose_to()}
 							class={fieldClass}
 							bind:inputRef={to}
 							bind:value={compose.draft.to}
@@ -112,7 +113,7 @@
 							class="text-[13px] text-muted-foreground hover:text-foreground"
 							onclick={() => (showCc = true)}
 						>
-							Cc/Bcc
+							{m.compose_cc_bcc()}
 						</button>
 					{/if}
 				</div>
@@ -137,7 +138,7 @@
 					</label>
 				{/if}
 				<label class="flex items-center gap-3 border-b">
-					<span class="w-16 text-sm text-muted-foreground">Betreff</span>
+					<span class="w-16 text-sm text-muted-foreground">{m.compose_subject()}</span>
 					<input class="{fieldClass} font-medium" bind:value={compose.draft.subject} />
 				</label>
 			</div>
@@ -151,15 +152,15 @@
 			/>
 
 			{#if compose.attachments.length > 0 || compose.draft.forwarded.length > 0}
-				<ul aria-label="Anhänge" class="flex flex-wrap gap-2 pb-3">
+				<ul aria-label={m.attachments()} class="flex flex-wrap gap-2 pb-3">
 					{#each compose.draft.forwarded as file (file.id)}
 						<li class="flex items-center gap-2 rounded-xl border py-1 pr-1 pl-3 text-sm">
-							<span class="max-w-56 truncate">{file.filename ?? 'Anhang'}</span>
+							<span class="max-w-56 truncate">{file.filename ?? m.attachment()}</span>
 							<span class="text-xs text-muted-foreground">{fileSize(file.size)}</span>
 							<Button
 								variant="ghost"
 								size="icon-xs"
-								aria-label="{file.filename ?? 'Anhang'} entfernen"
+								aria-label={m.attachment_remove({ name: file.filename ?? m.attachment() })}
 								onclick={() => compose.unforward(file.id)}
 							>
 								<X />
@@ -173,7 +174,7 @@
 							<Button
 								variant="ghost"
 								size="icon-xs"
-								aria-label="{file.name} entfernen"
+								aria-label={m.attachment_remove({ name: file.name })}
 								onclick={() => compose.detach(file.path)}
 							>
 								<X />
@@ -190,27 +191,26 @@
 			<div class="sticky bottom-0 -mb-4 flex items-center gap-1 border-t bg-card py-3">
 				<Button type="submit" class="h-10 rounded-xl px-4" disabled={compose.status === 'sending'}>
 					{#if compose.status === 'sending'}
-						<Spinner /> Wird gesendet …
+						<Spinner /> {m.compose_sending()}
 					{:else}
-						<Send /> Senden
+						<Send /> {m.compose_send()}
 					{/if}
 				</Button>
 				<Button
 					variant="ghost"
 					size="icon-lg"
-					aria-label="Anhang hinzufügen"
+					aria-label={m.attachment_add()}
 					onclick={() => compose.attach()}
 				>
 					<Paperclip />
 				</Button>
 				<span class="flex-1 px-2 text-xs text-muted-foreground" role="status">
-					{#if compose.status === 'saving'}Entwurf wird gespeichert …{:else if compose.status === 'saved'}Entwurf
-						gespeichert{/if}
+					{#if compose.status === 'saving'}{m.draft_saving()}{:else if compose.status === 'saved'}{m.draft_saved()}{/if}
 				</span>
 				<Button
 					variant="ghost"
 					size="icon-lg"
-					aria-label="Entwurf verwerfen"
+					aria-label={m.draft_discard()}
 					onclick={() => compose.discard()}
 				>
 					<Trash2 />

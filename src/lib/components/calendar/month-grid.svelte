@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
+	import { dateFormat } from '#lib/language.ts';
 	import type { CalendarEvent } from '#lib/api.ts';
 	import { sameDay, timeOf } from '#lib/calendar/dates.ts';
 
@@ -19,7 +21,12 @@
 		onopen: (event: CalendarEvent) => void;
 	} = $props();
 
-	const names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+	// Monday to Sunday, from a week that starts on a Monday.
+	const names = Array.from({ length: 7 }, (_, i) =>
+		dateFormat({ weekday: 'short' })
+			.format(new Date(2026, 0, 5 + i))
+			.replace('.', '')
+	);
 	const shown = 3;
 
 	const of = (day: Date) => {
@@ -49,7 +56,9 @@
 					class:bg-primary={today}
 					class:text-primary-foreground={today}
 					class:text-muted-foreground={day.getMonth() !== month && !today}
-					aria-label="{day.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })} anzeigen"
+					aria-label={m.calendar_show_day({
+						day: dateFormat({ day: 'numeric', month: 'long' }).format(day)
+					})}
 					onclick={() => onday(day)}
 				>
 					{day.getDate()}
@@ -62,7 +71,7 @@
 					>
 						<span class="size-1.5 shrink-0 rounded-full" style:background={event.color}></span>
 						{#if !event.allDay}<span class="text-muted-foreground">{timeOf(event.start)}</span>{/if}
-						<span class="truncate">{event.summary || '(Ohne Titel)'}</span>
+						<span class="truncate">{event.summary || m.event_untitled()}</span>
 					</button>
 				{/each}
 				{#if list.length > shown}
@@ -71,7 +80,7 @@
 						class="px-1 text-left text-[11px] text-muted-foreground hover:text-foreground"
 						onclick={() => onday(day)}
 					>
-						{list.length - shown} weitere
+						{m.calendar_more({ count: list.length - shown })}
 					</button>
 				{/if}
 			</div>

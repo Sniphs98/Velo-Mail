@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { ChevronLeft, ChevronRight, Plus } from '@lucide/svelte';
 	import { ipcErrorMessage } from '#lib/account-messages.ts';
 	import { velo, type CalendarEvent } from '#lib/api.ts';
@@ -12,9 +13,9 @@
 	let { onaddcalendar }: { onaddcalendar: () => void } = $props();
 
 	const views: { value: CalendarView; label: string }[] = [
-		{ value: 'day', label: 'Tag' },
-		{ value: 'week', label: 'Woche' },
-		{ value: 'month', label: 'Monat' }
+		{ value: 'day', label: m.calendar_day() },
+		{ value: 'week', label: m.calendar_week() },
+		{ value: 'month', label: m.calendar_month() }
 	];
 
 	let editing = $state(false);
@@ -95,23 +96,28 @@
 					: undefined
 			);
 		} catch (cause) {
-			notice = `Der Termin konnte nicht verschoben werden: ${ipcErrorMessage(cause)}`;
+			notice = m.event_move_failed({ error: ipcErrorMessage(cause) });
 			await calendar.load();
 		}
 	}
 </script>
 
 <section
-	aria-label="Kalender"
+	aria-label={m.calendar()}
 	class="relative flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border bg-card"
 >
 	<div class="flex flex-wrap items-center gap-2 border-b p-2.5">
-		<Button variant="outline" size="sm" onclick={() => calendar.today()}>Heute</Button>
+		<Button variant="outline" size="sm" onclick={() => calendar.today()}>{m.today()}</Button>
 		<div class="flex">
-			<Button variant="ghost" size="icon-sm" aria-label="Zurück" onclick={() => calendar.move(-1)}>
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				aria-label={m.back()}
+				onclick={() => calendar.move(-1)}
+			>
 				<ChevronLeft />
 			</Button>
-			<Button variant="ghost" size="icon-sm" aria-label="Weiter" onclick={() => calendar.move(1)}>
+			<Button variant="ghost" size="icon-sm" aria-label={m.next()} onclick={() => calendar.move(1)}>
 				<ChevronRight />
 			</Button>
 		</div>
@@ -119,10 +125,12 @@
 			{viewTitle(calendar.view, calendar.cursor)}
 		</h1>
 		{#if calendar.view === 'week'}
-			<span class="text-xs text-muted-foreground">KW {weekNumber(calendar.cursor)}</span>
+			<span class="text-xs text-muted-foreground"
+				>{m.calendar_week_number({ week: weekNumber(calendar.cursor) })}</span
+			>
 		{/if}
 		<div class="flex-1"></div>
-		<div role="radiogroup" aria-label="Ansicht" class="flex rounded-lg bg-muted p-0.5">
+		<div role="radiogroup" aria-label={m.calendar_view()} class="flex rounded-lg bg-muted p-0.5">
 			{#each views as view (view.value)}
 				<button
 					type="button"
@@ -138,20 +146,21 @@
 		<Button
 			size="sm"
 			disabled={calendar.calendars.length === 0}
-			title="Neuer Termin (N)"
+			title={m.event_new_shortcut()}
 			onclick={() => create()}
 		>
-			<Plus /> Termin
+			<Plus />
+			{m.event()}
 		</Button>
 	</div>
 
 	{#if calendar.sources.length === 0}
 		<div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-			<h2 class="font-heading text-lg font-semibold">Noch kein Kalender verbunden</h2>
+			<h2 class="font-heading text-lg font-semibold">{m.calendar_none()}</h2>
 			<p class="max-w-sm text-sm text-muted-foreground">
-				Verbinde einen Kalender über CalDAV, z. B. iCloud, Nextcloud, Posteo oder Yahoo.
+				{m.calendar_none_hint()}
 			</p>
-			<Button onclick={onaddcalendar}>Kalender hinzufügen</Button>
+			<Button onclick={onaddcalendar}>{m.calendar_add()}</Button>
 		</div>
 	{:else if calendar.view === 'month'}
 		<MonthGrid

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { Editor } from '@tiptap/core';
 	import { untrack } from 'svelte';
 	import { Placeholder } from '@tiptap/extensions';
@@ -10,7 +11,7 @@
 	let {
 		html,
 		onchange,
-		label = 'Nachricht'
+		label = m.editor_label()
 	}: {
 		/** Content to show; replacing it from outside resets the editor. */
 		html: string;
@@ -44,7 +45,7 @@
 					horizontalRule: false,
 					link: { openOnClick: false, autolink: true, defaultProtocol: 'https' }
 				}),
-				Placeholder.configure({ placeholder: 'Schreib deine Nachricht …' }),
+				Placeholder.configure({ placeholder: m.editor_placeholder() }),
 				Signature
 			],
 			editorProps: {
@@ -104,35 +105,35 @@
 	const tools = [
 		{
 			name: 'bold',
-			label: 'Fett',
+			label: m.editor_bold(),
 			icon: Bold,
 			run: () => editor?.chain().focus().toggleBold().run()
 		},
 		{
 			name: 'italic',
-			label: 'Kursiv',
+			label: m.editor_italic(),
 			icon: Italic,
 			run: () => editor?.chain().focus().toggleItalic().run()
 		},
 		{
 			name: 'bulletList',
-			label: 'Aufzählung',
+			label: m.editor_bullets(),
 			icon: List,
 			run: () => editor?.chain().focus().toggleBulletList().run()
 		},
 		{
 			name: 'orderedList',
-			label: 'Nummerierte Liste',
+			label: m.editor_numbers(),
 			icon: ListOrdered,
 			run: () => editor?.chain().focus().toggleOrderedList().run()
 		},
-		{ name: 'link', label: 'Link', icon: Link, run: editLink }
+		{ name: 'link', label: m.editor_link(), icon: Link, run: editLink }
 	];
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<!-- mousedown is cancelled so the editor keeps focus and its selection. -->
-	<div role="toolbar" aria-label="Formatierung" class="-ml-2 flex gap-0.5 pt-2">
+	<div role="toolbar" aria-label={m.editor_formatting()} class="-ml-2 flex gap-0.5 pt-2">
 		{#each tools as tool (tool.name)}
 			<Button
 				variant="ghost"
@@ -152,7 +153,7 @@
 			<input
 				bind:this={linkInput}
 				bind:value={linkHref}
-				aria-label="Adresse des Links"
+				aria-label={m.editor_link_address()}
 				class="h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 				onkeydown={(event) => {
 					if (event.key === 'Enter') {
@@ -166,7 +167,7 @@
 					}
 				}}
 			/>
-			<Button size="sm" onclick={applyLink}>Übernehmen</Button>
+			<Button size="sm" onclick={applyLink}>{m.editor_link_apply()}</Button>
 		</div>
 	{/if}
 	<div

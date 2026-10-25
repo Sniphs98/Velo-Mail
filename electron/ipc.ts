@@ -1,5 +1,6 @@
 // The main-process side of src/lib/api.ts. Everything arriving here comes from
 // the renderer and is validated before use.
+import { m } from '../src/lib/paraglide/messages.js';
 import {
 	app,
 	BrowserWindow,
@@ -14,13 +15,14 @@ import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { resolveMx, resolveSrv, resolveTxt } from 'node:dns/promises';
 import { z } from 'zod';
-import { IPC, type AppInfo } from '../src/lib/api';
+import { IPC, type AppInfo, type Settings } from '../src/lib/api';
 import { discoverSettings } from './accounts/autoconfig';
 import { testConnection } from './accounts/connection';
 import { AccountService, serverSettingsSchema, type SecretBox } from './accounts/service';
 import { Avatars, type Fetched } from './avatars';
 import type { Database } from './db';
 import type { Desktop } from './desktop';
+import { useLanguage } from './i18n';
 import { readSettings, writeSettings } from './settings';
 import { Updater } from './update/updater';
 import { Invitations } from './calendar/invitations';
@@ -114,7 +116,9 @@ const outgoingSchema = z.object({
 	forwardAttachments: z.array(z.number().int()).max(100).optional(),
 	attachments: z.array(
 		z.object({
-			path: z.string().refine((file) => pickedFiles.has(file), 'Datei wurde nicht ausgewählt'),
+			path: z
+				.string()
+				.refine((file) => pickedFiles.has(file), { error: () => m.error_file_not_picked() }),
 			name: z.string().max(255),
 			size: z.number()
 		})
@@ -154,7 +158,7 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 		ipcMain.handle(channel, (event, ...args) => {
 			const frame = event.senderFrame;
 			if (!frame || frame !== event.sender.mainFrame || !isAppUrl(frame.url)) {
-				throw new Error('Diese Anfrage ist nicht erlaubt.');
+				throw new Error(m.error_request_denied());
 			}
 			return listener(event, ...args);
 		});
@@ -205,7 +209,7 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 			// Up to four weeks before.
 			reminder: z.number().int().min(0).max(40_320).nullable().optional()
 		})
-		.refine((event) => event.end >= event.start, 'Das Ende liegt vor dem Beginn.');
+		.refine((event) => event.end >= event.start, { error: () => m.event_end_before_start() });
 	const id = z.number().int();
 	handle(IPC.calendarSources, () => calendarSources.list());
 	// CalendarSources validates the rest.
@@ -270,11 +274,15 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	handle(IPC.appInstallUpdate, () => updater.install());
 	handle(IPC.appRestartToUpdate, () => updater.restart());
 
-	readSettings(db).then((settings) => desktop.apply(settings));
+	const apply = (settings: Settings) => {
+		useLanguage(settings.language, app.getLocale());
+		desktop.apply(settings);
+	};
+	readSettings(db).then(apply);
 	handle(IPC.settingsGet, () => readSettings(db));
 	handle(IPC.settingsSet, async (_event, changes: unknown) => {
 		const settings = await writeSettings(db, changes);
-		desktop.apply(settings);
+		apply(settings);
 		return settings;
 	});
 

@@ -10,6 +10,8 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
+	// Compiled by Paraglide; ignored by its own .gitignore inside.
+	{ ignores: ['src/lib/paraglide/'] },
 	js.configs.recommended,
 	ts.configs.recommended,
 	svelte.configs.recommended,

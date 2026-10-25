@@ -62,8 +62,12 @@ export interface AccountChanges {
 
 export type Theme = 'system' | 'light' | 'dark';
 
+/** The language of the texts; "system" follows the operating system. */
+export type Language = 'system' | 'en' | 'de';
+
 export interface Settings {
 	theme: Theme;
+	language: Language;
 	/** Desktop notifications for new mail in the inboxes while the window is in the background. */
 	notifications: boolean;
 	/** An icon in the tray (menu bar on macOS); closing the window keeps the app running. */

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { CalendarDays, Check, CircleHelp, X } from '@lucide/svelte';
 	import { ipcErrorMessage } from '#lib/account-messages.ts';
 	import {
@@ -48,22 +49,22 @@
 	});
 
 	const answers: { value: InvitationResponse; label: string; icon: typeof Check }[] = [
-		{ value: 'accepted', label: 'Zusagen', icon: Check },
-		{ value: 'tentative', label: 'Vielleicht', icon: CircleHelp },
-		{ value: 'declined', label: 'Absagen', icon: X }
+		{ value: 'accepted', label: m.invite_accept(), icon: Check },
+		{ value: 'tentative', label: m.invite_maybe(), icon: CircleHelp },
+		{ value: 'declined', label: m.invite_decline(), icon: X }
 	];
 
 	const given: Record<InvitationResponse, string> = {
-		accepted: 'Du hast zugesagt.',
-		tentative: 'Du hast mit Vielleicht geantwortet.',
-		declined: 'Du hast abgesagt.'
+		accepted: m.invite_given_accepted(),
+		tentative: m.invite_given_tentative(),
+		declined: m.invite_given_declined()
 	};
 
-	const replied: Partial<Record<ParticipantStatus, string>> = {
-		accepted: 'hat zugesagt',
-		tentative: 'hat mit Vielleicht geantwortet',
-		declined: 'hat abgesagt',
-		delegated: 'hat die Einladung weitergegeben'
+	const replied: Partial<Record<ParticipantStatus, (who: string) => string>> = {
+		accepted: (who) => m.invite_replied_accepted({ who }),
+		tentative: (who) => m.invite_replied_tentative({ who }),
+		declined: (who) => m.invite_replied_declined({ who }),
+		delegated: (who) => m.invite_replied_delegated({ who })
 	};
 
 	const organizer = $derived(
@@ -92,7 +93,7 @@
 {#if invitation && invitation.method !== 'other'}
 	{@const answer = invitation.attendees.find((a) => a.status !== 'needs-action')}
 	<section
-		aria-label={invitation.method === 'cancel' ? 'Absage' : 'Einladung'}
+		aria-label={invitation.method === 'cancel' ? m.invite_cancellation() : m.invite_label()}
 		class="flex flex-col gap-3 rounded-xl border bg-muted/40 p-3"
 	>
 		<div class="flex gap-3">
@@ -103,11 +104,11 @@
 			</span>
 			<div class="flex min-w-0 flex-col gap-0.5">
 				<p class="font-semibold" class:line-through={invitation.method === 'cancel'}>
-					{invitation.summary || '(Ohne Titel)'}
+					{invitation.summary || m.event_untitled()}
 				</p>
 				<p class="text-sm text-muted-foreground">
 					{eventTime(invitation.start, invitation.end, invitation.allDay)}{invitation.recurring
-						? ' · wiederholt sich'
+						? ` · ${m.invite_recurring()}`
 						: ''}
 				</p>
 				{#if invitation.location}
@@ -115,8 +116,8 @@
 				{/if}
 				{#if organizer && invitation.method !== 'reply'}
 					<p class="text-xs text-muted-foreground">
-						Von {organizer}{invitation.attendees.length > 1
-							? ` · ${invitation.attendees.length} Teilnehmende`
+						{m.invite_from({ organizer })}{invitation.attendees.length > 1
+							? ` · ${m.invite_attendees({ count: invitation.attendees.length })}`
 							: ''}
 					</p>
 				{/if}
@@ -126,30 +127,29 @@
 		{#if invitation.method === 'cancel'}
 			<div class="flex flex-wrap items-center gap-2 text-sm">
 				<span class="flex-1 text-muted-foreground">
-					Dieser Termin wurde abgesagt.{invitation.inCalendar
-						? ''
-						: ' Er steht nicht in deinem Kalender.'}
+					{m.invite_cancelled()}{invitation.inCalendar ? '' : ` ${m.invite_not_in_calendar()}`}
 				</span>
 				{#if invitation.inCalendar}
 					<Button size="sm" variant="outline" disabled={busy} onclick={remove}>
-						Aus dem Kalender entfernen
+						{m.invite_remove()}
 					</Button>
 				{/if}
 			</div>
 		{:else if invitation.method === 'reply'}
 			{#if answer}
 				<p class="text-sm text-muted-foreground">
-					{answer.name || answer.address}
-					{replied[answer.status] ?? 'hat geantwortet'}.
+					{(replied[answer.status] ?? ((who: string) => m.invite_replied({ who })))(
+						answer.name || answer.address
+					)}
 				</p>
 			{/if}
 		{:else if invitation.outdated}
 			<p class="text-sm text-muted-foreground">
-				Diese Einladung ist veraltet: In deinem Kalender steht schon eine neuere Version.
+				{m.invite_outdated()}
 			</p>
 		{:else}
 			<div class="flex flex-wrap items-center gap-2">
-				<div role="group" aria-label="Antwort" class="flex gap-1.5">
+				<div role="group" aria-label={m.invite_answer()} class="flex gap-1.5">
 					{#each answers as { value, label, icon: Icon } (value)}
 						<Button
 							size="sm"
@@ -165,7 +165,7 @@
 				</div>
 				{#if calendars.length > 1 && !invitation.inCalendar}
 					<NativeSelect.Root
-						aria-label="Kalender"
+						aria-label={m.sidebar_calendar()}
 						size="sm"
 						class="max-w-48"
 						bind:value={calendarId}
@@ -182,9 +182,7 @@
 					{given[invitation.response]}
 				{/if}
 				{#if calendars.length === 0}
-					Kein Kalender verbunden – {organizer
-						? `deine Antwort geht nur per Mail an ${organizer}.`
-						: 'der Termin wird nirgends eingetragen.'}
+					{organizer ? m.invite_no_calendar_mail({ organizer }) : m.invite_no_calendar()}
 				{/if}
 			</p>
 		{/if}

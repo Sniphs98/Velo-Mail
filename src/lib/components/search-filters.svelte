@@ -17,6 +17,7 @@
 </script>
 
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import type { Account, SearchFilters } from '#lib/api.ts';
 	import { dateValue, fromInputs } from '#lib/calendar/dates.ts';
 	import { activeFilters, noFilters } from '#lib/search.ts';
@@ -88,9 +89,13 @@
 		'flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs text-muted-foreground hover:bg-muted aria-pressed:border-foreground/30 aria-pressed:bg-muted aria-pressed:font-medium aria-pressed:text-foreground';
 </script>
 
-<div role="group" aria-label="Filter" class="flex flex-col gap-2 rounded-lg bg-muted/40 p-2">
+<div
+	role="group"
+	aria-label={m.filter_button()}
+	class="flex flex-col gap-2 rounded-lg bg-muted/40 p-2"
+>
 	{#if accounts.length > 1}
-		<div role="group" aria-label="Konten" class="flex flex-wrap gap-1">
+		<div role="group" aria-label={m.filter_accounts()} class="flex flex-wrap gap-1">
 			{#each accounts as account (account.id)}
 				<button
 					type="button"
@@ -106,22 +111,22 @@
 	{/if}
 	<div class="flex gap-1.5">
 		<NativeSelect.Root
-			aria-label="Zeitraum"
+			aria-label={m.filter_range()}
 			size="sm"
 			class="min-w-0 flex-1"
 			value={range}
 			onchange={(event) => chooseRange(event.currentTarget.value as Range)}
 		>
-			<NativeSelect.Option value="any">Jederzeit</NativeSelect.Option>
-			<NativeSelect.Option value="today">Heute</NativeSelect.Option>
-			<NativeSelect.Option value="week">7 Tage</NativeSelect.Option>
-			<NativeSelect.Option value="month">30 Tage</NativeSelect.Option>
-			<NativeSelect.Option value="year">12 Monate</NativeSelect.Option>
-			<NativeSelect.Option value="custom">Von – bis …</NativeSelect.Option>
+			<NativeSelect.Option value="any">{m.filter_range_any()}</NativeSelect.Option>
+			<NativeSelect.Option value="today">{m.filter_range_today()}</NativeSelect.Option>
+			<NativeSelect.Option value="week">{m.filter_range_week()}</NativeSelect.Option>
+			<NativeSelect.Option value="month">{m.filter_range_month()}</NativeSelect.Option>
+			<NativeSelect.Option value="year">{m.filter_range_year()}</NativeSelect.Option>
+			<NativeSelect.Option value="custom">{m.filter_range_custom()}</NativeSelect.Option>
 		</NativeSelect.Root>
 		<AddressInput
-			label="Absender"
-			placeholder="Absender"
+			label={m.filter_sender()}
+			placeholder={m.filter_sender()}
 			multiple={false}
 			class="h-7 rounded-lg border bg-transparent px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 			bind:value={sender}
@@ -134,15 +139,15 @@
 		<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
 			<Input
 				type="date"
-				aria-label="Von"
+				aria-label={m.filter_from()}
 				class="h-7 min-w-0 flex-1 text-xs"
 				value={from}
 				onchange={(event) => setDates(event.currentTarget.value, to)}
 			/>
-			bis
+			{m.filter_to_word()}
 			<Input
 				type="date"
-				aria-label="Bis"
+				aria-label={m.filter_to()}
 				class="h-7 min-w-0 flex-1 text-xs"
 				value={to}
 				onchange={(event) => setDates(from, event.currentTarget.value)}
@@ -156,7 +161,7 @@
 			aria-pressed={filters.attachments}
 			onclick={() => set({ attachments: !filters.attachments })}
 		>
-			Mit Anhang
+			{m.with_attachment()}
 		</button>
 		<button
 			type="button"
@@ -164,7 +169,7 @@
 			aria-pressed={filters.unread}
 			onclick={() => set({ unread: !filters.unread })}
 		>
-			Ungelesen
+			{m.unread()}
 		</button>
 		<span class="flex-1"></span>
 		{#if activeFilters(filters) > 0}
@@ -173,7 +178,7 @@
 				class="text-xs text-muted-foreground hover:text-foreground"
 				onclick={reset}
 			>
-				Zurücksetzen
+				{m.filter_reset()}
 			</button>
 		{/if}
 	</div>

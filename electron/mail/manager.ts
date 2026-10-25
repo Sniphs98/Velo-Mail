@@ -1,6 +1,7 @@
 // Keeps every account in sync: a full round when it starts and every few
 // minutes, and IMAP IDLE on the inbox so new mail shows up right away. One
 // connection per account; its jobs run one after another.
+import { m } from '../../src/lib/paraglide/messages.js';
 import { ImapFlow } from 'imapflow';
 import nodemailer from 'nodemailer';
 import { and, eq } from 'drizzle-orm';
@@ -147,7 +148,7 @@ export class SyncManager {
 		const stored = await findBody(this.deps.db, messageId);
 		if (stored) return stored;
 		const found = await findMessage(this.deps.db, messageId);
-		if (!found) throw new Error('Die Nachricht gibt es nicht mehr.');
+		if (!found) throw new Error(m.error_message_gone());
 		const session = this.connected(found.mailbox.accountId);
 		await this.run(session, () =>
 			fetchBody(this.deps.db, session.client, found.mailbox, found.message)
@@ -158,7 +159,7 @@ export class SyncManager {
 
 	async attachment(attachmentId: number) {
 		const found = await findAttachment(this.deps.db, attachmentId);
-		if (!found) throw new Error('Den Anhang gibt es nicht mehr.');
+		if (!found) throw new Error(m.error_attachment_gone());
 		const session = this.connected(found.mailbox.accountId);
 		const content = await this.run(session, () =>
 			fetchAttachment(
@@ -206,7 +207,7 @@ export class SyncManager {
 	/** What a reply or forward needs: headers, recipients and the text to quote. */
 	async replySource(messageId: number): Promise<ReplySource> {
 		const found = await findMessage(this.deps.db, messageId);
-		if (!found) throw new Error('Die Nachricht gibt es nicht mehr.');
+		if (!found) throw new Error(m.error_message_gone());
 		const [body, account] = await Promise.all([
 			this.body(messageId),
 			this.deps.credentials(found.mailbox.accountId)
@@ -355,7 +356,7 @@ export class SyncManager {
 		for (const id of message.forwardAttachments ?? []) {
 			const found = await findAttachment(this.deps.db, id);
 			if (found?.mailbox.accountId !== message.accountId) {
-				throw new Error('Ein Anhang gehört nicht zu diesem Konto.');
+				throw new Error(m.error_attachment_foreign());
 			}
 			const { content, filename, contentType } = await this.attachment(id);
 			files.push({ content, filename, contentType });
@@ -365,7 +366,7 @@ export class SyncManager {
 
 	private async account(accountId: number) {
 		const account = await this.deps.credentials(accountId);
-		if (!account) throw new Error('Das Konto gibt es nicht mehr.');
+		if (!account) throw new Error(m.error_account_gone());
 		return account;
 	}
 
@@ -382,7 +383,7 @@ export class SyncManager {
 			await syncMailboxes(this.deps.db, accountId, session.client);
 			[box] = await find();
 		}
-		if (!box) throw new Error(`Der Ordner „${name}“ ließ sich nicht anlegen.`);
+		if (!box) throw new Error(m.error_folder_create({ name }));
 		return box;
 	}
 
@@ -401,7 +402,7 @@ export class SyncManager {
 
 	private connected(accountId: number) {
 		const session = this.sessions.get(accountId);
-		if (!session) throw new Error('Das Konto ist gerade nicht verbunden.');
+		if (!session) throw new Error(m.error_account_offline());
 		return session;
 	}
 

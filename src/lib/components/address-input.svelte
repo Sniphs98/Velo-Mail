@@ -26,6 +26,7 @@
 </script>
 
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { velo } from '#lib/api.ts';
 	import { cn } from '#lib/utils.ts';
 
@@ -129,7 +130,7 @@
 		<ul
 			id={listId}
 			role="listbox"
-			aria-label="Vorschläge"
+			aria-label={m.address_suggestions()}
 			class="absolute top-full right-0 left-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border bg-popover p-1 text-left shadow-md"
 		>
 			{#each suggestions as person, i (person.address)}

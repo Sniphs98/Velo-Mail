@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { Archive, Forward, Reply, ReplyAll, Trash2 } from '@lucide/svelte';
 	import type { Account, MessageSummary } from '#lib/api.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
@@ -28,11 +29,11 @@
 </script>
 
 <div class="flex w-full flex-col gap-3 self-stretch text-left">
-	<div role="toolbar" aria-label="Aktionen" class="-mt-1 flex items-center gap-0.5">
+	<div role="toolbar" aria-label={m.reading_actions()} class="-mt-1 flex items-center gap-0.5">
 		<Button
 			variant="ghost"
 			size="icon-sm"
-			aria-label="Archivieren (E)"
+			aria-label={m.reading_archive()}
 			onclick={() => onmove('archive')}
 		>
 			<Archive />
@@ -40,7 +41,7 @@
 		<Button
 			variant="ghost"
 			size="icon-sm"
-			aria-label="Löschen (Entf)"
+			aria-label={m.reading_delete()}
 			onclick={() => onmove('trash')}
 		>
 			<Trash2 />
@@ -49,7 +50,7 @@
 		<Button
 			variant="ghost"
 			size="icon-sm"
-			aria-label="Antworten (R)"
+			aria-label={m.reading_reply()}
 			onclick={() => onreply('reply')}
 		>
 			<Reply />
@@ -57,7 +58,7 @@
 		<Button
 			variant="ghost"
 			size="icon-sm"
-			aria-label="Allen antworten (A)"
+			aria-label={m.reading_reply_all()}
 			onclick={() => onreply('replyAll')}
 		>
 			<ReplyAll />
@@ -65,7 +66,7 @@
 		<Button
 			variant="ghost"
 			size="icon-sm"
-			aria-label="Weiterleiten (F)"
+			aria-label={m.reading_forward()}
 			onclick={() => onreply('forward')}
 		>
 			<Forward />
@@ -73,7 +74,7 @@
 	</div>
 	<div class="flex flex-wrap items-start gap-3">
 		<h2 class="flex-1 font-heading text-lg leading-tight font-semibold">
-			{thread[0]?.subject || '(Kein Betreff)'}
+			{thread[0]?.subject || m.no_subject()}
 		</h2>
 		{#if account}
 			<span
@@ -88,7 +89,9 @@
 	{#each thread as message (message.id)}
 		{#if open(message)}
 			<article
-				aria-label="Nachricht von {message.fromName || message.fromAddress}"
+				aria-label={m.reading_message_from({
+					sender: message.fromName || message.fromAddress || ''
+				})}
 				class="flex flex-col gap-3 rounded-xl border p-3"
 				class:border-transparent={thread.length === 1}
 				class:p-0={thread.length === 1}
@@ -108,7 +111,9 @@
 							{/if}
 						</span>
 						<span class="text-xs text-muted-foreground">
-							an {recipients(message) || 'unbekannt'} · {fullDate(message.date)}
+							{m.reading_to({ recipients: recipients(message) || m.reading_to_unknown() })} · {fullDate(
+								message.date
+							)}
 						</span>
 					</span>
 				</button>

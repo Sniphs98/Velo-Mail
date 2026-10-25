@@ -1,6 +1,7 @@
 // Answering invitations that came by mail: the event goes into the calendar
 // (or out of it), and the organizer gets a REPLY by mail, as Outlook, Google
 // and Apple expect it.
+import { m } from '../../src/lib/paraglide/messages.js';
 import { eq } from 'drizzle-orm';
 import type { Invitation, InvitationResponse, OutgoingMessage } from '../../src/lib/api';
 import type { Database } from '../db';
@@ -25,16 +26,16 @@ export interface InvitationsDeps {
 	account(accountId: number): Promise<{ name: string; email: string } | null>;
 }
 
-const subjects: Record<InvitationResponse, string> = {
-	accepted: 'Zugesagt',
-	tentative: 'Vielleicht',
-	declined: 'Abgesagt'
+const subjects: Record<InvitationResponse, () => string> = {
+	accepted: m.invite_reply_accepted,
+	tentative: m.invite_reply_tentative,
+	declined: m.invite_reply_declined
 };
 
-const verbs: Record<InvitationResponse, string> = {
-	accepted: 'zugesagt',
-	tentative: 'mit Vielleicht beantwortet',
-	declined: 'abgesagt'
+const texts: Record<InvitationResponse, (inputs: { who: string; summary: string }) => string> = {
+	accepted: m.invite_reply_accepted_text,
+	tentative: m.invite_reply_tentative_text,
+	declined: m.invite_reply_declined_text
 };
 
 export class Invitations {
@@ -95,7 +96,7 @@ export class Invitations {
 	async respond(messageId: number, response: InvitationResponse, calendarId: number | null) {
 		const found = await this.load(messageId);
 		if (!found || found.parsed.method !== 'request') {
-			throw new Error('Diese Nachricht enthält keine Einladung.');
+			throw new Error(m.error_no_invitation());
 		}
 		const { ics, parsed, stored, account, message, accountId } = found;
 
@@ -124,8 +125,8 @@ export class Invitations {
 					to: organizer,
 					cc: '',
 					bcc: '',
-					subject: `${subjects[response]}: ${parsed.summary}`,
-					text: `${who} hat die Einladung „${parsed.summary}“ ${verbs[response]}.`,
+					subject: `${subjects[response]()}: ${parsed.summary}`,
+					text: texts[response]({ who, summary: parsed.summary }),
 					attachments: [],
 					replyTo: messageId,
 					inReplyTo: message.messageId ?? undefined,
@@ -148,7 +149,7 @@ export class Invitations {
 	async removeCancelled(messageId: number) {
 		const found = await this.load(messageId);
 		if (!found || found.parsed.method !== 'cancel') {
-			throw new Error('Diese Nachricht enthält keine Absage.');
+			throw new Error(m.error_no_cancellation());
 		}
 		if (!found.stored) return;
 		const rest = withoutCancelled(found.stored.ics, found.ics);

@@ -73,6 +73,7 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 		settings: {
 			get: vi.fn(async () => ({
 				theme: 'system' as const,
+				language: 'system' as const,
 				notifications: true,
 				tray: false,
 				avatars: true,
@@ -81,6 +82,7 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			})),
 			set: vi.fn(async (changes: Partial<Settings>) => ({
 				theme: 'system' as const,
+				language: 'system' as const,
 				notifications: true,
 				tray: false,
 				avatars: true,

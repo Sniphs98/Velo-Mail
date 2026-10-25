@@ -1,8 +1,10 @@
 // What the app does outside its window: light or dark look, the unread badge
 // on the app icon, the tray icon, notifications for new mail and reminders.
+import { m } from '../src/lib/paraglide/messages.js';
 import { app, BrowserWindow, Menu, nativeImage, nativeTheme, Notification, Tray } from 'electron';
 import path from 'node:path';
 import type { Settings } from '../src/lib/api';
+import { dateFormat, timeFormat } from '../src/lib/language';
 import type { Reminder } from './calendar/reminders';
 import type { NewMail } from './mail/manager';
 
@@ -20,7 +22,7 @@ export interface DesktopDeps {
 
 /** "Anna Becker" or the address; the text a notification starts with. */
 export function senderOf(mail: NewMail) {
-	return mail.fromName || mail.fromAddress || 'Unbekannter Absender';
+	return mail.fromName || mail.fromAddress || m.sender_unknown();
 }
 
 /** One notification per message, or a summary when many arrive at once. */
@@ -29,7 +31,7 @@ export function notificationsFor(accountName: string, mails: NewMail[]) {
 		const senders = [...new Set(mails.map(senderOf))];
 		return [
 			{
-				title: `${mails.length} neue Nachrichten · ${accountName}`,
+				title: m.notify_new_mails({ count: mails.length, account: accountName }),
 				body: senders.slice(0, 3).join(', ') + (senders.length > 3 ? ' …' : ''),
 				messageId: undefined
 			}
@@ -37,13 +39,13 @@ export function notificationsFor(accountName: string, mails: NewMail[]) {
 	}
 	return mails.map((mail) => ({
 		title: senderOf(mail),
-		body: mail.subject || '(kein Betreff)',
+		body: mail.subject || m.no_subject(),
 		messageId: mail.id
 	}));
 }
 
-const clock = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' });
-const date = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+const clock = timeFormat;
+const date = () => dateFormat({ weekday: 'short', day: 'numeric', month: 'short' });
 
 function midnight(time: Date) {
 	return new Date(time.getFullYear(), time.getMonth(), time.getDate()).getTime();
@@ -54,17 +56,17 @@ export function reminderText(reminder: Reminder, now = new Date()) {
 	const days = Math.round((midnight(reminder.start) - midnight(now)) / 86_400_000);
 	const day =
 		days === 0
-			? 'Heute'
+			? m.today()
 			: days === 1
-				? 'Morgen'
+				? m.tomorrow()
 				: days === -1
-					? 'Gestern'
-					: date.format(reminder.start);
+					? m.yesterday()
+					: date().format(reminder.start);
 	const when = reminder.allDay
-		? `${day} (ganztägig)`
-		: `${day} ${clock.format(reminder.start)}–${clock.format(reminder.end)}`;
+		? m.event_all_day({ day })
+		: `${day} ${clock().format(reminder.start)}–${clock().format(reminder.end)}`;
 	return {
-		title: reminder.summary || 'Termin',
+		title: reminder.summary || m.event(),
 		body: reminder.location ? `${when} · ${reminder.location}` : when
 	};
 }
@@ -86,6 +88,9 @@ export class Desktop {
 			this.tray.destroy();
 			this.tray = undefined;
 		}
+		// The language may have changed.
+		this.tray?.setToolTip(this.tooltip());
+		this.tray?.setContextMenu(this.menu());
 	}
 
 	/** Closing the window hides it, the app keeps syncing in the tray. */
@@ -133,7 +138,7 @@ export class Desktop {
 
 	private tooltip() {
 		if (this.unread === 0) return 'Velo Mail';
-		return `Velo Mail – ${this.unread} ungelesen`;
+		return m.tray_unread({ count: this.unread });
 	}
 
 	private createTray() {
@@ -141,15 +146,15 @@ export class Desktop {
 			path.join(this.deps.iconDir, process.platform === 'darwin' ? 'trayTemplate.png' : 'tray.png')
 		);
 		this.tray = new Tray(icon);
-		this.tray.setToolTip(this.tooltip());
-		this.tray.setContextMenu(
-			Menu.buildFromTemplate([
-				{ label: 'Velo Mail öffnen', click: () => this.deps.show() },
-				{ label: 'Neue Nachricht', click: () => this.deps.compose() },
-				{ type: 'separator' },
-				{ label: 'Beenden', click: () => app.quit() }
-			])
-		);
 		this.tray.on('click', () => this.deps.show());
+	}
+
+	private menu() {
+		return Menu.buildFromTemplate([
+			{ label: m.tray_open(), click: () => this.deps.show() },
+			{ label: m.compose_new(), click: () => this.deps.compose() },
+			{ type: 'separator' },
+			{ label: m.tray_quit(), click: () => app.quit() }
+		]);
 	}
 }

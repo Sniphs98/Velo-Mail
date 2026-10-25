@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { CircleAlert } from '@lucide/svelte';
 	import { connectionMessages, ipcErrorMessage, rejectedLogin } from '#lib/account-messages.ts';
 	import { accounts } from '#lib/accounts.svelte.ts';
@@ -58,10 +59,10 @@
 		appPasswordHint = false;
 		try {
 			if (step === 'login') {
-				busy = 'Servereinstellungen werden gesucht …';
+				busy = m.account_discovering();
 				settings = (await api.accounts.discover(email.trim())).settings;
 			}
-			busy = 'Anmeldung wird geprüft …';
+			busy = m.account_checking();
 			const result = await api.accounts.add({
 				name: name.trim() || email.trim(),
 				email: email.trim(),
@@ -72,7 +73,7 @@
 				await accounts.load();
 				open = false;
 			} else if (result.reason === 'exists') {
-				errors = ['Dieses Konto ist schon eingerichtet.'];
+				errors = [m.account_exists()];
 			} else if (result.connection) {
 				errors = connectionMessages(result.connection);
 				appPasswordHint = rejectedLogin(result.connection);
@@ -96,12 +97,12 @@
 <Dialog.Root bind:open>
 	<Dialog.Content class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title class="font-heading">Konto hinzufügen</Dialog.Title>
+			<Dialog.Title class="font-heading">{m.account_add()}</Dialog.Title>
 			<Dialog.Description>
 				{#if step === 'login'}
-					Die Servereinstellungen werden automatisch gesucht.
+					{m.account_auto_hint()}
 				{:else}
-					Prüfe die Servereinstellungen. Du findest sie bei deinem E-Mail-Anbieter.
+					{m.account_manual_hint()}
 				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
@@ -115,15 +116,15 @@
 		>
 			<Field.Group class="gap-3">
 				<Field.Field>
-					<Field.Label for="account-name">Name</Field.Label>
-					<Input id="account-name" bind:value={name} placeholder="z. B. Persönlich" />
+					<Field.Label for="account-name">{m.account_name()}</Field.Label>
+					<Input id="account-name" bind:value={name} placeholder={m.account_name_placeholder()} />
 				</Field.Field>
 				<Field.Field>
-					<Field.Label for="account-email">E-Mail-Adresse</Field.Label>
+					<Field.Label for="account-email">{m.account_email()}</Field.Label>
 					<Input id="account-email" type="email" required autocomplete="email" bind:value={email} />
 				</Field.Field>
 				<Field.Field>
-					<Field.Label for="account-password">Passwort</Field.Label>
+					<Field.Label for="account-password">{m.account_password()}</Field.Label>
 					<Input
 						id="account-password"
 						type="password"
@@ -133,33 +134,32 @@
 					/>
 					{#if !keyring}
 						<Field.Description>
-							Kein Schlüsselbund gefunden: Das Passwort wird nur verschleiert gespeichert.
+							{m.account_no_keyring()}
 						</Field.Description>
 					{/if}
 				</Field.Field>
 
 				{#if step === 'servers'}
 					<Field.Field>
-						<Field.Label for="account-username">Benutzername</Field.Label>
+						<Field.Label for="account-username">{m.account_username()}</Field.Label>
 						<Input id="account-username" required bind:value={settings.username} />
 					</Field.Field>
-					{@render server('imap', 'Empfang (IMAP)')}
-					{@render server('smtp', 'Versand (SMTP)')}
+					{@render server('imap', m.server_incoming())}
+					{@render server('smtp', m.server_outgoing())}
 				{/if}
 			</Field.Group>
 
 			{#if errors.length > 0}
 				<Alert.Root variant="destructive">
 					<CircleAlert />
-					<Alert.Title>Das hat nicht geklappt</Alert.Title>
+					<Alert.Title>{m.account_failed()}</Alert.Title>
 					<Alert.Description>
 						{#each errors as error (error)}
 							<p>{error}</p>
 						{/each}
 						{#if appPasswordHint}
 							<p>
-								Bei Anbietern wie Gmail, Outlook oder iCloud brauchst du ein App-Passwort, das du in
-								den Kontoeinstellungen des Anbieters erstellst.
+								{m.account_app_password()}
 							</p>
 						{/if}
 					</Alert.Description>
@@ -169,7 +169,7 @@
 			<Dialog.Footer class="items-center gap-2 sm:justify-between">
 				{#if step === 'login'}
 					<Button variant="link" class="px-0" disabled={!!busy} onclick={enterManually}>
-						Manuell einrichten
+						{m.account_manual()}
 					</Button>
 				{:else}
 					<span></span>
@@ -179,7 +179,7 @@
 						<Spinner />
 						{busy}
 					{:else}
-						{step === 'login' ? 'Weiter' : 'Speichern'}
+						{step === 'login' ? m.next() : m.save()}
 					{/if}
 				</Button>
 			</Dialog.Footer>
@@ -192,13 +192,13 @@
 		<Field.Legend variant="label">{label}</Field.Legend>
 		<div class="grid grid-cols-[1fr_5rem_8rem] gap-2">
 			<Input
-				aria-label="{label} Server"
-				placeholder="{kind}.anbieter.de"
+				aria-label={m.server_host({ label })}
+				placeholder={m.server_host_placeholder({ kind })}
 				required
 				bind:value={settings[`${kind}Host`]}
 			/>
 			<Input
-				aria-label="{label} Port"
+				aria-label={m.server_port({ label })}
 				type="number"
 				min="1"
 				max="65535"
@@ -206,13 +206,13 @@
 				bind:value={settings[`${kind}Port`]}
 			/>
 			<NativeSelect.Root
-				aria-label="{label} Verschlüsselung"
+				aria-label={m.server_security({ label })}
 				class="w-full"
 				bind:value={settings[`${kind}Security`]}
 			>
 				<NativeSelect.Option value="tls">SSL/TLS</NativeSelect.Option>
 				<NativeSelect.Option value="starttls">STARTTLS</NativeSelect.Option>
-				<NativeSelect.Option value="none">Keine</NativeSelect.Option>
+				<NativeSelect.Option value="none">{m.server_security_none()}</NativeSelect.Option>
 			</NativeSelect.Root>
 		</div>
 	</Field.Set>

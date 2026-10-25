@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '#lib/paraglide/messages.js';
 	import { ipcErrorMessage } from '#lib/account-messages.ts';
 	import { velo } from '#lib/api.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
@@ -23,9 +24,9 @@
 	});
 
 	const reasons = {
-		auth: 'Die Anmeldung wurde abgelehnt. Bei iCloud und Yahoo brauchst du ein App-Passwort.',
-		notfound: 'Unter der Adresse wurde kein Kalender gefunden. Trag die Server-Adresse ein.',
-		oauth: 'Google- und Microsoft-Kalender lassen sich erst mit OAuth2 verbinden; das kommt später.'
+		auth: m.calendar_error_auth(),
+		notfound: m.calendar_error_notfound(),
+		oauth: m.calendar_error_oauth()
 	};
 
 	async function add() {
@@ -51,9 +52,9 @@
 <Dialog.Root bind:open>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title class="font-heading">Kalender hinzufügen</Dialog.Title>
+			<Dialog.Title class="font-heading">{m.calendar_add()}</Dialog.Title>
 			<Dialog.Description>
-				Über CalDAV, z. B. iCloud, Nextcloud, Posteo, mailbox.org, Yahoo, GMX oder Web.de.
+				{m.calendar_add_hint()}
 			</Dialog.Description>
 		</Dialog.Header>
 		<form
@@ -64,11 +65,11 @@
 			}}
 		>
 			<Field.Field>
-				<Field.Label for="calendar-username">E-Mail-Adresse oder Benutzername</Field.Label>
+				<Field.Label for="calendar-username">{m.calendar_username()}</Field.Label>
 				<Input id="calendar-username" bind:value={username} autocomplete="username" required />
 			</Field.Field>
 			<Field.Field>
-				<Field.Label for="calendar-password">Passwort</Field.Label>
+				<Field.Label for="calendar-password">{m.account_password()}</Field.Label>
 				<Input
 					id="calendar-password"
 					type="password"
@@ -78,20 +79,24 @@
 				/>
 			</Field.Field>
 			<Field.Field>
-				<Field.Label for="calendar-server">Server (optional)</Field.Label>
-				<Input id="calendar-server" bind:value={serverUrl} placeholder="Wird automatisch gesucht" />
+				<Field.Label for="calendar-server">{m.calendar_server()}</Field.Label>
+				<Input
+					id="calendar-server"
+					bind:value={serverUrl}
+					placeholder={m.calendar_server_placeholder()}
+				/>
 			</Field.Field>
 			<Field.Field>
-				<Field.Label for="calendar-name">Name (optional)</Field.Label>
-				<Input id="calendar-name" bind:value={name} placeholder="z. B. Privat" />
+				<Field.Label for="calendar-name">{m.calendar_name()}</Field.Label>
+				<Input id="calendar-name" bind:value={name} placeholder={m.calendar_name_placeholder()} />
 			</Field.Field>
 			{#if error}
 				<p role="alert" class="text-sm text-destructive">{error}</p>
 			{/if}
 			<Dialog.Footer>
-				<Button variant="outline" onclick={() => (open = false)}>Abbrechen</Button>
+				<Button variant="outline" onclick={() => (open = false)}>{m.cancel()}</Button>
 				<Button type="submit" disabled={busy || !username.trim() || !password}>
-					{#if busy}<Spinner /> Verbinde …{:else}Hinzufügen{/if}
+					{#if busy}<Spinner /> {m.connecting()}{:else}{m.add()}{/if}
 				</Button>
 			</Dialog.Footer>
 		</form>

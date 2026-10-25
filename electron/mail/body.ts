@@ -2,6 +2,7 @@
 // newest ones), parsed with postal-mime and stored for offline reading and
 // search. Attachments are only listed; their content is fetched again when
 // one is opened, so the database stays small.
+import { m } from '../../src/lib/paraglide/messages.js';
 import { eq } from 'drizzle-orm';
 import type { ImapFlow } from 'imapflow';
 import PostalMime from 'postal-mime';
@@ -166,7 +167,7 @@ export function hasRemoteContent(html: string | null): boolean {
 
 async function download(client: ImapFlow, uid: number): Promise<Buffer> {
 	const result = await client.download(String(uid), undefined, { uid: true });
-	if (!result.content) throw new Error('Die Nachricht wurde auf dem Server nicht gefunden.');
+	if (!result.content) throw new Error(m.error_message_not_on_server());
 	const chunks: Buffer[] = [];
 	for await (const chunk of result.content) chunks.push(chunk as Buffer);
 	return Buffer.concat(chunks);
@@ -180,7 +181,7 @@ export async function fetchBody(
 	message: typeof messages.$inferSelect
 ) {
 	if ((message.size ?? 0) > maxMessageSize) {
-		throw new Error('Die Nachricht ist zu groß, um sie hier anzuzeigen.');
+		throw new Error(m.error_message_too_large());
 	}
 	const lock = await client.getMailboxLock(mailbox.path);
 	let source: Buffer;
@@ -257,6 +258,6 @@ export async function fetchAttachment(
 	}
 	const email = await PostalMime.parse(source, { attachmentEncoding: 'arraybuffer' });
 	const attachment = email.attachments[index];
-	if (!attachment) throw new Error('Den Anhang gibt es nicht mehr.');
+	if (!attachment) throw new Error(m.error_attachment_gone());
 	return bytes(attachment.content);
 }

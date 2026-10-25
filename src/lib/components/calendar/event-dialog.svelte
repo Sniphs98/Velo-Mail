@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { m } from '#lib/paraglide/messages.js';
+
 	/** A new event (no id) or one being changed. */
 	export interface EventDraft {
 		id?: number;
@@ -17,13 +19,11 @@
 	}
 
 	/** The reminders offered, in minutes before the start. */
-	export const reminderChoices: { minutes: number; label: string }[] = [
-		{ minutes: 0, label: 'Zu Beginn' },
-		{ minutes: 5, label: '5 Minuten vorher' },
-		{ minutes: 15, label: '15 Minuten vorher' },
-		{ minutes: 30, label: '30 Minuten vorher' },
-		{ minutes: 60, label: '1 Stunde vorher' },
-		{ minutes: 1440, label: '1 Tag vorher' }
+	export const reminderChoices = (): { minutes: number; label: string }[] => [
+		{ minutes: 0, label: m.reminder_at_start() },
+		...[5, 15, 30].map((minutes) => ({ minutes, label: m.reminder_minutes({ minutes }) })),
+		{ minutes: 60, label: m.reminder_hour() },
+		{ minutes: 1440, label: m.reminder_day() }
 	];
 </script>
 
@@ -106,11 +106,11 @@
 
 	// A reminder set elsewhere (e.g. 10 minutes) stays choosable.
 	const choices = $derived(
-		draft.reminder === null || reminderChoices.some((c) => c.minutes === draft.reminder)
-			? reminderChoices
+		draft.reminder === null || reminderChoices().some((c) => c.minutes === draft.reminder)
+			? reminderChoices()
 			: [
-					...reminderChoices,
-					{ minutes: draft.reminder, label: `${draft.reminder} Minuten vorher` }
+					...reminderChoices(),
+					{ minutes: draft.reminder, label: m.reminder_minutes({ minutes: draft.reminder }) }
 				].sort((a, b) => a.minutes - b.minutes)
 	);
 
@@ -119,7 +119,7 @@
 		if (!api) return;
 		const event = input();
 		if (event.end < event.start) {
-			error = 'Das Ende liegt vor dem Beginn.';
+			error = m.event_end_before_start();
 			return;
 		}
 		busy = true;
@@ -163,12 +163,12 @@
 	<Dialog.Content class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title class="font-heading">
-				{draft.id === undefined ? 'Neuer Termin' : 'Termin bearbeiten'}
+				{draft.id === undefined ? m.event_new() : m.event_edit()}
 			</Dialog.Title>
 			{#if draft.recurring}
 				<Dialog.Description class="flex items-center gap-1.5">
 					<Repeat class="size-3.5" aria-hidden="true" />
-					Wiederholender Termin
+					{m.event_recurring()}
 				</Dialog.Description>
 			{/if}
 		</Dialog.Header>
@@ -182,10 +182,10 @@
 			{#if occurrence}
 				<div
 					role="radiogroup"
-					aria-label="Änderungen gelten für"
+					aria-label={m.event_scope()}
 					class="grid grid-cols-2 rounded-lg bg-muted p-0.5"
 				>
-					{#each [{ value: 'only', label: 'Nur diesen Termin' }, { value: 'all', label: 'Alle Termine' }] as const as choice (choice.value)}
+					{#each [{ value: 'only', label: m.event_scope_only() }, { value: 'all', label: m.event_scope_all() }] as const as choice (choice.value)}
 						<button
 							type="button"
 							role="radio"
@@ -199,55 +199,55 @@
 				</div>
 			{/if}
 			<Field.Field>
-				<Field.Label for="event-summary">Titel</Field.Label>
-				<Input id="event-summary" bind:value={form.summary} placeholder="Ohne Titel" />
+				<Field.Label for="event-summary">{m.event_title()}</Field.Label>
+				<Input id="event-summary" bind:value={form.summary} placeholder={m.untitled()} />
 			</Field.Field>
 			<Field.Field orientation="horizontal">
-				<Field.Label for="event-all-day">Ganztägig</Field.Label>
+				<Field.Label for="event-all-day">{m.event_all_day_label()}</Field.Label>
 				<Switch id="event-all-day" bind:checked={form.allDay} />
 			</Field.Field>
 			<div class="grid grid-cols-2 gap-2">
 				<Field.Field>
-					<Field.Label for="event-start-date">Beginn</Field.Label>
+					<Field.Label for="event-start-date">{m.event_start()}</Field.Label>
 					<Input id="event-start-date" type="date" bind:value={form.startDate} required />
 				</Field.Field>
 				{#if !form.allDay}
 					<Field.Field>
-						<Field.Label for="event-start-time">Uhrzeit</Field.Label>
+						<Field.Label for="event-start-time">{m.event_time()}</Field.Label>
 						<Input id="event-start-time" type="time" bind:value={form.startTime} required />
 					</Field.Field>
 				{/if}
 				<Field.Field>
-					<Field.Label for="event-end-date">Ende</Field.Label>
+					<Field.Label for="event-end-date">{m.event_end()}</Field.Label>
 					<Input id="event-end-date" type="date" bind:value={form.endDate} required />
 				</Field.Field>
 				{#if !form.allDay}
 					<Field.Field>
-						<Field.Label for="event-end-time">Uhrzeit</Field.Label>
+						<Field.Label for="event-end-time">{m.event_time()}</Field.Label>
 						<Input id="event-end-time" type="time" bind:value={form.endTime} required />
 					</Field.Field>
 				{/if}
 			</div>
 			<Field.Field>
-				<Field.Label for="event-reminder">Erinnerung</Field.Label>
+				<Field.Label for="event-reminder">{m.event_reminder()}</Field.Label>
 				<NativeSelect.Root id="event-reminder" class="w-full" bind:value={form.reminder}>
-					<NativeSelect.Option value="">Keine</NativeSelect.Option>
+					<NativeSelect.Option value="">{m.reminder_none()}</NativeSelect.Option>
 					{#each choices as choice (choice.minutes)}
 						<NativeSelect.Option value={String(choice.minutes)}>{choice.label}</NativeSelect.Option>
 					{/each}
 				</NativeSelect.Root>
 			</Field.Field>
 			<Field.Field>
-				<Field.Label for="event-location">Ort</Field.Label>
+				<Field.Label for="event-location">{m.event_location()}</Field.Label>
 				<Input id="event-location" bind:value={form.location} />
 			</Field.Field>
 			<Field.Field>
-				<Field.Label for="event-description">Beschreibung</Field.Label>
+				<Field.Label for="event-description">{m.event_description()}</Field.Label>
 				<Textarea id="event-description" rows={3} bind:value={form.description} />
 			</Field.Field>
 			{#if draft.id === undefined && calendars.length > 1}
 				<Field.Field>
-					<Field.Label for="event-calendar">Kalender</Field.Label>
+					<Field.Label for="event-calendar">{m.calendar()}</Field.Label>
 					<NativeSelect.Root id="event-calendar" class="w-full" bind:value={form.calendarId}>
 						{#each calendars as calendar (calendar.id)}
 							<NativeSelect.Option value={calendar.id}>{calendar.name}</NativeSelect.Option>
@@ -266,14 +266,14 @@
 						disabled={busy}
 						onclick={remove}
 					>
-						Löschen
+						{m.delete()}
 					</Button>
 				{:else}
 					<span></span>
 				{/if}
 				<div class="flex gap-2">
-					<Button variant="outline" onclick={() => (open = false)}>Abbrechen</Button>
-					<Button type="submit" disabled={busy}>Speichern</Button>
+					<Button variant="outline" onclick={() => (open = false)}>{m.cancel()}</Button>
+					<Button type="submit" disabled={busy}>{m.save()}</Button>
 				</div>
 			</Dialog.Footer>
 		</form>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ReplySource } from '#lib/api.ts';
+import { inLocale } from '#lib/testing/german.ts';
 import { formatAddress, prefixSubject, replyDraft } from './compose';
 
 const source = (over: Partial<ReplySource> = {}): ReplySource => ({
@@ -55,6 +56,13 @@ describe('replyDraft', () => {
 			/^<p>Am .+ schrieb Anna Becker:<\/p><blockquote><p>Hi,<br>kannst du drüberschauen\?<br>&gt; alter Text<\/p><\/blockquote>$/
 		);
 		expect(draft.forwarded).toEqual([]);
+	});
+
+	it('quotes in the language of the app', async () => {
+		await inLocale('en', () => {
+			expect(replyDraft(source(), 'reply', 42).html).toMatch(/^<p>On .+, Anna Becker wrote:<\/p>/);
+			expect(replyDraft(source(), 'forward', 42).html).toContain('Forwarded message');
+		});
 	});
 
 	it('replies to all without yourself and without duplicates', () => {
