@@ -40,7 +40,8 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -- a focusable separator is the ARIA pattern for resizable panes -->
+<!-- A focusable separator with key and pointer handling is the ARIA pattern for resizable panes. -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 <div
 	role="separator"
 	aria-orientation="vertical"
