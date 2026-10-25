@@ -1,6 +1,12 @@
 // Reads for the UI: folders with unread counts and message lists.
-import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
-import type { Mailbox, MessageBody, MessageQuery, MessageSummary } from '../../src/lib/api';
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, sql, type SQL } from 'drizzle-orm';
+import type {
+	Mailbox,
+	MessageBody,
+	MessageQuery,
+	MessageSummary,
+	SearchQuery
+} from '../../src/lib/api';
 import { hasRemoteContent } from './body';
 import { toFtsQuery } from './search';
 import type { Database } from '../db';
@@ -219,20 +225,39 @@ export async function trustSender(db: Database, address: string) {
 }
 
 /** Messages matching the search, newest first, across all accounts and folders. */
+/**
+ * Messages matching the words (subject, sender, content, attachments) and the
+ * filters, across all accounts unless narrowed, newest first.
+ */
 export async function searchMessages(
 	db: Database,
-	input: string,
+	query: SearchQuery,
 	limit = 200
 ): Promise<MessageSummary[]> {
-	const query = toFtsQuery(input);
-	if (!query) return [];
+	const words = [
+		toFtsQuery(query.text),
+		query.from.trim() ? toFtsQuery(query.from, 'sender') : null
+	]
+		.filter(Boolean)
+		.join(' ');
+	const where: SQL[] = [];
+	if (words) {
+		where.push(
+			inArray(messages.id, sql`(select rowid from messages_fts where messages_fts match ${words})`)
+		);
+	}
+	if (query.accounts.length > 0) where.push(inArray(mailboxes.accountId, query.accounts));
+	if (query.since !== null) where.push(gte(messages.date, new Date(query.since)));
+	if (query.until !== null) where.push(lt(messages.date, new Date(query.until)));
+	if (query.attachments) where.push(eq(messages.hasAttachments, true));
+	if (query.unread) where.push(eq(messages.seen, false));
+	// An empty search lists nothing rather than everything.
+	if (where.length === 0) return [];
 	const rows = await db
 		.select(summary)
 		.from(messages)
 		.innerJoin(mailboxes, eq(mailboxes.id, messages.mailboxId))
-		.where(
-			inArray(messages.id, sql`(select rowid from messages_fts where messages_fts match ${query})`)
-		)
+		.where(and(...where))
 		.orderBy(desc(messages.date), desc(messages.id))
 		.limit(limit);
 	return rows.map((row) => ({ ...row, date: row.date.getTime(), threadSize: 1 }));

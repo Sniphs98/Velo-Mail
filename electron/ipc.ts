@@ -116,6 +116,16 @@ const outgoingSchema = z.object({
 	draftUid: z.number().int().optional()
 });
 
+const searchSchema = z.object({
+	text: z.string().max(1000),
+	accounts: z.array(z.number().int()).max(100),
+	from: z.string().max(500),
+	since: z.number().int().nullable(),
+	until: z.number().int().nullable(),
+	attachments: z.boolean(),
+	unread: z.boolean()
+});
+
 const messageQuerySchema = z.union([
 	z.object({ mailboxId: z.number().int() }),
 	z.object({ inboxes: z.literal(true) })
@@ -336,11 +346,9 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 			z.enum(['archive', 'trash']).parse(to)
 		)
 	);
-	handle(IPC.mailSearch, (_event, query: unknown) =>
-		searchMessages(db, z.string().max(1000).parse(query))
-	);
+	handle(IPC.mailSearch, (_event, query: unknown) => searchMessages(db, searchSchema.parse(query)));
 	handle(IPC.mailSearchServer, (_event, query: unknown) =>
-		sync.searchServer(z.string().trim().min(1).max(1000).parse(query))
+		sync.searchServer(searchSchema.parse(query))
 	);
 	handle(IPC.mailBody, (_event, id: unknown) => sync.body(z.number().int().parse(id)));
 	handle(IPC.mailOpenAttachment, async (_event, id: unknown) => {

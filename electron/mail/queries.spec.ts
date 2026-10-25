@@ -1,6 +1,9 @@
 import path from 'node:path';
+import { eq } from 'drizzle-orm';
 import type { FetchMessageObject } from 'imapflow';
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { SearchFilters, SearchQuery } from '../../src/lib/api';
+import { noFilters } from '../../src/lib/search';
 import { openDatabase, type Database } from '../db';
 import { accounts, mailboxes, messageBodies, messages } from '../db/schema';
 import {
@@ -70,6 +73,12 @@ async function message(
 
 beforeEach(() => {
 	db = openDatabase(':memory:', path.resolve('drizzle'));
+});
+
+const words = (text: string, filters: Partial<SearchFilters> = {}): SearchQuery => ({
+	...noFilters,
+	text,
+	...filters
 });
 
 describe('listMailboxes', () => {
@@ -183,16 +192,55 @@ describe('searchMessages', () => {
 			.insert(messageBodies)
 			.values({ messageId: invoice, text: 'Bitte überweisen Sie bis Freitag' });
 
-		expect((await searchMessages(db, 'angeb')).map((m) => m.subject)).toEqual([
+		expect((await searchMessages(db, words('angeb'))).map((m) => m.subject)).toEqual([
 			'Re: Angebot Relaunch',
 			'Angebot Relaunch'
 		]);
-		expect((await searchMessages(db, 'uberweisen')).map((m) => m.id)).toEqual([invoice]);
-		expect((await searchMessages(db, 'von:anna betreff:relaunch')).map((m) => m.id)).toContain(
-			offer
-		);
-		expect(await searchMessages(db, 'betreff:freitag')).toEqual([]);
-		expect(await searchMessages(db, '"')).toEqual([]);
+		expect((await searchMessages(db, words('uberweisen'))).map((m) => m.id)).toEqual([invoice]);
+		expect(
+			(await searchMessages(db, words('von:anna betreff:relaunch'))).map((m) => m.id)
+		).toContain(offer);
+		expect(await searchMessages(db, words('betreff:freitag'))).toEqual([]);
+		expect(await searchMessages(db, words('"'))).toEqual([]);
+	});
+
+	it('narrows by account, sender, time, attachments and unread, also without words', async () => {
+		const a = await account('a@beispiel.de');
+		const b = await account('b@beispiel.de');
+		const inboxA = await mailbox(a, 'INBOX', 'inbox');
+		const inboxB = await mailbox(b, 'INBOX', 'inbox');
+		// uid = day in October 2026; message() sends them all from anna@firma.de.
+		await message(inboxA, 2, 'Planung Anfang', true);
+		const late = await message(inboxA, 20, 'Planung Ende');
+		const other = await message(inboxB, 10, 'Planung Mitte', true);
+		await db
+			.update(messages)
+			.set({ fromName: 'Jonas Weber', fromAddress: 'jonas@weber.de' })
+			.where(eq(messages.id, other));
+		await db.update(messages).set({ hasAttachments: true }).where(eq(messages.id, late));
+		const subjects = async (query: SearchQuery) =>
+			(await searchMessages(db, query)).map((m) => m.subject);
+
+		expect(await subjects(words('planung'))).toEqual([
+			'Planung Ende',
+			'Planung Mitte',
+			'Planung Anfang'
+		]);
+		// Several accounts at once, or one.
+		expect(await subjects(words('planung', { accounts: [a, b] }))).toHaveLength(3);
+		expect(await subjects(words('planung', { accounts: [b] }))).toEqual(['Planung Mitte']);
+		// Sender by name or address, as word beginnings.
+		expect(await subjects(words('', { from: 'jon' }))).toEqual(['Planung Mitte']);
+		expect(await subjects(words('', { from: 'weber.de' }))).toEqual(['Planung Mitte']);
+		// From the 5th to before the 15th.
+		expect(
+			await subjects(words('', { since: Date.UTC(2026, 9, 5), until: Date.UTC(2026, 9, 15) }))
+		).toEqual(['Planung Mitte']);
+		expect(await subjects(words('', { since: Date.UTC(2026, 9, 15) }))).toEqual(['Planung Ende']);
+		expect(await subjects(words('', { attachments: true }))).toEqual(['Planung Ende']);
+		expect(await subjects(words('', { unread: true, accounts: [a] }))).toEqual(['Planung Ende']);
+		// Nothing to narrow by: nothing listed.
+		expect(await searchMessages(db, words('  '))).toEqual([]);
 	});
 });
 
