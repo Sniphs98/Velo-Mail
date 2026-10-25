@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Paperclip, Send, Trash2, X } from '@lucide/svelte';
 	import { accounts } from '#lib/accounts.svelte.ts';
 	import { compose } from '#lib/compose.svelte.ts';
@@ -12,9 +13,14 @@
 	let showCc = $state(false);
 	let to = $state<HTMLInputElement>();
 
-	// A new message starts in "An"; a reply already has its recipients.
+	// A new message starts in "An"; a reply already has its recipients. Once per
+	// draft: running again later would pull the focus out of the text.
+	let focusedFor: object | undefined;
 	$effect(() => {
-		if (compose.open && to && !compose.draft.to) to.focus();
+		const draft = compose.draft;
+		if (!compose.open || !to || focusedFor === draft) return;
+		focusedFor = draft;
+		if (!untrack(() => draft.to)) to.focus();
 	});
 
 	// Saves the draft two seconds after the last change.

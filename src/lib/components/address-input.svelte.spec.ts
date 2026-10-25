@@ -54,8 +54,9 @@ describe('AddressInput', () => {
 
 		// The next entry after the comma gets its own suggestions.
 		await userEvent.keyboard('hoff');
+		// Typed slowly, "hof" may get its suggestions first; the last ask is for "hoff".
+		await vi.waitFor(() => expect(suggestAddresses).toHaveBeenLastCalledWith('hoff'));
 		await expect.element(page.getByRole('option')).toHaveTextContent('Lea Hoffmann');
-		expect(suggestAddresses).toHaveBeenLastCalledWith('hoff');
 		await userEvent.keyboard('{Tab}');
 		await expect.element(input).toHaveValue('andreas@verein.de, Lea Hoffmann <lea@beispiel.org>, ');
 	});
