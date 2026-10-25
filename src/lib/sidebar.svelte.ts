@@ -1,12 +1,12 @@
 // Which accounts are folded in the sidebar, and which folders stay visible
-// then (pinned); remembered on this computer, like the pane widths.
+// then (pinned; none at first); remembered on this computer, like the pane widths.
 import type { Mailbox } from '#lib/api.ts';
 
 const key = 'velo:sidebar';
 
 interface Stored {
 	collapsed?: number[];
-	/** Mailbox id → pinned; the inbox counts as pinned until unpinned. */
+	/** Mailbox id → pinned. */
 	pins?: Record<number, boolean>;
 }
 
@@ -34,7 +34,7 @@ class Sidebar {
 	}
 
 	isPinned(box: Mailbox) {
-		return this.pins[box.id] ?? box.role === 'inbox';
+		return this.pins[box.id] ?? false;
 	}
 
 	pin(box: Mailbox, pinned: boolean) {
