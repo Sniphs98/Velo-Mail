@@ -4,12 +4,17 @@
 	import { compose } from '#lib/compose.svelte.ts';
 	import { fileSize } from '#lib/format.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
-	import * as Dialog from '#lib/components/ui/dialog/index.ts';
 	import * as NativeSelect from '#lib/components/ui/native-select/index.ts';
 	import { Spinner } from '#lib/components/ui/spinner/index.ts';
 	import RichEditor from './rich-editor.svelte';
 
 	let showCc = $state(false);
+	let to = $state<HTMLInputElement>();
+
+	// A new message starts in "An"; a reply already has its recipients.
+	$effect(() => {
+		if (compose.open && to && !compose.draft.to) to.focus();
+	});
 
 	// Saves the draft two seconds after the last change.
 	$effect(() => {
@@ -34,24 +39,25 @@
 		'min-w-0 flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground';
 </script>
 
-<Dialog.Root
-	open={compose.open}
-	onOpenChange={(open) => {
-		if (!open) compose.close();
-	}}
->
-	<Dialog.Content
-		showCloseButton={false}
-		class="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+{#if compose.open}
+	<!-- Written where messages are read, in place of the open conversation. -->
+	<!-- The keys work anywhere inside: Ctrl/Cmd+Enter sends, Escape keeps a draft and closes. -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<section
+		aria-label={title}
+		class="flex min-h-full w-full flex-col self-stretch text-left"
 		onkeydown={(event: KeyboardEvent) => {
 			if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
 				event.preventDefault();
 				compose.send();
+			} else if (event.key === 'Escape') {
+				event.preventDefault();
+				compose.close();
 			}
 		}}
 	>
-		<div class="flex items-center justify-between border-b px-5 py-3">
-			<Dialog.Title class="font-heading text-base font-semibold">{title}</Dialog.Title>
+		<div class="-mt-1 flex items-center justify-between pb-2">
+			<h2 class="font-heading text-lg leading-tight font-semibold">{title}</h2>
 			<Button variant="ghost" size="icon-sm" aria-label="Schließen" onclick={() => compose.close()}>
 				<X />
 			</Button>
@@ -65,7 +71,7 @@
 				compose.send();
 			}}
 		>
-			<div class="flex flex-col px-5">
+			<div class="flex flex-col">
 				{#if accounts.list.length > 1}
 					<label class="flex items-center gap-3 border-b">
 						<span class="w-16 text-sm text-muted-foreground">Von</span>
@@ -85,7 +91,12 @@
 				<div class="flex items-center gap-3 border-b">
 					<label class="flex min-w-0 flex-1 items-center gap-3">
 						<span class="w-16 text-sm text-muted-foreground">An</span>
-						<input class={fieldClass} bind:value={compose.draft.to} autocomplete="off" />
+						<input
+							class={fieldClass}
+							bind:this={to}
+							bind:value={compose.draft.to}
+							autocomplete="off"
+						/>
 					</label>
 					{#if !showCc}
 						<button
@@ -122,7 +133,7 @@
 			/>
 
 			{#if compose.attachments.length > 0 || compose.draft.forwarded.length > 0}
-				<ul aria-label="Anhänge" class="flex flex-wrap gap-2 px-5 pb-3">
+				<ul aria-label="Anhänge" class="flex flex-wrap gap-2 pb-3">
 					{#each compose.draft.forwarded as file (file.id)}
 						<li class="flex items-center gap-2 rounded-xl border py-1 pr-1 pl-3 text-sm">
 							<span class="max-w-56 truncate">{file.filename ?? 'Anhang'}</span>
@@ -155,10 +166,10 @@
 			{/if}
 
 			{#if compose.error}
-				<p role="alert" class="px-5 pb-3 text-sm text-destructive">{compose.error}</p>
+				<p role="alert" class="pb-3 text-sm text-destructive">{compose.error}</p>
 			{/if}
 
-			<div class="flex items-center gap-1 border-t px-4 py-3">
+			<div class="sticky bottom-0 -mb-4 flex items-center gap-1 border-t bg-card py-3">
 				<Button type="submit" class="h-10 rounded-xl px-4" disabled={compose.status === 'sending'}>
 					{#if compose.status === 'sending'}
 						<Spinner /> Wird gesendet …
@@ -188,5 +199,5 @@
 				</Button>
 			</div>
 		</form>
-	</Dialog.Content>
-</Dialog.Root>
+	</section>
+{/if}

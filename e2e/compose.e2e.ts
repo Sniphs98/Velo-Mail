@@ -11,7 +11,7 @@ test('writes, sends, replies to and archives a message', async () => {
 
 	// New message to ourselves; Ctrl+Enter sends.
 	await page.keyboard.press('c');
-	const composer = page.getByRole('dialog', { name: 'Neue Nachricht' });
+	const composer = page.getByRole('region', { name: 'Neue Nachricht' });
 	await composer.getByLabel('An', { exact: true }).fill(`Ich <${greenMail.user.email}>`);
 	await composer.getByLabel('Betreff').fill('Termin am Freitag');
 	await composer.getByLabel('Nachricht', { exact: true }).fill('Passt dir 10 Uhr?');
@@ -25,7 +25,7 @@ test('writes, sends, replies to and archives a message', async () => {
 	// Reply with "r": recipient, subject and quote are filled in.
 	await received.click();
 	await page.keyboard.press('r');
-	const reply = page.getByRole('dialog', { name: 'Antworten' });
+	const reply = page.getByRole('region', { name: 'Antworten' });
 	await expect(reply.getByLabel('Betreff')).toHaveValue('Re: Termin am Freitag');
 	await expect(
 		reply.getByRole('textbox', { name: 'Nachricht' }).locator('blockquote')
@@ -61,7 +61,7 @@ test('forwards a message with its attachment and formatted text', async () => {
 	await list.getByRole('button', { name: /Unterlagen/ }).click();
 	await page.keyboard.press('f');
 
-	const composer = page.getByRole('dialog', { name: 'Weiterleiten' });
+	const composer = page.getByRole('region', { name: 'Weiterleiten' });
 	await expect(composer.getByRole('list', { name: 'Anhänge' })).toContainText('plan.txt');
 	await composer.getByLabel('An', { exact: true }).fill(greenMail.user.email);
 	const editor = composer.getByRole('textbox', { name: 'Nachricht' });

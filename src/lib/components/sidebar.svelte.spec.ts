@@ -90,22 +90,27 @@ describe('Sidebar', () => {
 		render(Sidebar, { onaddaccount: () => {}, onaddcalendar: () => {}, onsettings: () => {} });
 		const folder = (name: string) => page.getByRole('button', { name, exact: true });
 
-		await page.getByRole('button', { name: 'Anpinnen: Spam' }).click();
 		await page.getByRole('button', { name: 'Arbeit zuklappen' }).click();
 		await expect
 			.element(page.getByRole('button', { name: 'Arbeit aufklappen' }))
 			.toHaveAttribute('aria-expanded', 'false');
-		// The inbox is pinned from the start, Spam by hand; Gesendet folds away.
-		await expect.element(folder('Posteingang')).toBeVisible();
+		// Nothing is pinned at first: folded, the account shows no folder.
+		await expect.element(folder('Posteingang')).not.toBeInTheDocument();
+		await expect.element(folder('Spam')).not.toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Arbeit aufklappen' }).click();
+		await page.getByRole('button', { name: 'Anpinnen: Spam' }).click();
+		await page.getByRole('button', { name: 'Arbeit zuklappen' }).click();
 		await expect.element(folder('Spam')).toBeVisible();
+		await expect.element(folder('Posteingang')).not.toBeInTheDocument();
 		await expect.element(folder('Gesendet')).not.toBeInTheDocument();
 		expect(JSON.parse(localStorage.getItem('velo:sidebar')!)).toEqual({
 			collapsed: [7],
 			pins: { 3: true }
 		});
 
-		await page.getByRole('button', { name: 'Nicht mehr anpinnen: Posteingang' }).click();
-		await expect.element(folder('Posteingang')).not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Nicht mehr anpinnen: Spam' }).click();
+		await expect.element(folder('Spam')).not.toBeInTheDocument();
 		await page.getByRole('button', { name: 'Arbeit aufklappen' }).click();
 		await expect.element(folder('Gesendet')).toBeVisible();
 		await expect.element(folder('Posteingang')).toBeVisible();

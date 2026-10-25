@@ -4,7 +4,7 @@
 	import { mail } from '#lib/mail.svelte.ts';
 	import { compose } from '#lib/compose.svelte.ts';
 	import AddAccountDialog from '#lib/components/add-account-dialog.svelte';
-	import ComposeDialog from '#lib/components/compose-dialog.svelte';
+	import Composer from '#lib/components/composer.svelte';
 	import MessageList from '#lib/components/message-list.svelte';
 	import ReadingPane from '#lib/components/reading-pane.svelte';
 	import SettingsDialog from '#lib/components/settings-dialog.svelte';
@@ -55,7 +55,10 @@
 		})
 	);
 	$effect(() =>
-		velo()?.mail.onCompose(() => accounts.list[0] && compose.start(accounts.list[0].id))
+		velo()?.mail.onCompose(() => {
+			mode.current = 'mail';
+			if (accounts.list[0]) compose.start(accounts.list[0].id);
+		})
 	);
 
 	const mailbox = $derived.by(() => {
@@ -91,10 +94,14 @@
 		if (accounts.list[0]) compose.start(mailbox?.accountId ?? accounts.list[0].id);
 	}
 
-	/** Drafts open in the composer, everything else in the reading pane. */
-	function select(id: number) {
-		if (mailbox?.role === 'drafts') compose.edit(id);
-		else mail.open(id);
+	/**
+	 * Drafts open in the composer, everything else in the reading pane; a
+	 * message being written is kept as a draft first.
+	 */
+	async function select(id: number) {
+		if (mailbox?.role === 'drafts') return compose.edit(id);
+		if (compose.open) await compose.close();
+		mail.open(id);
 	}
 
 	/**
@@ -111,6 +118,8 @@
 		}
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+		// The list shortcuts would act on a conversation hidden behind the composer.
+		if (compose.open && mode.current === 'mail') return;
 		if (mode.current === 'calendar') {
 			calendarShortcut(event);
 			return;
@@ -179,9 +188,11 @@
 			<article
 				aria-label="Nachricht"
 				class="relative flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-xl border bg-card p-4 text-center"
-				class:justify-start={mail.thread.length > 0}
+				class:justify-start={mail.thread.length > 0 || compose.open}
 			>
-				{#if mail.thread.length > 0}
+				{#if compose.open}
+					<Composer />
+				{:else if mail.thread.length > 0}
 					{#key mail.selectedId}
 						<ReadingPane
 							thread={mail.thread}
@@ -212,4 +223,3 @@
 <AddAccountDialog bind:open={addingAccount} />
 <SettingsDialog bind:open={showSettings} />
 <AddCalendarDialog bind:open={addingCalendar} />
-<ComposeDialog />
