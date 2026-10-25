@@ -13,6 +13,7 @@ import {
 	listThread,
 	newestUid,
 	searchMessages,
+	suggestAddresses,
 	trustSender,
 	unreadInInboxes,
 	unseenAbove
@@ -241,6 +242,53 @@ describe('searchMessages', () => {
 		expect(await subjects(words('', { unread: true, accounts: [a] }))).toEqual(['Planung Ende']);
 		// Nothing to narrow by: nothing listed.
 		expect(await searchMessages(db, words('  '))).toEqual([]);
+	});
+});
+
+describe('suggestAddresses', () => {
+	it('suggests senders and recipients, best match and most frequent first', async () => {
+		const a = await account('du@beispiel.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		const sent = await mailbox(a, 'Sent', 'sent');
+		const from = async (uid: number, name: string, address: string) => {
+			const id = await message(inbox, uid, 'Hallo');
+			await db
+				.update(messages)
+				.set({ fromName: name, fromAddress: address })
+				.where(eq(messages.id, id));
+		};
+		await from(1, 'Anna Becker', 'anna@firma.de');
+		await from(2, 'Jonas Weber', 'jonas@weber.de');
+		await from(3, 'Newsletter', 'no-reply@shop.de');
+		await from(4, 'Du', 'du@beispiel.de');
+		const mail = await message(sent, 5, 'Antwort');
+		await db
+			.update(messages)
+			.set({
+				to: [{ name: 'Lea Hoffmann', address: 'lea@beispiel.org' }],
+				cc: [{ address: 'anna@firma.de' }]
+			})
+			.where(eq(messages.id, mail));
+
+		const suggest = (text: string) => suggestAddresses(db, text, ['du@beispiel.de']);
+		// Matches at the start of a name or address come first ("an" is in "Hoffmann" too).
+		expect(await suggest('an')).toEqual([
+			{ name: 'Anna Becker', address: 'anna@firma.de' },
+			{ name: 'Lea Hoffmann', address: 'lea@beispiel.org' }
+		]);
+		// Name parts, addresses and recipients of sent mail count.
+		expect(await suggest('hoff')).toEqual([{ name: 'Lea Hoffmann', address: 'lea@beispiel.org' }]);
+		expect(await suggest('weber.de')).toEqual([{ name: 'Jonas Weber', address: 'jonas@weber.de' }]);
+		// Written to counts more than written by.
+		expect((await suggest('e')).map((p) => p.address).slice(0, 2)).toEqual([
+			'anna@firma.de',
+			'lea@beispiel.org'
+		]);
+		// Not the own address, not machines, not wildcards.
+		expect(await suggest('du')).toEqual([]);
+		expect(await suggest('shop')).toEqual([]);
+		expect(await suggest('%')).toEqual([]);
+		expect(await suggest('  ')).toEqual([]);
 	});
 });
 

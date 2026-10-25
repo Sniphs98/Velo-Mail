@@ -295,3 +295,64 @@ export async function unreadInInboxes(db: Database) {
 		.where(and(eq(mailboxes.role, 'inbox'), eq(messages.seen, false)));
 	return row?.count ?? 0;
 }
+
+/** Machine senders nobody writes to. */
+const unanswerable = /^(no-?reply|do-?not-?reply|mailer-daemon|postmaster|bounces?)([+.-]|@)/i;
+
+/**
+ * People to suggest while typing an address: whoever wrote to one of the
+ * accounts, and (counting more) whoever was written to, best match and most
+ * frequent first. The accounts' own addresses are left out.
+ */
+export async function suggestAddresses(
+	db: Database,
+	input: string,
+	own: string[],
+	limit = 8
+): Promise<{ name?: string; address: string }[]> {
+	const text = input.trim().toLowerCase();
+	if (!text) return [];
+	const like = `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+	const start = like.slice(1);
+	const rows = await db.all<{ address: string; name: string | null }>(sql`
+		with people(name, address, date, weight) as (
+			select ${messages.fromName}, ${messages.fromAddress}, ${messages.date}, 1
+				from ${messages} where ${messages.fromAddress} is not null
+			union all
+			select json_extract(person.value, '$.name'), json_extract(person.value, '$.address'),
+				${messages.date}, 3
+				from ${messages}
+				join ${mailboxes} on ${mailboxes.id} = ${messages.mailboxId},
+				json_each(${messages.to}) as person
+				where ${mailboxes.role} = 'sent'
+			union all
+			select json_extract(person.value, '$.name'), json_extract(person.value, '$.address'),
+				${messages.date}, 3
+				from ${messages}
+				join ${mailboxes} on ${mailboxes.id} = ${messages.mailboxId},
+				json_each(${messages.cc}) as person
+				where ${mailboxes.role} = 'sent'
+		),
+		matching as (
+			select lower(address) as key, sum(weight) as score, max(date) as last,
+				max(lower(address) like ${start} escape '\\' or lower(coalesce(name, '')) like ${start} escape '\\'
+					or lower(coalesce(name, '')) like ${'% ' + start} escape '\\') as prefix
+			from people
+			where address like '%@%'
+				and (lower(address) like ${like} escape '\\' or lower(coalesce(name, '')) like ${like} escape '\\')
+			group by lower(address)
+		)
+		select
+			(select address from people where lower(address) = matching.key limit 1) as address,
+			(select name from people where lower(address) = matching.key and coalesce(name, '') <> ''
+				order by date desc limit 1) as name
+		from matching
+		order by prefix desc, score desc, last desc
+		limit ${limit * 2}
+	`);
+	const mine = new Set(own.map((address) => address.toLowerCase()));
+	return rows
+		.filter((row) => !mine.has(row.address.toLowerCase()) && !unanswerable.test(row.address))
+		.slice(0, limit)
+		.map((row) => (row.name ? { name: row.name, address: row.address } : { address: row.address }));
+}

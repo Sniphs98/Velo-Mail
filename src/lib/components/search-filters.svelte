@@ -22,6 +22,7 @@
 	import { activeFilters, noFilters } from '#lib/search.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import * as NativeSelect from '#lib/components/ui/native-select/index.ts';
+	import AddressInput from './address-input.svelte';
 
 	let {
 		filters,
@@ -35,12 +36,15 @@
 
 	let range = $state<Range>('any');
 	let sender = $state('');
-	let timer: ReturnType<typeof setTimeout> | undefined;
 
 	// Follows a reset from outside (e.g. opening a folder).
+	let appliedFrom = '';
 	$effect(() => {
 		if (filters.since === null && filters.until === null && range !== 'custom') range = 'any';
-		if (!filters.from) sender = '';
+		if (filters.from !== appliedFrom) {
+			appliedFrom = filters.from;
+			sender = filters.from;
+		}
 	});
 
 	const set = (changes: Partial<SearchFilters>) => onfilter({ ...filters, ...changes });
@@ -66,11 +70,13 @@
 		});
 	}
 
-	function typeSender(value: string) {
-		sender = value;
-		clearTimeout(timer);
-		timer = setTimeout(() => set({ from: value }), 300);
-	}
+	// Typing narrows a moment after the last key; a suggestion at once (onvalue).
+	$effect(() => {
+		const value = sender;
+		if (value === filters.from) return;
+		const timer = setTimeout(() => set({ from: value }), 300);
+		return () => clearTimeout(timer);
+	});
 
 	function reset() {
 		range = 'any';
@@ -113,12 +119,13 @@
 			<NativeSelect.Option value="year">12 Monate</NativeSelect.Option>
 			<NativeSelect.Option value="custom">Von – bis …</NativeSelect.Option>
 		</NativeSelect.Root>
-		<Input
-			aria-label="Absender"
+		<AddressInput
+			label="Absender"
 			placeholder="Absender"
-			class="h-7 min-w-0 flex-1 text-xs"
-			value={sender}
-			oninput={(event) => typeSender(event.currentTarget.value)}
+			multiple={false}
+			class="h-7 rounded-lg border bg-transparent px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+			bind:value={sender}
+			onvalue={(value) => set({ from: value })}
 		/>
 	</div>
 	{#if range === 'custom'}

@@ -80,3 +80,22 @@ test('forwards a message with its attachment and formatted text', async () => {
 	await expect(content.locator('strong')).toHaveText('Bitte lesen');
 	await app.close();
 });
+
+test('suggests people one got mail from while typing an address', async () => {
+	await clearInbox();
+	await sendTestMail({ subject: 'Hallo', from: 'Jonas Weber <jonas@beispiel.test>' });
+	const { app, window: page } = await launchApp();
+	await expect(await addTestAccount(page)).toBeHidden();
+	const list = page.getByRole('region', { name: 'Nachrichtenliste' });
+	await expect(list.getByRole('listitem')).toHaveCount(1, { timeout: 10_000 });
+
+	await page.keyboard.press('c');
+	const composer = page.getByRole('region', { name: 'Neue Nachricht' });
+	await composer.getByLabel('An', { exact: true }).pressSequentially('jon');
+	await expect(composer.getByRole('option')).toHaveText(/Jonas Weber\s*jonas@beispiel\.test/);
+	await composer.getByLabel('An', { exact: true }).press('Enter');
+	await expect(composer.getByLabel('An', { exact: true })).toHaveValue(
+		'Jonas Weber <jonas@beispiel.test>, '
+	);
+	await app.close();
+});

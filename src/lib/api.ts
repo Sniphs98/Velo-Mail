@@ -405,6 +405,8 @@ export interface VeloApi {
 		search(query: SearchQuery): Promise<MessageSummary[]>;
 		/** Searches on the servers for older messages; returns how many were added. */
 		searchServer(query: SearchQuery): Promise<number>;
+		/** People matching what was typed, from mails received and sent; best first. */
+		suggestAddresses(text: string): Promise<{ name?: string; address: string }[]>;
 		/** The sender's picture, looked up once and cached; null shows initials. */
 		avatar(address: string, name?: string | null): Promise<SenderPicture | null>;
 		/** The invitation the message carries, or null. */
@@ -484,6 +486,7 @@ export const IPC = {
 	mailSearchServer: 'mail:search-server',
 	mailTrustSender: 'mail:trust-sender',
 	mailAvatar: 'mail:avatar',
+	mailSuggestAddresses: 'mail:suggest-addresses',
 	mailOpenAttachment: 'mail:open-attachment',
 	mailSaveAttachment: 'mail:save-attachment',
 	mailInvitation: 'mail:invitation',

@@ -34,6 +34,7 @@ import {
 	listMessages,
 	listThread,
 	searchMessages,
+	suggestAddresses,
 	trustSender,
 	unreadInInboxes
 } from './mail/queries';
@@ -317,6 +318,13 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	handle(IPC.mailThread, (_event, id: unknown) => listThread(db, z.number().int().parse(id)));
 	handle(IPC.mailTrustSender, (_event, address: unknown) =>
 		trustSender(db, z.email().parse(address))
+	);
+	handle(IPC.mailSuggestAddresses, async (_event, text: unknown) =>
+		suggestAddresses(
+			db,
+			z.string().max(200).parse(text),
+			(await accounts.list()).map((account) => account.email)
+		)
 	);
 	handle(IPC.mailAvatar, async (_event, address: unknown, name: unknown) => {
 		const valid = z.email().safeParse(address);
