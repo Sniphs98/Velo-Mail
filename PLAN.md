@@ -244,7 +244,9 @@ GMX, Web.de, …). Google und Microsoft kommen mit OAuth2.
 - [x] Wiederholungen und Ausnahmen (ical.js), Zeitzonen, Ganztagstermine
 - [x] Termine anlegen, ändern, löschen; Änderungen an Serien verschieben die
       ganze Serie; woanders geänderte Termine werden nicht überschrieben
-- [ ] Einladungen aus Mails annehmen (iTIP/iMIP), Zusagen an den Absender
+- [x] Einladungen aus Mails annehmen (iTIP/iMIP): Zusagen, Vielleicht, Absagen
+      mit Antwort an die Organisatorin; Änderungen und Absagen übernehmen;
+      SCHEDULE-AGENT=CLIENT, damit iCloud nicht zusätzlich antwortet
 - [ ] Erinnerungen (VALARM) als Desktop-Benachrichtigung
 - [ ] Einzelne Termine einer Serie ändern
 - [ ] Termine per Ziehen verschieben

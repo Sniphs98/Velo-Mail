@@ -3,6 +3,7 @@
 	import type { Account, MessageSummary } from '#lib/api.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { fullDate, listDate } from '#lib/format.ts';
+	import InvitationCard from './invitation-card.svelte';
 	import MailBody from './mail-body.svelte';
 	import SenderAvatar from './sender-avatar.svelte';
 
@@ -111,6 +112,7 @@
 						</span>
 					</span>
 				</button>
+				<InvitationCard messageId={message.id} />
 				<MailBody messageId={message.id} sender={message.fromAddress} />
 			</article>
 		{:else}
