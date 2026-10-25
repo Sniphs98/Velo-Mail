@@ -1,8 +1,9 @@
 // What the app does outside its window: light or dark look, the unread badge
-// on the app icon, the tray icon and notifications for new mail.
+// on the app icon, the tray icon, notifications for new mail and reminders.
 import { app, BrowserWindow, Menu, nativeImage, nativeTheme, Notification, Tray } from 'electron';
 import path from 'node:path';
 import type { Settings } from '../src/lib/api';
+import type { Reminder } from './calendar/reminders';
 import type { NewMail } from './mail/manager';
 
 export interface DesktopDeps {
@@ -13,6 +14,8 @@ export interface DesktopDeps {
 	/** Shows a message in the window. */
 	open(messageId: number): void;
 	compose(): void;
+	/** Shows the calendar on a day (local midnight). */
+	showDay(day: number): void;
 }
 
 /** "Anna Becker" or the address; the text a notification starts with. */
@@ -37,6 +40,33 @@ export function notificationsFor(accountName: string, mails: NewMail[]) {
 		body: mail.subject || '(kein Betreff)',
 		messageId: mail.id
 	}));
+}
+
+const clock = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' });
+const date = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+
+function midnight(time: Date) {
+	return new Date(time.getFullYear(), time.getMonth(), time.getDate()).getTime();
+}
+
+/** "Heute 15:00–16:00 · Küche", "Morgen (ganztägig)", "Do., 5. Nov. 09:00–10:00". */
+export function reminderText(reminder: Reminder, now = new Date()) {
+	const days = Math.round((midnight(reminder.start) - midnight(now)) / 86_400_000);
+	const day =
+		days === 0
+			? 'Heute'
+			: days === 1
+				? 'Morgen'
+				: days === -1
+					? 'Gestern'
+					: date.format(reminder.start);
+	const when = reminder.allDay
+		? `${day} (ganztägig)`
+		: `${day} ${clock.format(reminder.start)}–${clock.format(reminder.end)}`;
+	return {
+		title: reminder.summary || 'Termin',
+		body: reminder.location ? `${when} · ${reminder.location}` : when
+	};
 }
 
 export class Desktop {
@@ -85,6 +115,20 @@ export class Desktop {
 			this.shown.add(notification);
 			notification.show();
 		}
+	}
+
+	/** Shown even while the window has focus: a reminder is easy to miss otherwise. */
+	remind(reminder: Reminder) {
+		if (!Notification.isSupported()) return;
+		const { title, body } = reminderText(reminder);
+		const notification = new Notification({ title, body, silent: false });
+		notification.on('click', () => {
+			this.deps.show();
+			this.deps.showDay(midnight(reminder.start));
+		});
+		notification.on('close', () => this.shown.delete(notification));
+		this.shown.add(notification);
+		notification.show();
 	}
 
 	private tooltip() {

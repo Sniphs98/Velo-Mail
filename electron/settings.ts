@@ -10,7 +10,8 @@ export const settingsSchema = z.object({
 	notifications: z.boolean(),
 	tray: z.boolean(),
 	avatars: z.boolean(),
-	updates: z.boolean()
+	updates: z.boolean(),
+	reminders: z.boolean()
 });
 
 export const defaultSettings: Settings = {
@@ -18,7 +19,8 @@ export const defaultSettings: Settings = {
 	notifications: true,
 	tray: false,
 	avatars: true,
-	updates: true
+	updates: true,
+	reminders: true
 };
 
 export async function readSettings(db: Database): Promise<Settings> {

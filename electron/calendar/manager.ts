@@ -223,7 +223,7 @@ export class CalendarManager {
 			);
 		const found: CalendarEvent[] = [];
 		for (const { event, color } of rows) {
-			const description = parseEvent(event.ics)?.description ?? null;
+			const parsed = parseEvent(event.ics);
 			for (const occurrence of occurrences(event.ics, start, end)) {
 				found.push({
 					id: event.id,
@@ -231,11 +231,12 @@ export class CalendarManager {
 					color,
 					summary: occurrence.summary,
 					location: occurrence.location,
-					description,
+					description: parsed?.description ?? null,
 					start: occurrence.start.getTime(),
 					end: occurrence.end.getTime(),
 					allDay: event.allDay,
-					recurring: event.recurring
+					recurring: event.recurring,
+					reminder: parsed?.reminder ?? null
 				});
 			}
 		}

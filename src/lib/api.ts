@@ -70,6 +70,8 @@ export interface Settings {
 	avatars: boolean;
 	/** Look for a newer release on start. */
 	updates: boolean;
+	/** Desktop notifications for the reminders of calendar events. */
+	reminders: boolean;
 }
 
 /** A newer release than the running one. */
@@ -242,6 +244,8 @@ export interface CalendarEvent {
 	end: number;
 	allDay: boolean;
 	recurring: boolean;
+	/** Minutes before the start of its reminder; null for none. */
+	reminder: number | null;
 }
 
 export interface EventInput {
@@ -251,6 +255,8 @@ export interface EventInput {
 	start: number;
 	end: number;
 	allDay: boolean;
+	/** Minutes before the start; null for none, left out to keep what there is. */
+	reminder?: number | null;
 }
 
 export type ParticipantStatus =
@@ -332,6 +338,8 @@ export interface VeloApi {
 		deleteEvent(id: number): Promise<void>;
 		sync(): Promise<void>;
 		onChanged(listener: () => void): () => void;
+		/** A day should be shown, e.g. after clicking a reminder; local midnight in milliseconds. */
+		onShowDay(listener: (day: number) => void): () => void;
 	};
 	settings: {
 		get(): Promise<Settings>;
@@ -427,6 +435,7 @@ export const IPC = {
 	calendarSync: 'calendar:sync',
 	/** Main → renderer. */
 	calendarChanged: 'calendar:changed',
+	calendarShowDay: 'calendar:show-day',
 	settingsSet: 'settings:set',
 	mailMailboxes: 'mail:mailboxes',
 	mailMessages: 'mail:messages',

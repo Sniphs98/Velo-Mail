@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({}));
-const { notificationsFor } = await import('./desktop');
+const { notificationsFor, reminderText } = await import('./desktop');
 
 const mail = (id: number, fromName: string | null, subject = 'Hallo') => ({
 	id,
@@ -29,5 +29,39 @@ describe('notificationsFor', () => {
 		expect(notificationsFor('Arbeit', mails)).toEqual([
 			{ title: '5 neue Nachrichten · Arbeit', body: 'Anna, Ben, Clara …', messageId: undefined }
 		]);
+	});
+});
+
+describe('reminderText', () => {
+	const now = new Date(2026, 10, 3, 14, 45);
+	const at = (day: number, hour: number) => new Date(2026, 10, day, hour);
+	const reminder = (over: Partial<Parameters<typeof reminderText>[0]> = {}) => ({
+		eventId: 1,
+		at: at(3, 14),
+		start: at(3, 15),
+		end: at(3, 16),
+		summary: 'Retro',
+		location: 'Küche',
+		allDay: false,
+		...over
+	});
+
+	it('says when and where', () => {
+		expect(reminderText(reminder(), now)).toEqual({
+			title: 'Retro',
+			body: 'Heute 15:00–16:00 · Küche'
+		});
+		expect(
+			reminderText(reminder({ start: at(4, 9), end: at(4, 10), location: null }), now)
+		).toEqual({ title: 'Retro', body: 'Morgen 09:00–10:00' });
+	});
+
+	it('shows all-day events and later days by date', () => {
+		expect(
+			reminderText(
+				reminder({ start: at(5, 0), end: at(6, 0), allDay: true, summary: '', location: null }),
+				now
+			)
+		).toEqual({ title: 'Termin', body: 'Do., 5. Nov. (ganztägig)' });
 	});
 });
