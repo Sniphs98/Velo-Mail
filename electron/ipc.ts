@@ -25,6 +25,7 @@ import { readSettings, writeSettings } from './settings';
 import { Updater } from './update/updater';
 import { Invitations } from './calendar/invitations';
 import { CalendarManager } from './calendar/manager';
+import { Reminders } from './calendar/reminders';
 import { CalendarSources } from './calendar/service';
 import { SyncManager } from './mail/manager';
 import { canOpen, markFromInternet, safeFilename } from './mail/files';
@@ -158,12 +159,22 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	const avatars = new Avatars({ db, fetchBytes, resolveTxt });
 	const updater = new Updater((percent) => broadcast(IPC.appUpdateProgress, percent));
 	const calendarSources = new CalendarSources(db, secrets);
+	const reminders = new Reminders({
+		db,
+		notify: (reminder) => desktop.remind(reminder),
+		enabled: async () => (await readSettings(db)).reminders
+	});
 	const calendar = new CalendarManager({
 		db,
 		sources: calendarSources,
-		onChanged: () => broadcast(IPC.calendarChanged)
+		onChanged: () => {
+			broadcast(IPC.calendarChanged);
+			// A synced or changed event may have a reminder due right now.
+			reminders.check().catch(() => {});
+		}
 	});
 	calendar.start();
+	reminders.start();
 	const eventSchema = z
 		.object({
 			summary: z.string().max(1000),
@@ -171,7 +182,9 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 			description: z.string().max(100_000).optional(),
 			start: z.number().int(),
 			end: z.number().int(),
-			allDay: z.boolean()
+			allDay: z.boolean(),
+			// Up to four weeks before.
+			reminder: z.number().int().min(0).max(40_320).nullable().optional()
 		})
 		.refine((event) => event.end >= event.start, 'Das Ende liegt vor dem Beginn.');
 	const id = z.number().int();
@@ -198,10 +211,18 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	handle(IPC.calendarCreateEvent, (_event, calendarId: unknown, event: unknown) =>
 		calendar.create(id.parse(calendarId), eventSchema.parse(event))
 	);
-	handle(IPC.calendarUpdateEvent, (_event, eventId: unknown, event: unknown, start: unknown) =>
-		calendar.update(id.parse(eventId), eventSchema.parse(event), id.optional().parse(start))
+	const recurrenceId = z.string().max(100);
+	const occurrenceSchema = z.object({ start: id, recurrenceId, only: z.boolean() });
+	handle(IPC.calendarUpdateEvent, (_event, eventId: unknown, event: unknown, occurrence: unknown) =>
+		calendar.update(
+			id.parse(eventId),
+			eventSchema.parse(event),
+			occurrenceSchema.optional().parse(occurrence)
+		)
 	);
-	handle(IPC.calendarDeleteEvent, (_event, eventId: unknown) => calendar.delete(id.parse(eventId)));
+	handle(IPC.calendarDeleteEvent, (_event, eventId: unknown, occurrence: unknown) =>
+		calendar.delete(id.parse(eventId), recurrenceId.optional().parse(occurrence))
+	);
 	handle(IPC.calendarSync, () => calendar.syncAll());
 
 	const invitations = new Invitations({

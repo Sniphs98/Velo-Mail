@@ -7,7 +7,8 @@ class AppSettings {
 		notifications: true,
 		tray: false,
 		avatars: true,
-		updates: true
+		updates: true,
+		reminders: true
 	});
 
 	async load() {

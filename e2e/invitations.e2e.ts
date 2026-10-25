@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { DAVClient } from 'tsdav';
 import { greenMail, sendTestMail, withImap } from '../scripts/greenmail.mjs';
 import { radicale } from '../scripts/radicale.mjs';
-import { addTestAccount, clearInbox, launchApp } from './app';
+import { addTestAccount, addTestCalendar, clearInbox, launchApp } from './app';
 
 const { organizer } = greenMail;
 
@@ -90,17 +90,7 @@ test('accepts an invitation from a mail into the calendar and answers the organi
 	await expect(await addTestAccount(page)).toBeHidden();
 
 	// Connect the calendar first.
-	await page.getByRole('tab', { name: 'Kalender' }).click();
-	const view = page.getByRole('region', { name: 'Kalender' });
-	await view.getByRole('button', { name: 'Kalender hinzufügen' }).click();
-	const dialog = page.getByRole('dialog', { name: 'Kalender hinzufügen' });
-	await dialog.getByLabel('E-Mail-Adresse oder Benutzername').fill(radicale.user.username);
-	await dialog.getByLabel('Passwort').fill(radicale.user.password);
-	await dialog.getByLabel('Server (optional)').fill(radicale.url);
-	await dialog.getByRole('button', { name: 'Hinzufügen' }).click();
-	await expect(dialog).toBeHidden();
-	const sidebar = page.getByRole('navigation', { name: 'Konten und Ordner' });
-	await expect(sidebar.getByRole('checkbox', { name })).toBeChecked({ timeout: 10_000 });
+	const view = await addTestCalendar(page, name);
 
 	// Open the invitation and accept it.
 	await page.getByRole('tab', { name: 'Mail' }).click();

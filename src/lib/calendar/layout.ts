@@ -54,3 +54,19 @@ export function placeEvents<T extends Timed>(
 	close();
 	return visible;
 }
+
+/**
+ * Where a dragged event lands: moved by `pixels` down (at `hourHeight` pixels
+ * per hour, snapped to `step` minutes) and by whole days, keeping its length.
+ */
+export function dragged(
+	event: Timed,
+	pixels: number,
+	hourHeight: number,
+	dayShift: number,
+	step = 15
+): Timed {
+	const minutes = Math.round((pixels / hourHeight) * (60 / step)) * step;
+	const shift = minutes * 60_000 + dayShift;
+	return { start: event.start + shift, end: event.end + shift };
+}

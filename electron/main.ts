@@ -38,7 +38,8 @@ const desktop = new Desktop({
 	iconDir: path.join(resourcesDir, 'tray'),
 	show: showWindow,
 	open: (messageId) => whenLoaded((window) => window.webContents.send(IPC.mailOpen, messageId)),
-	compose: () => whenLoaded((window) => window.webContents.send(IPC.mailCompose))
+	compose: () => whenLoaded((window) => window.webContents.send(IPC.mailCompose)),
+	showDay: (day) => whenLoaded((window) => window.webContents.send(IPC.calendarShowDay, day))
 });
 
 protocol.registerSchemesAsPrivileged([

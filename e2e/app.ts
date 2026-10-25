@@ -3,6 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { greenMail, withImap } from '../scripts/greenmail.mjs';
+import { radicale } from '../scripts/radicale.mjs';
 
 /**
  * Starts the built app (out/ and build/, see `npm run build`) with an empty
@@ -53,4 +54,22 @@ export function clearInbox() {
 			lock.release();
 		}
 	});
+}
+
+/** Connects the Radicale test user's calendars through the dialog; waits for `name`. */
+export async function addTestCalendar(page: Page, name: string) {
+	await page.getByRole('tab', { name: 'Kalender' }).click();
+	const view = page.getByRole('region', { name: 'Kalender' });
+	await view.getByRole('button', { name: 'Kalender hinzufügen' }).click();
+	const dialog = page.getByRole('dialog', { name: 'Kalender hinzufügen' });
+	await dialog.getByLabel('E-Mail-Adresse oder Benutzername').fill(radicale.user.username);
+	await dialog.getByLabel('Passwort').fill(radicale.user.password);
+	await dialog.getByLabel('Server (optional)').fill(radicale.url);
+	await dialog.getByRole('button', { name: 'Hinzufügen' }).click();
+	await dialog.waitFor({ state: 'hidden' });
+	await page
+		.getByRole('navigation', { name: 'Konten und Ordner' })
+		.getByRole('checkbox', { name })
+		.waitFor({ timeout: 10_000 });
+	return view;
 }

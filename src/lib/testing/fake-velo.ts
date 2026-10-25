@@ -67,6 +67,7 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			deleteEvent: vi.fn(async () => {}),
 			sync: vi.fn(async () => {}),
 			onChanged: vi.fn(() => () => {}),
+			onShowDay: vi.fn(() => () => {}),
 			...overrides.calendar
 		},
 		settings: {
@@ -75,7 +76,8 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 				notifications: true,
 				tray: false,
 				avatars: true,
-				updates: true
+				updates: true,
+				reminders: true
 			})),
 			set: vi.fn(async (changes: Partial<Settings>) => ({
 				theme: 'system' as const,
@@ -83,6 +85,7 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 				tray: false,
 				avatars: true,
 				updates: true,
+				reminders: true,
 				...changes
 			})),
 			...overrides.settings

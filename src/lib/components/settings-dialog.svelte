@@ -111,6 +111,20 @@
 
 					<Field.Field orientation="horizontal">
 						<Field.Content>
+							<Field.Label for="setting-reminders">Terminerinnerungen</Field.Label>
+							<Field.Description>
+								Erinnert an Termine aus deinen Kalendern, so wie sie dort eingestellt sind.
+							</Field.Description>
+						</Field.Content>
+						<Switch
+							id="setting-reminders"
+							checked={settings.value.reminders}
+							onCheckedChange={(checked) => settings.set({ reminders: checked })}
+						/>
+					</Field.Field>
+
+					<Field.Field orientation="horizontal">
+						<Field.Content>
 							<Field.Label for="setting-avatars">Absenderbilder</Field.Label>
 							<Field.Description>
 								Firmenlogos und Gravatar-Fotos. Dafür fragt Velo Mail die Domain des Absenders bzw.

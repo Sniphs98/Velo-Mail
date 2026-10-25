@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ChevronLeft, ChevronRight, Plus } from '@lucide/svelte';
-	import type { CalendarEvent } from '#lib/api.ts';
+	import { ipcErrorMessage } from '#lib/account-messages.ts';
+	import { velo, type CalendarEvent } from '#lib/api.ts';
 	import { calendar } from '#lib/calendar.svelte.ts';
 	import { viewTitle, weekNumber, type CalendarView } from '#lib/calendar/dates.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
@@ -25,7 +26,9 @@
 		start: 0,
 		end: 0,
 		allDay: false,
-		recurring: false
+		recurring: false,
+		reminder: null,
+		recurrenceId: null
 	});
 
 	const writable = $derived(calendar.calendars.filter((c) => c.enabled));
@@ -44,7 +47,10 @@
 			start: at,
 			end: at + 3600_000,
 			allDay: false,
-			recurring: false
+			recurring: false,
+			// What most calendars suggest for a new event.
+			reminder: 15,
+			recurrenceId: null
 		};
 		editing = true;
 	}
@@ -59,9 +65,39 @@
 			start: event.start,
 			end: event.end,
 			allDay: event.allDay,
-			recurring: event.recurring
+			recurring: event.recurring,
+			reminder: event.reminder,
+			recurrenceId: event.recurrenceId
 		};
 		editing = true;
+	}
+
+	let notice = $state<string>();
+
+	/** Dragged to a new time: shown there at once, then saved. Of a series only this occurrence moves. */
+	async function move(event: CalendarEvent, start: number, end: number) {
+		notice = undefined;
+		const shown = calendar.events.find((e) => e.id === event.id && e.start === event.start);
+		if (shown) Object.assign(shown, { start, end });
+		try {
+			await velo()?.calendar.updateEvent(
+				event.id,
+				{
+					summary: event.summary,
+					location: event.location ?? undefined,
+					description: event.description ?? undefined,
+					start,
+					end,
+					allDay: false
+				},
+				event.recurring && event.recurrenceId
+					? { start: event.start, recurrenceId: event.recurrenceId, only: true }
+					: undefined
+			);
+		} catch (cause) {
+			notice = `Der Termin konnte nicht verschoben werden: ${ipcErrorMessage(cause)}`;
+			await calendar.load();
+		}
 	}
 </script>
 
@@ -131,7 +167,16 @@
 			events={calendar.events}
 			onslot={(start) => calendar.calendars.length > 0 && create(start)}
 			onopen={open}
+			onmove={move}
 		/>
+	{/if}
+	{#if notice}
+		<p
+			role="alert"
+			class="absolute inset-x-3 bottom-3 rounded-lg border bg-card px-3 py-2 text-sm text-destructive shadow-sm"
+		>
+			{notice}
+		</p>
 	{/if}
 </section>
 

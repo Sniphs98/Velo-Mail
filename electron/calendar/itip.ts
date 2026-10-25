@@ -3,7 +3,7 @@
 // with the own answer in it.
 import ICAL from 'ical.js';
 import type { Invitation, InvitationResponse, ParticipantStatus } from '../../src/lib/api';
-import { parseEvent } from './ics';
+import { parseEvent, withoutOccurrence } from './ics';
 
 /** What parseInvitation gets out of the iCalendar text; the rest comes from the calendar. */
 export type ParsedInvitation = Omit<
@@ -237,25 +237,11 @@ export function calendarIcs(
  * whole event is cancelled (then it is deleted).
  */
 export function withoutCancelled(stored: string, cancel: string): string | null {
-	const root = parse(stored);
-	const source = parse(cancel);
-	const cancelled = source?.getAllSubcomponents('vevent') ?? [];
-	if (!root || cancelled.length === 0 || cancelled.some((v) => !v.hasProperty('recurrence-id'))) {
+	const cancelled = parse(cancel)?.getAllSubcomponents('vevent') ?? [];
+	if (cancelled.length === 0 || cancelled.some((v) => !v.hasProperty('recurrence-id'))) {
 		return null;
 	}
-	const series = root.getAllSubcomponents('vevent').find((v) => !v.hasProperty('recurrence-id'));
-	if (!series) return null;
-	for (const vevent of cancelled) {
-		const key = keyOf(vevent);
-		for (const old of root.getAllSubcomponents('vevent')) {
-			if (old !== series && keyOf(old) === key) root.removeSubcomponent(old);
-		}
-		const exdate = series.addPropertyWithValue(
-			'exdate',
-			vevent.getFirstPropertyValue('recurrence-id')
-		);
-		const tzid = vevent.getFirstProperty('recurrence-id')?.getParameter('tzid');
-		if (tzid) exdate.setParameter('tzid', tzid);
-	}
-	return text(root);
+	let rest: string | null = stored;
+	for (const vevent of cancelled) rest = rest && withoutOccurrence(rest, keyOf(vevent));
+	return rest;
 }

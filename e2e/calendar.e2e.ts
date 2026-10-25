@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { DAVClient } from 'tsdav';
 import { radicale } from '../scripts/radicale.mjs';
-import { launchApp } from './app';
+import { addTestCalendar, launchApp } from './app';
 
 /** The server as another app sees it, with a calendar of this test's own. */
 async function server(name: string) {
@@ -112,5 +112,116 @@ test('connects a CalDAV calendar, shows its events and creates, changes and dele
 	// The month shows the remaining event too.
 	await view.getByRole('radio', { name: 'Monat' }).click();
 	await expect(view.getByRole('button', { name: /Zahnarzt/ })).toBeVisible();
+	await app.close();
+});
+
+test('changes and deletes single occurrences of a series', async () => {
+	test.setTimeout(60_000);
+	const name = `Serie ${Date.now()}`;
+	const { client, calendar } = await server(name);
+	await client.createCalendarObject({
+		calendar,
+		filename: 'sport.ics',
+		iCalString: [
+			'BEGIN:VCALENDAR',
+			'VERSION:2.0',
+			'PRODID:-//Test//DE',
+			'BEGIN:VEVENT',
+			`UID:sport-${Date.now()}`,
+			'DTSTAMP:20261001T000000Z',
+			`DTSTART:${today(8)}`,
+			`DTEND:${today(9)}`,
+			'RRULE:FREQ=WEEKLY;COUNT=3',
+			'SUMMARY:Laufen',
+			'END:VEVENT',
+			'END:VCALENDAR',
+			''
+		].join('\r\n')
+	});
+	const onServer = async () => String((await client.fetchCalendarObjects({ calendar }))[0].data);
+
+	const { app, window: page } = await launchApp();
+	const view = await addTestCalendar(page, name);
+
+	// Only this week's run moves to another title.
+	await view.getByRole('button', { name: /Laufen/ }).click();
+	const editor = page.getByRole('dialog', { name: 'Termin bearbeiten' });
+	await expect(editor.getByRole('radio', { name: 'Nur diesen Termin' })).toBeChecked();
+	await editor.getByLabel('Titel').fill('Laufen am See');
+	await editor.getByRole('button', { name: 'Speichern' }).click();
+	await expect(view.getByRole('button', { name: /Laufen am See/ })).toBeVisible();
+	expect(await onServer()).toMatch(/RECURRENCE-ID[^\r\n]*\r\n/);
+
+	// Next week is still the series, and only that one is deleted.
+	await view.getByRole('button', { name: 'Weiter' }).click();
+	await view.getByRole('button', { name: /^Laufen/ }).click();
+	await page
+		.getByRole('dialog', { name: 'Termin bearbeiten' })
+		.getByRole('button', { name: 'Löschen' })
+		.click();
+	await expect(view.getByRole('button', { name: /Laufen/ })).toBeHidden();
+	expect(await onServer()).toMatch(/^EXDATE/m);
+
+	// The week after is untouched.
+	await view.getByRole('button', { name: 'Weiter' }).click();
+	await expect(view.getByRole('button', { name: /^Laufen/ })).toBeVisible();
+	await app.close();
+});
+
+test('moves an event by dragging it to another time and day', async () => {
+	const name = `Ziehen ${Date.now()}`;
+	const { client, calendar } = await server(name);
+	await client.createCalendarObject({
+		calendar,
+		filename: 'termin.ics',
+		iCalString: [
+			'BEGIN:VCALENDAR',
+			'VERSION:2.0',
+			'PRODID:-//Test//DE',
+			'BEGIN:VEVENT',
+			`UID:ziehen-${Date.now()}`,
+			'DTSTAMP:20261001T000000Z',
+			`DTSTART:${today(10)}`,
+			`DTEND:${today(11)}`,
+			'SUMMARY:Kundentermin',
+			'END:VEVENT',
+			'END:VCALENDAR',
+			''
+		].join('\r\n')
+	});
+
+	const { app, window: page } = await launchApp();
+	const view = await addTestCalendar(page, name);
+	const event = view.getByRole('button', { name: /Kundentermin/ });
+	await expect(event).toBeVisible();
+
+	// Two hours later and one day over (back if today is the last day shown).
+	const midnight = new Date().setHours(0, 0, 0, 0);
+	const next = new Date(midnight).setDate(new Date(midnight).getDate() + 1);
+	const previous = new Date(midnight).setDate(new Date(midnight).getDate() - 1);
+	const target = (await view.locator(`[data-day="${next}"]`).count()) ? next : previous;
+	const box = (await event.boundingBox())!;
+	const column = (await view.locator(`[data-day="${target}"]`).boundingBox())!;
+	await page.mouse.move(box.x + 10, box.y + 10);
+	await page.mouse.down();
+	await page.mouse.move(column.x + 10, box.y + 10 + 50, { steps: 5 });
+	await page.mouse.move(column.x + 10, box.y + 10 + 96, { steps: 5 });
+	await expect(view.getByTestId('drag-preview')).toHaveText('12:00 – 13:00');
+	await page.mouse.up();
+
+	await expect(
+		view.locator(`[data-day="${target}"]`).getByRole('button', { name: /Kundentermin/ })
+	).toContainText('12:00 – 13:00');
+	const moved = new Date(target);
+	moved.setHours(12);
+	const utc = moved
+		.toISOString()
+		.replace(/[-:]/g, '')
+		.replace(/\.\d+Z$/, 'Z');
+	await expect
+		.poll(async () => String((await client.fetchCalendarObjects({ calendar }))[0].data))
+		.toContain(`DTSTART:${utc}`);
+	// The drop did not open the event.
+	await expect(page.getByRole('dialog', { name: 'Termin bearbeiten' })).toBeHidden();
 	await app.close();
 });

@@ -21,6 +21,8 @@ const event = (over: Partial<CalendarEvent>): CalendarEvent => ({
 	end: at(10),
 	allDay: false,
 	recurring: false,
+	reminder: null,
+	recurrenceId: null,
 	...over
 });
 
@@ -61,6 +63,45 @@ describe('WeekGrid', () => {
 		);
 		expect(onslot).toHaveBeenCalledWith(at(14));
 	});
+
+	it('moves an event by dragging it, snapped to quarter hours', async () => {
+		const onopen = vi.fn();
+		const onmove = vi.fn();
+		render(WeekGrid, {
+			props: { days: [day], events: [event({})], onslot: () => {}, onopen, onmove }
+		});
+		const planning = page.getByRole('button', { name: /Planung/ }).element() as HTMLElement;
+		const { left, top } = planning.getBoundingClientRect();
+		const pointer = (type: string, y: number) =>
+			planning.dispatchEvent(
+				new PointerEvent(type, {
+					bubbles: true,
+					button: 0,
+					pointerId: 1,
+					clientX: left + 5,
+					clientY: top + y
+				})
+			);
+
+		// 48 px per hour: 35 px are 43.75 minutes, shown snapped to 45; 70 px end 1:30 later.
+		pointer('pointerdown', 5);
+		pointer('pointermove', 40);
+		await expect.element(page.getByTestId('drag-preview')).toHaveTextContent('09:45 – 10:45');
+		pointer('pointermove', 75);
+		pointer('pointerup', 75);
+		planning.click();
+		expect(onmove).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), at(10, 30), at(11, 30));
+		// The click that ends the drag does not open the event.
+		expect(onopen).not.toHaveBeenCalled();
+
+		// A press without moving is a click.
+		pointer('pointerdown', 5);
+		pointer('pointermove', 6);
+		pointer('pointerup', 6);
+		planning.click();
+		expect(onopen).toHaveBeenCalledTimes(1);
+		expect(onmove).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe('MonthGrid', () => {
@@ -98,7 +139,9 @@ describe('EventDialog', () => {
 		start: at(14),
 		end: at(15),
 		allDay: false,
-		recurring: false
+		recurring: false,
+		reminder: 15,
+		recurrenceId: null
 	};
 
 	it('creates an event in the chosen calendar', async () => {
@@ -107,6 +150,8 @@ describe('EventDialog', () => {
 		await page.getByLabelText('Titel').fill('Zahnarzt');
 		await page.getByLabelText('Ort').fill('Hauptstraße 1');
 		await page.getByLabelText('Kalender').selectOptions('2');
+		await expect.element(page.getByLabelText('Erinnerung')).toHaveValue('15');
+		await page.getByLabelText('Erinnerung').selectOptions('1 Stunde vorher');
 		await page.getByRole('button', { name: 'Speichern' }).click();
 		expect(api.calendar.createEvent).toHaveBeenCalledWith(2, {
 			summary: 'Zahnarzt',
@@ -114,25 +159,73 @@ describe('EventDialog', () => {
 			description: undefined,
 			start: at(14),
 			end: at(15),
-			allDay: false
+			allDay: false,
+			reminder: 60
 		});
 	});
 
-	it('changes a series from the occurrence, makes all-day events whole days, deletes', async () => {
+	it('keeps a reminder set elsewhere and can remove it', async () => {
+		const api = fakeVelo();
+		render(EventDialog, { open: true, draft: { ...draft, id: 3, reminder: 10 }, calendars });
+		await expect.element(page.getByLabelText('Erinnerung')).toHaveValue('10');
+		await expect
+			.element(page.getByRole('option', { name: '10 Minuten vorher' }))
+			.toBeInTheDocument();
+		await page.getByLabelText('Erinnerung').selectOptions('Keine');
+		await page.getByRole('button', { name: 'Speichern' }).click();
+		expect(api.calendar.updateEvent).toHaveBeenCalledWith(
+			3,
+			expect.objectContaining({ reminder: null }),
+			undefined
+		);
+	});
+
+	it('changes a whole series from an occurrence, making all-day events whole days', async () => {
 		const api = fakeVelo();
 		render(EventDialog, {
 			open: true,
-			draft: { ...draft, id: 7, summary: 'Jour fixe', recurring: true },
+			draft: {
+				...draft,
+				id: 7,
+				summary: 'Jour fixe',
+				recurring: true,
+				recurrenceId: '2026-11-03T14:00:00Z'
+			},
 			calendars
 		});
-		await expect.element(page.getByText('Änderungen gelten für die ganze Serie')).toBeVisible();
+		await expect.element(page.getByText('Wiederholender Termin')).toBeVisible();
+		await expect.element(page.getByRole('radio', { name: 'Nur diesen Termin' })).toBeChecked();
+		await page.getByRole('radio', { name: 'Alle Termine' }).click();
 		await page.getByRole('switch', { name: 'Ganztägig' }).click();
 		await page.getByRole('button', { name: 'Speichern' }).click();
 		expect(api.calendar.updateEvent).toHaveBeenCalledWith(
 			7,
 			expect.objectContaining({ allDay: true, start: at(0), end: at(24) }),
-			at(14)
+			{ start: at(14), recurrenceId: '2026-11-03T14:00:00Z', only: false }
 		);
+	});
+
+	it('changes or deletes only one occurrence', async () => {
+		const api = fakeVelo();
+		const occurrence = {
+			...draft,
+			id: 7,
+			summary: 'Jour fixe',
+			recurring: true,
+			recurrenceId: '2026-11-03T14:00:00Z'
+		};
+		const { rerender } = render(EventDialog, { open: true, draft: occurrence, calendars });
+		await page.getByLabelText('Titel').fill('Jour fixe (Raum 4)');
+		await page.getByRole('button', { name: 'Speichern' }).click();
+		expect(api.calendar.updateEvent).toHaveBeenCalledWith(
+			7,
+			expect.objectContaining({ summary: 'Jour fixe (Raum 4)' }),
+			{ start: at(14), recurrenceId: '2026-11-03T14:00:00Z', only: true }
+		);
+
+		await rerender({ open: true, draft: { ...occurrence } });
+		await page.getByRole('button', { name: 'Löschen' }).click();
+		expect(api.calendar.deleteEvent).toHaveBeenCalledWith(7, '2026-11-03T14:00:00Z');
 	});
 
 	it('refuses an end before the start', async () => {

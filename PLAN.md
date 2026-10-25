@@ -247,9 +247,12 @@ GMX, Web.de, …). Google und Microsoft kommen mit OAuth2.
 - [x] Einladungen aus Mails annehmen (iTIP/iMIP): Zusagen, Vielleicht, Absagen
       mit Antwort an die Organisatorin; Änderungen und Absagen übernehmen;
       SCHEDULE-AGENT=CLIENT, damit iCloud nicht zusätzlich antwortet
-- [ ] Erinnerungen (VALARM) als Desktop-Benachrichtigung
-- [ ] Einzelne Termine einer Serie ändern
-- [ ] Termine per Ziehen verschieben
+- [x] Erinnerungen (VALARM) als Desktop-Benachrichtigung; Klick zeigt den Tag,
+      Erinnerung im Termin-Dialog wählbar, abschaltbar in den Einstellungen
+- [x] Einzelne Termine einer Serie ändern oder löschen (RECURRENCE-ID, EXDATE),
+      wahlweise die ganze Serie
+- [x] Termine per Ziehen verschieben (Woche und Tag, auch auf einen anderen Tag,
+      in Viertelstunden; bei Serien nur das gezogene Vorkommen)
 
 ## Tests
 
