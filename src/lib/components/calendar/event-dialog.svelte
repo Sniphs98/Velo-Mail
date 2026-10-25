@@ -10,7 +10,19 @@
 		end: number;
 		allDay: boolean;
 		recurring: boolean;
+		/** Minutes before the start; null for none. */
+		reminder: number | null;
 	}
+
+	/** The reminders offered, in minutes before the start. */
+	export const reminderChoices: { minutes: number; label: string }[] = [
+		{ minutes: 0, label: 'Zu Beginn' },
+		{ minutes: 5, label: '5 Minuten vorher' },
+		{ minutes: 15, label: '15 Minuten vorher' },
+		{ minutes: 30, label: '30 Minuten vorher' },
+		{ minutes: 60, label: '1 Stunde vorher' },
+		{ minutes: 1440, label: '1 Tag vorher' }
+	];
 </script>
 
 <script lang="ts">
@@ -42,7 +54,9 @@
 		startTime: '',
 		endDate: '',
 		endTime: '',
-		allDay: false
+		allDay: false,
+		/** Minutes as text for the select; '' for none. */
+		reminder: ''
 	});
 	let error = $state<string>();
 	let busy = $state(false);
@@ -60,7 +74,8 @@
 			startTime: timeValue(draft.start),
 			endDate: dateValue(end),
 			endTime: timeValue(draft.end),
-			allDay: draft.allDay
+			allDay: draft.allDay,
+			reminder: draft.reminder === null ? '' : String(draft.reminder)
 		};
 		error = undefined;
 	});
@@ -76,9 +91,20 @@
 			description: form.description.trim() || undefined,
 			start,
 			end,
-			allDay: form.allDay
+			allDay: form.allDay,
+			reminder: form.reminder === '' ? null : Number(form.reminder)
 		};
 	}
+
+	// A reminder set elsewhere (e.g. 10 minutes) stays choosable.
+	const choices = $derived(
+		draft.reminder === null || reminderChoices.some((c) => c.minutes === draft.reminder)
+			? reminderChoices
+			: [
+					...reminderChoices,
+					{ minutes: draft.reminder, label: `${draft.reminder} Minuten vorher` }
+				].sort((a, b) => a.minutes - b.minutes)
+	);
 
 	async function save() {
 		const api = velo();
@@ -166,6 +192,15 @@
 					</Field.Field>
 				{/if}
 			</div>
+			<Field.Field>
+				<Field.Label for="event-reminder">Erinnerung</Field.Label>
+				<NativeSelect.Root id="event-reminder" class="w-full" bind:value={form.reminder}>
+					<NativeSelect.Option value="">Keine</NativeSelect.Option>
+					{#each choices as choice (choice.minutes)}
+						<NativeSelect.Option value={String(choice.minutes)}>{choice.label}</NativeSelect.Option>
+					{/each}
+				</NativeSelect.Root>
+			</Field.Field>
 			<Field.Field>
 				<Field.Label for="event-location">Ort</Field.Label>
 				<Input id="event-location" bind:value={form.location} />

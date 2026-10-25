@@ -23,6 +23,9 @@ describe('SettingsDialog', () => {
 		await expect.element(page.getByRole('switch', { name: 'Benachrichtigungen' })).toBeChecked();
 		await page.getByRole('switch', { name: 'Benachrichtigungen' }).click();
 		expect(api.settings.set).toHaveBeenCalledWith({ notifications: false });
+		await expect.element(page.getByRole('switch', { name: 'Terminerinnerungen' })).toBeChecked();
+		await page.getByRole('switch', { name: 'Terminerinnerungen' }).click();
+		expect(api.settings.set).toHaveBeenCalledWith({ reminders: false });
 		await page.getByRole('switch', { name: 'Im Hintergrund weiterlaufen' }).click();
 		expect(api.settings.set).toHaveBeenCalledWith({ tray: true });
 		await page.getByRole('switch', { name: 'Absenderbilder' }).click();

@@ -42,7 +42,18 @@
 	});
 
 	// From a notification or the tray.
-	$effect(() => velo()?.mail.onOpen((id) => mail.open(id)));
+	$effect(() =>
+		velo()?.mail.onOpen((id) => {
+			mode.current = 'mail';
+			mail.open(id);
+		})
+	);
+	$effect(() =>
+		velo()?.calendar.onShowDay((day) => {
+			mode.current = 'calendar';
+			calendar.show('day', new Date(day));
+		})
+	);
 	$effect(() =>
 		velo()?.mail.onCompose(() => accounts.list[0] && compose.start(accounts.list[0].id))
 	);

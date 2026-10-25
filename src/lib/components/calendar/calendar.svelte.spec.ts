@@ -21,6 +21,7 @@ const event = (over: Partial<CalendarEvent>): CalendarEvent => ({
 	end: at(10),
 	allDay: false,
 	recurring: false,
+	reminder: null,
 	...over
 });
 
@@ -98,7 +99,8 @@ describe('EventDialog', () => {
 		start: at(14),
 		end: at(15),
 		allDay: false,
-		recurring: false
+		recurring: false,
+		reminder: 15
 	};
 
 	it('creates an event in the chosen calendar', async () => {
@@ -107,6 +109,8 @@ describe('EventDialog', () => {
 		await page.getByLabelText('Titel').fill('Zahnarzt');
 		await page.getByLabelText('Ort').fill('Hauptstraße 1');
 		await page.getByLabelText('Kalender').selectOptions('2');
+		await expect.element(page.getByLabelText('Erinnerung')).toHaveValue('15');
+		await page.getByLabelText('Erinnerung').selectOptions('1 Stunde vorher');
 		await page.getByRole('button', { name: 'Speichern' }).click();
 		expect(api.calendar.createEvent).toHaveBeenCalledWith(2, {
 			summary: 'Zahnarzt',
@@ -114,8 +118,25 @@ describe('EventDialog', () => {
 			description: undefined,
 			start: at(14),
 			end: at(15),
-			allDay: false
+			allDay: false,
+			reminder: 60
 		});
+	});
+
+	it('keeps a reminder set elsewhere and can remove it', async () => {
+		const api = fakeVelo();
+		render(EventDialog, { open: true, draft: { ...draft, id: 3, reminder: 10 }, calendars });
+		await expect.element(page.getByLabelText('Erinnerung')).toHaveValue('10');
+		await expect
+			.element(page.getByRole('option', { name: '10 Minuten vorher' }))
+			.toBeInTheDocument();
+		await page.getByLabelText('Erinnerung').selectOptions('Keine');
+		await page.getByRole('button', { name: 'Speichern' }).click();
+		expect(api.calendar.updateEvent).toHaveBeenCalledWith(
+			3,
+			expect.objectContaining({ reminder: null }),
+			undefined
+		);
 	});
 
 	it('changes a series from the occurrence, makes all-day events whole days, deletes', async () => {
