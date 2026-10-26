@@ -9,6 +9,7 @@
 	import MessageList from '#lib/components/message-list.svelte';
 	import ReadingPane from '#lib/components/reading-pane.svelte';
 	import SettingsDialog from '#lib/components/settings-dialog.svelte';
+	import TidyDialog from '#lib/components/tidy-dialog.svelte';
 	import ResizeHandle from '#lib/components/resize-handle.svelte';
 	import Sidebar from '#lib/components/sidebar.svelte';
 	import AddCalendarDialog from '#lib/components/calendar/add-calendar-dialog.svelte';
@@ -23,6 +24,14 @@
 	let addingAccount = $state(false);
 	let showSettings = $state(false);
 	let addingCalendar = $state(false);
+	/** Tidying up newsletters, in these accounts (empty: all). */
+	let tidying = $state(false);
+	let tidyAccounts = $state<number[]>([]);
+
+	function tidy(accountIds: number[]) {
+		tidyAccounts = accountIds;
+		tidying = true;
+	}
 	let calendarView = $state<ReturnType<typeof CalendarView>>();
 
 	$effect(() => calendar.connect());
@@ -177,6 +186,7 @@
 			onaddaccount={() => (addingAccount = true)}
 			onaddcalendar={() => (addingCalendar = true)}
 			onsettings={() => (showSettings = true)}
+			ontidy={(accountId) => tidy([accountId])}
 		/>
 		<ResizeHandle bind:value={layout.sidebar} {...sidebarWidth} label={m.sidebar_width()} />
 
@@ -198,6 +208,10 @@
 				onfilter={(filters) => mail.filter(filters)}
 				onsearchserver={() => mail.searchServer()}
 				oncompose={accounts.list.length > 0 ? newMessage : undefined}
+				tab={mail.tabbed ? mail.tab : undefined}
+				tabUnread={mail.tabUnread}
+				ontab={(tab) => mail.showTab(tab)}
+				ontidy={() => tidy(mailbox ? [mailbox.accountId] : [])}
 			/>
 			<ResizeHandle bind:value={layout.list} {...listWidth} label={m.list_width()} />
 
@@ -239,3 +253,4 @@
 <AddAccountDialog bind:open={addingAccount} />
 <SettingsDialog bind:open={showSettings} />
 <AddCalendarDialog bind:open={addingCalendar} />
+<TidyDialog bind:open={tidying} accountIds={tidyAccounts} />

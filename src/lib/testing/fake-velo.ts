@@ -123,6 +123,10 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			search: vi.fn(async () => []),
 			searchServer: vi.fn(async () => 0),
 			trustSender: vi.fn(async () => {}),
+			setSenderRule: vi.fn(async () => {}),
+			newsletterSenders: vi.fn(async () => []),
+			moveFromSender: vi.fn(async () => 0),
+			unsubscribe: vi.fn(async () => ({ done: false as const, url: null })),
 			suggestAddresses: vi.fn(async () => []),
 			avatar: vi.fn(async () => null),
 			body: vi.fn(async () => ({

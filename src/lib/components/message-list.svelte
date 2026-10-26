@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
-	import { Paperclip, PenLine, Search, SlidersHorizontal, X } from '@lucide/svelte';
-	import type { Account, MessageSummary, SearchFilters } from '#lib/api.ts';
+	import { Paperclip, PenLine, Search, SlidersHorizontal, Sparkles, X } from '@lucide/svelte';
+	import type { Account, InboxTab, MessageSummary, SearchFilters } from '#lib/api.ts';
 	import { activeFilters, noFilters } from '#lib/search.ts';
 	import { listDate } from '#lib/format.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
@@ -24,7 +24,11 @@
 		filters = noFilters,
 		onfilter = () => {},
 		onsearchserver,
-		oncompose
+		oncompose,
+		tab,
+		tabUnread,
+		ontab,
+		ontidy
 	}: {
 		/** In pixels; set by the divider next to it. */
 		width?: number;
@@ -46,7 +50,18 @@
 		onsearchserver?: () => Promise<number>;
 		/** Starts a new message; the button is hidden without it. */
 		oncompose?: () => void;
+		/** The inbox tab shown; no tabs without it (other folders, searching). */
+		tab?: InboxTab;
+		tabUnread?: Record<InboxTab, number>;
+		ontab?: (tab: InboxTab) => void;
+		/** Opens tidying up newsletters by sender; offered in the newsletter tab. */
+		ontidy?: () => void;
 	} = $props();
+
+	const tabs: { value: InboxTab; label: () => string }[] = [
+		{ value: 'primary', label: m.tab_primary },
+		{ value: 'newsletters', label: m.tab_newsletters }
+	];
 
 	let typed = $state('');
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -163,6 +178,34 @@
 	</div>
 	{#if showFilters}
 		<SearchFiltersPanel {filters} {accounts} {onfilter} />
+	{/if}
+	{#if tab && !searching}
+		<div role="tablist" aria-label={m.tab_label()} class="flex gap-1 border-b px-1">
+			{#each tabs as item (item.value)}
+				{@const unread = tabUnread?.[item.value] ?? 0}
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === item.value}
+					class="-mb-px flex items-center gap-1.5 border-b-2 border-transparent px-2 pb-1.5 text-xs text-muted-foreground hover:text-foreground aria-selected:border-primary aria-selected:font-medium aria-selected:text-foreground"
+					onclick={() => ontab?.(item.value)}
+				>
+					{item.label()}
+					{#if unread > 0}
+						<span class="rounded-full bg-muted px-1.5 text-[10px] font-semibold">
+							{unread}<span class="sr-only"> {m.unread()}</span>
+						</span>
+					{/if}
+				</button>
+			{/each}
+			{#if tab === 'newsletters' && ontidy}
+				<span class="flex-1"></span>
+				<Button variant="ghost" size="xs" class="mb-1" onclick={ontidy}>
+					<Sparkles />
+					{m.tidy_open()}
+				</Button>
+			{/if}
+		</div>
 	{/if}
 
 	{#if messages.length === 0}

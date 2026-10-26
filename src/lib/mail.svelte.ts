@@ -1,5 +1,6 @@
 import {
 	velo,
+	type InboxTab,
 	type Mailbox,
 	type MessageQuery,
 	type MessageSummary,
@@ -23,6 +24,8 @@ class Mail {
 	mailboxes = $state<Mailbox[]>([]);
 	messages = $state<MessageSummary[]>([]);
 	view = $state<MessageQuery>({ inboxes: true });
+	/** The tab of an inbox: everything but newsletters, or only them. */
+	tab = $state<InboxTab>('primary');
 	selectedId = $state<number | null>(null);
 	/** The open conversation, oldest first. */
 	thread = $state<MessageSummary[]>([]);
@@ -40,6 +43,29 @@ class Mail {
 		return isSearching(this.searchQuery);
 	}
 
+	/** The inboxes listed: all, or the one open; none for other folders. */
+	get listedInboxes() {
+		const view = this.view;
+		return this.mailboxes.filter(
+			(m) => m.role === 'inbox' && (!('mailboxId' in view) || m.id === view.mailboxId)
+		);
+	}
+
+	/** Whether the list has tabs: in an inbox, while not searching. */
+	get tabbed() {
+		return !this.searching && this.listedInboxes.length > 0;
+	}
+
+	/** Unread messages per tab of the listed inboxes. */
+	get tabUnread(): Record<InboxTab, number> {
+		const inboxes = this.listedInboxes;
+		const newsletters = inboxes.reduce((sum, m) => sum + m.unreadNewsletters, 0);
+		return {
+			primary: inboxes.reduce((sum, m) => sum + m.unread, 0) - newsletters,
+			newsletters
+		};
+	}
+
 	unreadInboxes = $derived(
 		this.mailboxes.filter((m) => m.role === 'inbox').reduce((sum, m) => sum + m.unread, 0)
 	);
@@ -51,7 +77,7 @@ class Mail {
 		const selected = this.selectedId;
 		const [mailboxes, messages, thread] = await Promise.all([
 			api.mail.mailboxes(),
-			isSearching(search) ? api.mail.search(search) : api.mail.messages($state.snapshot(this.view)),
+			isSearching(search) ? api.mail.search(search) : api.mail.messages(this.listQuery()),
 			// The open conversation may have new replies or fetched contents.
 			selected === null ? undefined : api.mail.thread(selected)
 		]);
@@ -67,6 +93,22 @@ class Mail {
 		) {
 			this.thread = thread;
 		}
+	}
+
+	/** The folder as listed: inboxes by tab. */
+	private listQuery(): MessageQuery {
+		const view = $state.snapshot(this.view);
+		const inbox =
+			'inboxes' in view ||
+			this.mailboxes.some((m) => m.id === view.mailboxId && m.role === 'inbox');
+		return inbox ? { ...view, tab: this.tab } : view;
+	}
+
+	async showTab(tab: InboxTab) {
+		this.tab = tab;
+		this.selectedId = null;
+		this.thread = [];
+		await this.load();
 	}
 
 	async search(query: string) {
@@ -95,6 +137,7 @@ class Mail {
 		this.query = '';
 		this.filters = { ...noFilters };
 		this.view = view;
+		this.tab = 'primary';
 		this.selectedId = null;
 		this.thread = [];
 		await this.load();

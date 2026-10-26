@@ -32,12 +32,15 @@
 		width,
 		onaddaccount,
 		onaddcalendar,
-		onsettings
+		onsettings,
+		ontidy
 	}: {
 		width?: number;
 		onaddaccount: () => void;
 		onaddcalendar: () => void;
 		onsettings: () => void;
+		/** Opens tidying up an account's newsletters. */
+		ontidy?: (accountId: number) => void;
 	} = $props();
 
 	let info = $state<AppInfo>();
@@ -166,6 +169,11 @@
 							<DropdownMenu.Item onclick={() => velo()?.mail.sync(account.id)}>
 								{m.sidebar_sync_now()}
 							</DropdownMenu.Item>
+							{#if ontidy}
+								<DropdownMenu.Item onclick={() => ontidy(account.id)}>
+									{m.tidy_open()}
+								</DropdownMenu.Item>
+							{/if}
 							<DropdownMenu.Item variant="destructive" onclick={() => accounts.remove(account.id)}>
 								{m.account_remove()}
 							</DropdownMenu.Item>

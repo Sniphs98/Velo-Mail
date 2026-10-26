@@ -115,6 +115,8 @@ export interface Mailbox {
 	name: string;
 	role: MailboxRole | null;
 	unread: number;
+	/** Of those, newsletters; for the inbox's tabs. */
+	unreadNewsletters: number;
 }
 
 export interface MessageSummary {
@@ -332,8 +334,35 @@ export interface SearchQuery extends SearchFilters {
 	text: string;
 }
 
-/** Which messages to list: one mailbox, or the inboxes of all accounts. */
-export type MessageQuery = { mailboxId: number } | { inboxes: true };
+/** The tabs of an inbox, as in Gmail: everything but newsletters, or only them. */
+export type InboxTab = 'primary' | 'newsletters';
+
+/** Which messages to list: one mailbox, or the inboxes of all accounts; all or one tab. */
+export type MessageQuery = ({ mailboxId: number } | { inboxes: true }) & { tab?: InboxTab };
+
+/** What a sender's mail is, whatever its headers say. */
+export type SenderRule = 'newsletter' | 'primary';
+
+/** A sender of newsletters, for tidying up: how much they sent and how to get rid of it. */
+export interface NewsletterSender {
+	address: string;
+	name: string | null;
+	/** Messages in the inboxes and archives. */
+	count: number;
+	unread: number;
+	/** The newest message, in milliseconds, its id and account (to unsubscribe with). */
+	latest: number;
+	messageId: number;
+	accountId: number;
+	unsubscribe: string | null;
+	rule: SenderRule | null;
+}
+
+/**
+ * Unsubscribing: done right away (one-click, RFC 8058), or the link to open
+ * or the address to write to; null if the sender gave none.
+ */
+export type UnsubscribeResult = { done: true } | { done: false; url: string | null };
 
 export interface SyncStatus {
 	accountId: number;
@@ -398,6 +427,17 @@ export interface VeloApi {
 		setSeen(messageId: number, seen: boolean): Promise<void>;
 		/** The conversation of a message, oldest first, across the account's folders. */
 		thread(messageId: number): Promise<MessageSummary[]>;
+		/** Files a sender's mail always as newsletter, never, or (null) by its headers. */
+		setSenderRule(address: string, rule: SenderRule | null): Promise<void>;
+		/** Newsletter senders in these accounts (all if empty), most mail first. */
+		newsletterSenders(accountIds: number[]): Promise<NewsletterSender[]>;
+		/**
+		 * Archives a sender's mail in the inboxes, or moves it from the inboxes
+		 * and archives to the trash; returns how many messages.
+		 */
+		moveFromSender(address: string, accountIds: number[], to: 'archive' | 'trash'): Promise<number>;
+		/** Unsubscribes from the newsletter a message came with, at once if it can. */
+		unsubscribe(messageId: number): Promise<UnsubscribeResult>;
 		/** Loads remote images of this sender without asking from now on. */
 		trustSender(address: string): Promise<void>;
 		/** The content, downloaded on first use. */
@@ -500,6 +540,10 @@ export const IPC = {
 	mailSearch: 'mail:search',
 	mailSearchServer: 'mail:search-server',
 	mailTrustSender: 'mail:trust-sender',
+	mailSetSenderRule: 'mail:set-sender-rule',
+	mailNewsletterSenders: 'mail:newsletter-senders',
+	mailMoveFromSender: 'mail:move-from-sender',
+	mailUnsubscribe: 'mail:unsubscribe',
 	mailAvatar: 'mail:avatar',
 	mailSuggestAddresses: 'mail:suggest-addresses',
 	mailOpenAttachment: 'mail:open-attachment',

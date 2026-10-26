@@ -83,30 +83,61 @@ describe('ReadingPane', () => {
 		expect(onmove.mock.calls).toEqual([['archive'], ['trash']]);
 	});
 
-	it('offers to unsubscribe from a newsletter', async () => {
-		fakeVelo();
-		const link = 'https://shop.de/abmelden?id=1';
-		render(ReadingPane, {
-			thread: [{ ...message(1, 'Shop', 'Angebote'), newsletter: true, unsubscribe: link }],
-			onreply: () => {},
-			onmove: () => {}
-		});
-		await expect
-			.element(page.getByRole('link', { name: 'Abbestellen' }))
-			.toHaveAttribute('href', link);
-	});
-
-	it('writes the unsubscribe mail when the newsletter gives only an address', async () => {
-		fakeVelo();
-		const unsubscribe = 'mailto:weg@shop.de?subject=abmelden';
+	it('unsubscribes from a newsletter at once where it can', async () => {
+		const api = fakeVelo({ mail: { unsubscribe: vi.fn(async () => ({ done: true as const })) } });
+		const unsubscribe = 'https://shop.de/abmelden?id=1';
 		render(ReadingPane, {
 			thread: [{ ...message(1, 'Shop', 'Angebote'), newsletter: true, unsubscribe }],
 			onreply: () => {},
 			onmove: () => {}
 		});
 		await page.getByRole('button', { name: 'Abbestellen' }).click();
-		expect(compose.open).toBe(true);
+		await expect.element(page.getByRole('status')).toHaveTextContent('Abgemeldet.');
+		expect(api.mail.unsubscribe).toHaveBeenCalledWith(1);
+		await expect.element(page.getByRole('button', { name: 'Abbestellen' })).toBeDisabled();
+	});
+
+	it('opens the unsubscribe page, or writes the unsubscribe mail', async () => {
+		const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+		const unsubscribe = vi.fn(async () => ({
+			done: false as const,
+			url: 'https://shop.de/abmelden' as string | null
+		}));
+		fakeVelo({ mail: { unsubscribe } });
+		render(ReadingPane, {
+			thread: [
+				{ ...message(1, 'Shop', 'Angebote'), newsletter: true, unsubscribe: 'https://shop.de' }
+			],
+			onreply: () => {},
+			onmove: () => {}
+		});
+		await page.getByRole('button', { name: 'Abbestellen' }).click();
+		await vi.waitFor(() =>
+			expect(open).toHaveBeenCalledWith('https://shop.de/abmelden', '_blank', 'noreferrer')
+		);
+
+		unsubscribe.mockResolvedValue({ done: false, url: 'mailto:weg@shop.de?subject=abmelden' });
+		await page.getByRole('button', { name: 'Abbestellen' }).click();
+		await vi.waitFor(() => expect(compose.open).toBe(true));
 		expect(compose.draft).toMatchObject({ accountId: 1, to: 'weg@shop.de', subject: 'abmelden' });
 		compose.open = false;
+		open.mockRestore();
+	});
+
+	it("files the sender's mail as newsletter, or never as one", async () => {
+		const api = fakeVelo();
+		const { rerender } = render(ReadingPane, {
+			thread: [message(1, 'Anna', 'Hallo')],
+			onreply: () => {},
+			onmove: () => {}
+		});
+		await page.getByRole('button', { name: 'Mehr' }).click();
+		await page.getByRole('menuitem', { name: 'Absender immer als Newsletter einordnen' }).click();
+		expect(api.mail.setSenderRule).toHaveBeenCalledWith('anna@beispiel.de', 'newsletter');
+
+		await rerender({ thread: [{ ...message(1, 'Anna', 'Hallo'), newsletter: true }] });
+		await page.getByRole('button', { name: 'Mehr' }).click();
+		await page.getByRole('menuitem', { name: 'Absender nie als Newsletter einordnen' }).click();
+		expect(api.mail.setSenderRule).toHaveBeenLastCalledWith('anna@beispiel.de', 'primary');
 	});
 });
