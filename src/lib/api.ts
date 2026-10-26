@@ -429,6 +429,8 @@ export interface VeloApi {
 		thread(messageId: number): Promise<MessageSummary[]>;
 		/** Files a sender's mail always as newsletter, never, or (null) by its headers. */
 		setSenderRule(address: string, rule: SenderRule | null): Promise<void>;
+		/** All sender rules, by address. */
+		senderRules(): Promise<{ address: string; rule: SenderRule }[]>;
 		/** Newsletter senders in these accounts (all if empty), most mail first. */
 		newsletterSenders(accountIds: number[]): Promise<NewsletterSender[]>;
 		/**
@@ -440,6 +442,10 @@ export interface VeloApi {
 		unsubscribe(messageId: number): Promise<UnsubscribeResult>;
 		/** Loads remote images of this sender without asking from now on. */
 		trustSender(address: string): Promise<void>;
+		/** Senders whose remote images load without asking. */
+		trustedSenders(): Promise<string[]>;
+		/** Asks again before loading this sender's remote images. */
+		untrustSender(address: string): Promise<void>;
 		/** The content, downloaded on first use. */
 		body(messageId: number): Promise<MessageBody>;
 		/** Opens an attachment with the system's app; false if that is not allowed for its type. */
@@ -540,6 +546,9 @@ export const IPC = {
 	mailSearch: 'mail:search',
 	mailSearchServer: 'mail:search-server',
 	mailTrustSender: 'mail:trust-sender',
+	mailTrustedSenders: 'mail:trusted-senders',
+	mailUntrustSender: 'mail:untrust-sender',
+	mailSenderRules: 'mail:sender-rules',
 	mailSetSenderRule: 'mail:set-sender-rule',
 	mailNewsletterSenders: 'mail:newsletter-senders',
 	mailMoveFromSender: 'mail:move-from-sender',

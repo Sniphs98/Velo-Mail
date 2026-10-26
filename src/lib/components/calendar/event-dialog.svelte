@@ -64,6 +64,7 @@
 	let busy = $state(false);
 	/** For an occurrence of a series: change only it, or the whole series. */
 	let scope = $state<'only' | 'all'>('only');
+	const chosenCalendar = $derived(calendars.find((c) => c.id === form.calendarId));
 	const occurrence = $derived(
 		draft.id !== undefined && draft.recurring && draft.recurrenceId !== null
 	);
@@ -160,7 +161,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+	<Dialog.Content size="md">
 		<Dialog.Header>
 			<Dialog.Title class="font-heading">
 				{draft.id === undefined ? m.event_new() : m.event_edit()}
@@ -173,88 +174,116 @@
 			{/if}
 		</Dialog.Header>
 		<form
-			class="flex flex-col gap-3"
+			class="flex min-h-0 flex-1 flex-col gap-4"
 			onsubmit={(event) => {
 				event.preventDefault();
 				save();
 			}}
 		>
-			{#if occurrence}
-				<div
-					role="radiogroup"
-					aria-label={m.event_scope()}
-					class="grid grid-cols-2 rounded-lg bg-muted p-0.5"
-				>
-					{#each [{ value: 'only', label: m.event_scope_only() }, { value: 'all', label: m.event_scope_all() }] as const as choice (choice.value)}
-						<button
-							type="button"
-							role="radio"
-							aria-checked={scope === choice.value}
-							class="rounded-md px-2.5 py-1 text-xs text-muted-foreground aria-checked:bg-card aria-checked:font-medium aria-checked:text-foreground aria-checked:shadow-sm"
-							onclick={() => (scope = choice.value)}
-						>
-							{choice.label}
-						</button>
-					{/each}
+			<div
+				class="-mx-4 grid min-h-0 flex-1 gap-x-6 gap-y-4 overflow-y-auto px-4 sm:grid-cols-[1fr_15rem]"
+			>
+				<div class="flex flex-col gap-3">
+					<Field.Field>
+						<Field.Label for="event-summary">{m.event_title()}</Field.Label>
+						<Input
+							id="event-summary"
+							class="h-10 text-base font-medium"
+							bind:value={form.summary}
+							placeholder={m.untitled()}
+						/>
+					</Field.Field>
+					<div class="grid grid-cols-2 gap-x-3 gap-y-2" class:sm:grid-cols-4={!form.allDay}>
+						<Field.Field>
+							<Field.Label for="event-start-date">{m.event_start()}</Field.Label>
+							<Input id="event-start-date" type="date" bind:value={form.startDate} required />
+						</Field.Field>
+						{#if !form.allDay}
+							<Field.Field>
+								<Field.Label for="event-start-time">{m.event_time()}</Field.Label>
+								<Input id="event-start-time" type="time" bind:value={form.startTime} required />
+							</Field.Field>
+						{/if}
+						<Field.Field>
+							<Field.Label for="event-end-date">{m.event_end()}</Field.Label>
+							<Input id="event-end-date" type="date" bind:value={form.endDate} required />
+						</Field.Field>
+						{#if !form.allDay}
+							<Field.Field>
+								<Field.Label for="event-end-time">{m.event_time()}</Field.Label>
+								<Input id="event-end-time" type="time" bind:value={form.endTime} required />
+							</Field.Field>
+						{/if}
+					</div>
+					<Field.Field orientation="horizontal" class="w-fit">
+						<Switch id="event-all-day" bind:checked={form.allDay} />
+						<Field.Label for="event-all-day">{m.event_all_day_label()}</Field.Label>
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="event-location">{m.event_location()}</Field.Label>
+						<Input id="event-location" bind:value={form.location} />
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="event-description">{m.event_description()}</Field.Label>
+						<Textarea id="event-description" rows={6} bind:value={form.description} />
+					</Field.Field>
 				</div>
-			{/if}
-			<Field.Field>
-				<Field.Label for="event-summary">{m.event_title()}</Field.Label>
-				<Input id="event-summary" bind:value={form.summary} placeholder={m.untitled()} />
-			</Field.Field>
-			<Field.Field orientation="horizontal">
-				<Field.Label for="event-all-day">{m.event_all_day_label()}</Field.Label>
-				<Switch id="event-all-day" bind:checked={form.allDay} />
-			</Field.Field>
-			<div class="grid grid-cols-2 gap-2">
-				<Field.Field>
-					<Field.Label for="event-start-date">{m.event_start()}</Field.Label>
-					<Input id="event-start-date" type="date" bind:value={form.startDate} required />
-				</Field.Field>
-				{#if !form.allDay}
+
+				<div class="flex flex-col gap-3 sm:border-l sm:pl-6">
+					{#if draft.id === undefined && calendars.length > 1}
+						<Field.Field>
+							<Field.Label for="event-calendar">{m.calendar()}</Field.Label>
+							<NativeSelect.Root id="event-calendar" class="w-full" bind:value={form.calendarId}>
+								{#each calendars as calendar (calendar.id)}
+									<NativeSelect.Option value={calendar.id}>{calendar.name}</NativeSelect.Option>
+								{/each}
+							</NativeSelect.Root>
+						</Field.Field>
+					{:else if chosenCalendar}
+						<div class="flex flex-col gap-2">
+							<span class="text-sm font-medium">{m.calendar()}</span>
+							<span class="flex items-center gap-2 text-sm">
+								<span class="size-2.5 shrink-0 rounded-full" style:background={chosenCalendar.color}
+								></span>
+								<span class="truncate">{chosenCalendar.name}</span>
+							</span>
+						</div>
+					{/if}
 					<Field.Field>
-						<Field.Label for="event-start-time">{m.event_time()}</Field.Label>
-						<Input id="event-start-time" type="time" bind:value={form.startTime} required />
+						<Field.Label for="event-reminder">{m.event_reminder()}</Field.Label>
+						<NativeSelect.Root id="event-reminder" class="w-full" bind:value={form.reminder}>
+							<NativeSelect.Option value="">{m.reminder_none()}</NativeSelect.Option>
+							{#each choices as choice (choice.minutes)}
+								<NativeSelect.Option value={String(choice.minutes)}
+									>{choice.label}</NativeSelect.Option
+								>
+							{/each}
+						</NativeSelect.Root>
 					</Field.Field>
-				{/if}
-				<Field.Field>
-					<Field.Label for="event-end-date">{m.event_end()}</Field.Label>
-					<Input id="event-end-date" type="date" bind:value={form.endDate} required />
-				</Field.Field>
-				{#if !form.allDay}
-					<Field.Field>
-						<Field.Label for="event-end-time">{m.event_time()}</Field.Label>
-						<Input id="event-end-time" type="time" bind:value={form.endTime} required />
-					</Field.Field>
-				{/if}
+					{#if occurrence}
+						<div class="flex flex-col gap-2">
+							<span id="event-scope" class="text-sm font-medium">{m.event_scope()}</span>
+							<div
+								role="radiogroup"
+								aria-labelledby="event-scope"
+								class="grid grid-cols-1 gap-0.5 rounded-lg bg-muted p-0.5"
+							>
+								{#each [{ value: 'only', label: m.event_scope_only() }, { value: 'all', label: m.event_scope_all() }] as const as choice (choice.value)}
+									<button
+										type="button"
+										role="radio"
+										aria-checked={scope === choice.value}
+										class="rounded-md px-2.5 py-1.5 text-left text-xs text-muted-foreground aria-checked:bg-card aria-checked:font-medium aria-checked:text-foreground aria-checked:shadow-sm"
+										onclick={() => (scope = choice.value)}
+									>
+										{choice.label}
+									</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</div>
 			</div>
-			<Field.Field>
-				<Field.Label for="event-reminder">{m.event_reminder()}</Field.Label>
-				<NativeSelect.Root id="event-reminder" class="w-full" bind:value={form.reminder}>
-					<NativeSelect.Option value="">{m.reminder_none()}</NativeSelect.Option>
-					{#each choices as choice (choice.minutes)}
-						<NativeSelect.Option value={String(choice.minutes)}>{choice.label}</NativeSelect.Option>
-					{/each}
-				</NativeSelect.Root>
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="event-location">{m.event_location()}</Field.Label>
-				<Input id="event-location" bind:value={form.location} />
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="event-description">{m.event_description()}</Field.Label>
-				<Textarea id="event-description" rows={3} bind:value={form.description} />
-			</Field.Field>
-			{#if draft.id === undefined && calendars.length > 1}
-				<Field.Field>
-					<Field.Label for="event-calendar">{m.calendar()}</Field.Label>
-					<NativeSelect.Root id="event-calendar" class="w-full" bind:value={form.calendarId}>
-						{#each calendars as calendar (calendar.id)}
-							<NativeSelect.Option value={calendar.id}>{calendar.name}</NativeSelect.Option>
-						{/each}
-					</NativeSelect.Root>
-				</Field.Field>
-			{/if}
 			{#if error}
 				<p role="alert" class="text-sm text-destructive">{error}</p>
 			{/if}

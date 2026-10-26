@@ -15,9 +15,12 @@ import {
 	newestUid,
 	newsletterSenders,
 	searchMessages,
+	listSenderRules,
+	listTrustedSenders,
 	setSenderRule,
 	suggestAddresses,
 	trustSender,
+	untrustSender,
 	unreadInInboxes,
 	unseenAbove
 } from './queries';
@@ -184,6 +187,11 @@ describe('newsletters', () => {
 		expect((await unseenAbove(db, inbox, 0)).map((m) => [m.fromAddress, m.newsletter])).toEqual([
 			['info@verein.de', true],
 			['rechnung@shop.de', false]
+		]);
+
+		expect(await listSenderRules(db)).toEqual([
+			{ address: 'info@verein.de', rule: 'newsletter' },
+			{ address: 'rechnung@shop.de', rule: 'primary' }
 		]);
 
 		// Back to the headers.
@@ -413,6 +421,11 @@ describe('trusted senders', () => {
 		await trustSender(db, 'Anna@Firma.de');
 		await trustSender(db, 'anna@firma.de');
 		expect(await findBody(db, id)).toMatchObject({ trusted: true });
+		expect(await listTrustedSenders(db)).toEqual(['anna@firma.de']);
+
+		await untrustSender(db, 'Anna@Firma.de');
+		expect(await listTrustedSenders(db)).toEqual([]);
+		expect(await findBody(db, id)).toMatchObject({ trusted: false });
 	});
 });
 

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { AccountChanges, Settings, VeloApi } from '#lib/api.ts';
+import type { AccountChanges, SenderRule, Settings, VeloApi } from '#lib/api.ts';
 
 /** A window.velo for component tests; override what a test needs. */
 export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]> } = {}): VeloApi {
@@ -123,7 +123,10 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			search: vi.fn(async () => []),
 			searchServer: vi.fn(async () => 0),
 			trustSender: vi.fn(async () => {}),
+			trustedSenders: vi.fn(async (): Promise<string[]> => []),
+			untrustSender: vi.fn(async () => {}),
 			setSenderRule: vi.fn(async () => {}),
+			senderRules: vi.fn(async (): Promise<{ address: string; rule: SenderRule }[]> => []),
 			newsletterSenders: vi.fn(async () => []),
 			moveFromSender: vi.fn(async () => 0),
 			unsubscribe: vi.fn(async () => ({ done: false as const, url: null })),

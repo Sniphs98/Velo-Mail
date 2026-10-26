@@ -38,9 +38,12 @@ import {
 	messagesFromSender,
 	newsletterSenders,
 	searchMessages,
+	listSenderRules,
+	listTrustedSenders,
 	setSenderRule,
 	suggestAddresses,
 	trustSender,
+	untrustSender,
 	unreadInInboxes
 } from './mail/queries';
 import { oneClickPost, unsubscribe } from './mail/unsubscribe';
@@ -341,6 +344,7 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 		);
 		changed();
 	});
+	handle(IPC.mailSenderRules, () => listSenderRules(db));
 	handle(IPC.mailNewsletterSenders, (_event, accountIds: unknown) =>
 		newsletterSenders(db, accountIdsSchema.parse(accountIds))
 	);
@@ -363,6 +367,10 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	);
 	handle(IPC.mailTrustSender, (_event, address: unknown) =>
 		trustSender(db, z.email().parse(address))
+	);
+	handle(IPC.mailTrustedSenders, () => listTrustedSenders(db));
+	handle(IPC.mailUntrustSender, (_event, address: unknown) =>
+		untrustSender(db, senderSchema.parse(address))
 	);
 	handle(IPC.mailSuggestAddresses, async (_event, text: unknown) =>
 		suggestAddresses(

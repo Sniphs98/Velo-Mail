@@ -8,7 +8,7 @@
 	import Composer from '#lib/components/composer.svelte';
 	import MessageList from '#lib/components/message-list.svelte';
 	import ReadingPane from '#lib/components/reading-pane.svelte';
-	import SettingsDialog from '#lib/components/settings-dialog.svelte';
+	import SettingsDialog from '#lib/components/settings/settings-dialog.svelte';
 	import TidyDialog from '#lib/components/tidy-dialog.svelte';
 	import ResizeHandle from '#lib/components/resize-handle.svelte';
 	import Sidebar from '#lib/components/sidebar.svelte';
@@ -20,18 +20,8 @@
 	import { velo } from '#lib/api.ts';
 	import { settings } from '#lib/settings.svelte.ts';
 	import { update } from '#lib/update.svelte.ts';
+	import { dialogs } from '#lib/dialogs.svelte.ts';
 
-	let addingAccount = $state(false);
-	let showSettings = $state(false);
-	let addingCalendar = $state(false);
-	/** Tidying up newsletters, in these accounts (empty: all). */
-	let tidying = $state(false);
-	let tidyAccounts = $state<number[]>([]);
-
-	function tidy(accountIds: number[]) {
-		tidyAccounts = accountIds;
-		tidying = true;
-	}
 	let calendarView = $state<ReturnType<typeof CalendarView>>();
 
 	$effect(() => calendar.connect());
@@ -183,15 +173,15 @@
 	<div class="flex min-h-0 flex-1 px-2 pb-2">
 		<Sidebar
 			width={layout.sidebar}
-			onaddaccount={() => (addingAccount = true)}
-			onaddcalendar={() => (addingCalendar = true)}
-			onsettings={() => (showSettings = true)}
-			ontidy={(accountId) => tidy([accountId])}
+			onaddaccount={() => (dialogs.addAccount = true)}
+			onaddcalendar={() => (dialogs.addCalendar = true)}
+			onsettings={() => dialogs.showSettings()}
+			ontidy={(accountId) => dialogs.showTidy([accountId])}
 		/>
 		<ResizeHandle bind:value={layout.sidebar} {...sidebarWidth} label={m.sidebar_width()} />
 
 		{#if mode.current === 'calendar'}
-			<CalendarView bind:this={calendarView} onaddcalendar={() => (addingCalendar = true)} />
+			<CalendarView bind:this={calendarView} onaddcalendar={() => (dialogs.addCalendar = true)} />
 		{:else}
 			<MessageList
 				width={layout.list}
@@ -211,7 +201,7 @@
 				tab={mail.tabbed ? mail.tab : undefined}
 				tabUnread={mail.tabUnread}
 				ontab={(tab) => mail.showTab(tab)}
-				ontidy={() => tidy(mailbox ? [mailbox.accountId] : [])}
+				ontidy={() => dialogs.showTidy(mailbox ? [mailbox.accountId] : [])}
 			/>
 			<ResizeHandle bind:value={layout.list} {...listWidth} label={m.list_width()} />
 
@@ -240,7 +230,9 @@
 						<p class="max-w-sm text-sm text-muted-foreground">
 							{m.welcome_text()}
 						</p>
-						<Button class="mt-2" onclick={() => (addingAccount = true)}>{m.account_add()}</Button>
+						<Button class="mt-2" onclick={() => (dialogs.addAccount = true)}
+							>{m.account_add()}</Button
+						>
 					{:else}
 						<p class="text-sm text-muted-foreground">{m.no_message_selected()}</p>
 					{/if}
@@ -250,7 +242,7 @@
 	</div>
 </div>
 
-<AddAccountDialog bind:open={addingAccount} />
-<SettingsDialog bind:open={showSettings} />
-<AddCalendarDialog bind:open={addingCalendar} />
-<TidyDialog bind:open={tidying} accountIds={tidyAccounts} />
+<SettingsDialog />
+<AddAccountDialog bind:open={dialogs.addAccount} />
+<AddCalendarDialog bind:open={dialogs.addCalendar} />
+<TidyDialog bind:open={dialogs.tidy} accountIds={dialogs.tidyAccounts} />

@@ -256,6 +256,7 @@ test('README screenshots', async () => {
 
 	await page.getByRole('tab', { name: 'Mail' }).click();
 	await page.getByRole('button', { name: 'Settings' }).click();
+	await page.getByRole('dialog').getByRole('button', { name: 'Appearance' }).click();
 	await page.getByRole('radio', { name: 'Dark' }).click();
 	await page.keyboard.press('Escape');
 	await page.getByText('Photos from the weekend').click();

@@ -50,7 +50,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-md">
+	<Dialog.Content size="md">
 		<Dialog.Header>
 			<Dialog.Title class="font-heading">{m.calendar_add()}</Dialog.Title>
 			<Dialog.Description>
@@ -58,38 +58,50 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<form
-			class="flex flex-col gap-3"
+			class="flex min-h-0 flex-1 flex-col gap-4"
 			onsubmit={(event) => {
 				event.preventDefault();
 				add();
 			}}
 		>
-			<Field.Field>
-				<Field.Label for="calendar-username">{m.calendar_username()}</Field.Label>
-				<Input id="calendar-username" bind:value={username} autocomplete="username" required />
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="calendar-password">{m.account_password()}</Field.Label>
-				<Input
-					id="calendar-password"
-					type="password"
-					bind:value={password}
-					autocomplete="current-password"
-					required
-				/>
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="calendar-server">{m.calendar_server()}</Field.Label>
-				<Input
-					id="calendar-server"
-					bind:value={serverUrl}
-					placeholder={m.calendar_server_placeholder()}
-				/>
-			</Field.Field>
-			<Field.Field>
-				<Field.Label for="calendar-name">{m.calendar_name()}</Field.Label>
-				<Input id="calendar-name" bind:value={name} placeholder={m.calendar_name_placeholder()} />
-			</Field.Field>
+			<div class="-mx-4 grid min-h-0 flex-1 gap-6 overflow-y-auto px-4 sm:grid-cols-2">
+				<div class="flex flex-col gap-3">
+					<Field.Field>
+						<Field.Label for="calendar-username">{m.calendar_username()}</Field.Label>
+						<Input id="calendar-username" bind:value={username} autocomplete="username" required />
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="calendar-password">{m.account_password()}</Field.Label>
+						<Input
+							id="calendar-password"
+							type="password"
+							bind:value={password}
+							autocomplete="current-password"
+							required
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="calendar-server">{m.calendar_server()}</Field.Label>
+						<Input
+							id="calendar-server"
+							bind:value={serverUrl}
+							placeholder={m.calendar_server_placeholder()}
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="calendar-name">{m.calendar_name()}</Field.Label>
+						<Input
+							id="calendar-name"
+							bind:value={name}
+							placeholder={m.calendar_name_placeholder()}
+						/>
+					</Field.Field>
+				</div>
+				<aside class="flex flex-col gap-2 self-start rounded-xl bg-muted/50 p-4 text-sm">
+					<h3 class="font-medium">{m.account_tip()}</h3>
+					<p class="text-muted-foreground">{m.calendar_help()}</p>
+				</aside>
+			</div>
 			{#if error}
 				<p role="alert" class="text-sm text-destructive">{error}</p>
 			{/if}

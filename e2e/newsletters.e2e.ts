@@ -25,8 +25,8 @@ test('keeps newsletters in their own tab and tidies them up by sender', async ()
 	await expect(list.getByRole('button', { name: /Anna Becker/ })).toBeHidden();
 
 	await list.getByRole('button', { name: 'Newsletter aufräumen' }).click();
-	const shop = page.getByRole('dialog').getByRole('listitem', { name: 'Shop' });
-	await expect(shop).toContainText('2 Mails, 2 ungelesen');
+	const shop = page.getByRole('dialog').getByRole('row', { name: 'Shop' });
+	await expect(shop.getByRole('cell')).toContainText(['', /Shop/, '2', '2']);
 	await shop.getByRole('button', { name: 'Alle aus dem Posteingang archivieren' }).click();
 	await expect(shop.getByRole('status')).toHaveText('2 archiviert');
 	await page.keyboard.press('Escape');
