@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
-	import { Archive, Forward, Reply, ReplyAll, Trash2 } from '@lucide/svelte';
+	import { Archive, Forward, MailMinus, Reply, ReplyAll, Trash2 } from '@lucide/svelte';
 	import type { Account, MessageSummary } from '#lib/api.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
+	import { compose } from '#lib/compose.svelte.ts';
 	import { fullDate, listDate } from '#lib/format.ts';
 	import InvitationCard from './invitation-card.svelte';
 	import MailBody from './mail-body.svelte';
@@ -117,6 +118,34 @@
 						</span>
 					</span>
 				</button>
+				{#if message.unsubscribe}
+					{@const link = message.unsubscribe}
+					<div class="-mt-1 flex">
+						{#if link.toLowerCase().startsWith('mailto:')}
+							<Button
+								variant="outline"
+								size="xs"
+								title={m.reading_unsubscribe_hint()}
+								onclick={() => compose.startMailto(message.accountId, link)}
+							>
+								<MailMinus />
+								{m.reading_unsubscribe()}
+							</Button>
+						{:else}
+							<Button
+								variant="outline"
+								size="xs"
+								href={link}
+								target="_blank"
+								rel="noreferrer"
+								title={m.reading_unsubscribe_hint()}
+							>
+								<MailMinus />
+								{m.reading_unsubscribe()}
+							</Button>
+						{/if}
+					</div>
+				{/if}
 				<InvitationCard messageId={message.id} />
 				<MailBody messageId={message.id} sender={message.fromAddress} />
 			</article>

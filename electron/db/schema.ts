@@ -37,6 +37,10 @@ export const accounts = sqliteTable('accounts', {
 	secret: blob({ mode: 'buffer' }),
 	/** Added below new messages and replies, after "-- ". */
 	signature: text().notNull().default(''),
+	/** Which new mail gets a notification: all, all but newsletters, or none. */
+	notify: text({ enum: ['all', 'important', 'none'] })
+		.notNull()
+		.default('all'),
 	createdAt: createdAt()
 });
 
@@ -89,7 +93,14 @@ export const messages = sqliteTable(
 		flagged: integer({ mode: 'boolean' }).notNull().default(false),
 		answered: integer({ mode: 'boolean' }).notNull().default(false),
 		draft: integer({ mode: 'boolean' }).notNull().default(false),
-		hasAttachments: integer({ mode: 'boolean' }).notNull().default(false)
+		hasAttachments: integer({ mode: 'boolean' }).notNull().default(false),
+		/**
+		 * Sent in bulk (List-Unsubscribe, List-Id or Precedence: bulk headers);
+		 * null until those headers were looked at (messages cached before).
+		 */
+		newsletter: integer({ mode: 'boolean' }),
+		/** Where to unsubscribe: an https: or mailto: URL from List-Unsubscribe. */
+		unsubscribe: text()
 	},
 	(t) => [
 		uniqueIndex('messages_mailbox_uid').on(t.mailboxId, t.uid),

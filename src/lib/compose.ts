@@ -92,3 +92,35 @@ export function replyDraft(
 		references: source.messageId ? [...source.references, source.messageId] : source.references
 	};
 }
+
+/** Address, subject and text of a mailto: link (RFC 6068). */
+export function parseMailto(url: string): Pick<Draft, 'to' | 'subject' | 'html'> {
+	const decode = (value: string) => {
+		try {
+			return decodeURIComponent(value);
+		} catch {
+			return value;
+		}
+	};
+	const link = url.replace(/^mailto:/i, '');
+	const mark = link.indexOf('?');
+	const target = mark === -1 ? link : link.slice(0, mark);
+	const query = mark === -1 ? '' : link.slice(mark + 1);
+	// Not URLSearchParams: in mailto: links "+" is a plus, not a space.
+	const params = new Map(
+		query
+			.split('&')
+			.filter(Boolean)
+			.map((pair) => {
+				const equals = pair.indexOf('=');
+				const key = equals === -1 ? pair : pair.slice(0, equals);
+				const value = equals === -1 ? '' : pair.slice(equals + 1);
+				return [key.toLowerCase(), decode(value)] as const;
+			})
+	);
+	return {
+		to: [decode(target), params.get('to') ?? ''].filter(Boolean).join(', '),
+		subject: params.get('subject') ?? '',
+		html: textToHtml(params.get('body') ?? '')
+	};
+}

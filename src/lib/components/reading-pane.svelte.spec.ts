@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { MessageSummary } from '#lib/api.ts';
+import { compose } from '#lib/compose.svelte.ts';
 import { fakeVelo } from '#lib/testing/fake-velo.ts';
 import ReadingPane from './reading-pane.svelte';
 
@@ -18,7 +19,9 @@ const message = (id: number, fromName: string, snippet: string): MessageSummary 
 	seen: true,
 	flagged: false,
 	hasAttachments: false,
-	threadSize: 3
+	threadSize: 3,
+	newsletter: false,
+	unsubscribe: null
 });
 
 describe('ReadingPane', () => {
@@ -78,5 +81,32 @@ describe('ReadingPane', () => {
 		await page.getByRole('button', { name: 'Löschen (Entf)' }).click();
 		expect(onreply.mock.calls).toEqual([['replyAll'], ['forward']]);
 		expect(onmove.mock.calls).toEqual([['archive'], ['trash']]);
+	});
+
+	it('offers to unsubscribe from a newsletter', async () => {
+		fakeVelo();
+		const link = 'https://shop.de/abmelden?id=1';
+		render(ReadingPane, {
+			thread: [{ ...message(1, 'Shop', 'Angebote'), newsletter: true, unsubscribe: link }],
+			onreply: () => {},
+			onmove: () => {}
+		});
+		await expect
+			.element(page.getByRole('link', { name: 'Abbestellen' }))
+			.toHaveAttribute('href', link);
+	});
+
+	it('writes the unsubscribe mail when the newsletter gives only an address', async () => {
+		fakeVelo();
+		const unsubscribe = 'mailto:weg@shop.de?subject=abmelden';
+		render(ReadingPane, {
+			thread: [{ ...message(1, 'Shop', 'Angebote'), newsletter: true, unsubscribe }],
+			onreply: () => {},
+			onmove: () => {}
+		});
+		await page.getByRole('button', { name: 'Abbestellen' }).click();
+		expect(compose.open).toBe(true);
+		expect(compose.draft).toMatchObject({ accountId: 1, to: 'weg@shop.de', subject: 'abmelden' });
+		compose.open = false;
 	});
 });

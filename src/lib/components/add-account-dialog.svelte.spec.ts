@@ -61,7 +61,8 @@ describe('AddAccountDialog', () => {
 				name: 'Persönlich',
 				email: 'du@beispiel.de',
 				color: '#2563eb',
-				signature: ''
+				signature: '',
+				notify: 'all' as const
 			}
 		});
 		await page.getByLabelText('Empfang (IMAP) Server').fill('mail.beispiel.de');

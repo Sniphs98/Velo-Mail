@@ -18,7 +18,7 @@ import {
 	unreadInInboxes,
 	unseenAbove
 } from './queries';
-import { parseReferences, threadKey, toRow } from './sync';
+import { newsletterInfo, parseReferences, threadKey, toRow } from './sync';
 
 let db: Database;
 
@@ -240,6 +240,14 @@ describe('searchMessages', () => {
 		expect(await subjects(words('', { since: Date.UTC(2026, 9, 15) }))).toEqual(['Planung Ende']);
 		expect(await subjects(words('', { attachments: true }))).toEqual(['Planung Ende']);
 		expect(await subjects(words('', { unread: true, accounts: [a] }))).toEqual(['Planung Ende']);
+		// Newsletters only, or none; not yet looked at counts as none.
+		await db.update(messages).set({ newsletter: true }).where(eq(messages.id, other));
+		await db.update(messages).set({ newsletter: null }).where(eq(messages.id, late));
+		expect(await subjects(words('', { newsletters: 'only' }))).toEqual(['Planung Mitte']);
+		expect(await subjects(words('planung', { newsletters: 'hide' }))).toEqual([
+			'Planung Ende',
+			'Planung Anfang'
+		]);
 		// Nothing to narrow by: nothing listed.
 		expect(await searchMessages(db, words('  '))).toEqual([]);
 	});
@@ -365,6 +373,28 @@ describe('threading', () => {
 		expect(parseReferences(headers)).toEqual(['<root@a.de>', '<reply1@b.de>', '<reply2@c.de>']);
 		expect(parseReferences(Buffer.from('X-Other: <x@y>\r\n'))).toEqual([]);
 		expect(parseReferences(undefined)).toEqual([]);
+	});
+
+	it('recognizes newsletters and where to unsubscribe', () => {
+		const info = (headers: string) => newsletterInfo(Buffer.from(headers + '\r\n\r\n'));
+		expect(
+			info('List-Unsubscribe: <mailto:weg@shop.de?subject=stop>,\r\n <https://shop.de/stop?id=1>')
+		).toEqual({ newsletter: true, unsubscribe: 'https://shop.de/stop?id=1' });
+		// No https: link, then the address; plain http: is not offered.
+		expect(info('List-Unsubscribe: <http://shop.de/stop>, <mailto:weg@shop.de>')).toEqual({
+			newsletter: true,
+			unsubscribe: 'mailto:weg@shop.de'
+		});
+		expect(info('List-Id: Vereinsnews <news.verein.de>')).toEqual({
+			newsletter: true,
+			unsubscribe: null
+		});
+		expect(info('Precedence: bulk')).toEqual({ newsletter: true, unsubscribe: null });
+		expect(info('Precedence: first-class\r\nReferences: <a@b>')).toEqual({
+			newsletter: false,
+			unsubscribe: null
+		});
+		expect(newsletterInfo(undefined)).toEqual({ newsletter: false, unsubscribe: null });
 	});
 
 	it('keys a conversation by its first message', () => {

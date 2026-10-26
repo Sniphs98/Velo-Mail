@@ -3,7 +3,7 @@
 // and messages deleted on the server. Bodies are fetched when a message is
 // opened (phase 5).
 import { m } from '../../src/lib/paraglide/messages.js';
-import { and, eq, inArray, max, min } from 'drizzle-orm';
+import { and, eq, inArray, isNull, max, min } from 'drizzle-orm';
 import type { FetchMessageObject, ImapFlow, ListResponse, SearchObject } from 'imapflow';
 import type { SearchQuery } from '../../src/lib/api';
 import type { Database } from '../db';
@@ -94,6 +94,7 @@ export async function syncMailbox(
 		if (opened.exists > 0) {
 			changes.added = await fetchNew(db, client, mailbox.id, opened.exists);
 			changes.updated = await refreshFlags(db, client, mailbox, uidValidity);
+			changes.updated += await checkNewsletters(db, client, mailbox.id);
 			changes.removed = await removeExpunged(db, client, mailbox.id);
 		} else {
 			changes.removed = (
@@ -116,6 +117,9 @@ export async function syncMailbox(
 	}
 }
 
+/** Headers that mass mailings carry (RFC 2369, RFC 2919, Precedence). */
+const newsletterHeaders = ['list-unsubscribe', 'list-id', 'precedence'];
+
 const fetchQuery = {
 	uid: true,
 	flags: true,
@@ -123,7 +127,7 @@ const fetchQuery = {
 	internalDate: true,
 	size: true,
 	bodyStructure: true,
-	headers: ['references']
+	headers: ['references', ...newsletterHeaders]
 };
 
 async function insertRows(db: Database, rows: (typeof messages.$inferInsert)[]) {
@@ -198,6 +202,46 @@ async function fetchNew(db: Database, client: ImapFlow, mailboxId: number, exist
 	}
 	await insertRows(db, rows);
 	return rows.length;
+}
+
+/**
+ * Looks at the headers of messages cached before newsletters were recognized,
+ * a batch per round so a big old folder does not hold up the sync.
+ */
+async function checkNewsletters(db: Database, client: ImapFlow, mailboxId: number, batch = 1000) {
+	const unchecked = await db
+		.select({ id: messages.id, uid: messages.uid })
+		.from(messages)
+		.where(and(eq(messages.mailboxId, mailboxId), isNull(messages.newsletter)))
+		.limit(batch);
+	if (unchecked.length === 0) return 0;
+	const byUid = new Map(unchecked.map((m) => [m.uid, m.id]));
+	const plain: number[] = [];
+	let found = 0;
+	for await (const message of client.fetch(
+		unchecked.map((m) => m.uid).join(','),
+		{ uid: true, headers: newsletterHeaders },
+		{ uid: true }
+	)) {
+		const id = byUid.get(message.uid);
+		if (id === undefined) continue;
+		byUid.delete(message.uid);
+		const info = newsletterInfo(message.headers);
+		if (!info.newsletter) plain.push(id);
+		else {
+			await db.update(messages).set(info).where(eq(messages.id, id));
+			found++;
+		}
+	}
+	// Gone from the server meanwhile: removeExpunged takes them out.
+	plain.push(...byUid.values());
+	for (let i = 0; i < plain.length; i += 500) {
+		await db
+			.update(messages)
+			.set({ newsletter: false })
+			.where(inArray(messages.id, plain.slice(i, i + 500)));
+	}
+	return found;
 }
 
 async function refreshFlags(
@@ -275,13 +319,35 @@ function hasAttachment(part: Part | undefined): boolean {
 	return (part.childNodes ?? []).some(hasAttachment);
 }
 
+/** A header field's value from fetched headers, unfolded; '' if missing. */
+function headerField(headers: Buffer | undefined, name: string): string {
+	if (!headers) return '';
+	const text = headers.toString('utf8').replace(/\r?\n[ \t]+/g, ' ');
+	return text.match(new RegExp(`^${name}:(.*)$`, 'im'))?.[1].trim() ?? '';
+}
+
 /** Message-IDs in a References header, oldest first. */
 export function parseReferences(headers: Buffer | undefined): string[] {
-	if (!headers) return [];
-	// Unfold continuation lines, then take the <id> tokens of the References field.
-	const text = headers.toString('utf8').replace(/\r?\n[ \t]+/g, ' ');
-	const field = text.match(/^references:(.*)$/im)?.[1] ?? '';
-	return field.match(/<[^<>\s]+>/g) ?? [];
+	return headerField(headers, 'references').match(/<[^<>\s]+>/g) ?? [];
+}
+
+/**
+ * Whether a message was sent in bulk, and where to unsubscribe: the https:
+ * link of List-Unsubscribe, else its mailto: address.
+ */
+export function newsletterInfo(headers: Buffer | undefined) {
+	const links = (headerField(headers, 'list-unsubscribe').match(/<[^<>]+>/g) ?? []).map((link) =>
+		link.slice(1, -1).trim()
+	);
+	const unsubscribe =
+		links.find((link) => /^https:\/\//i.test(link)) ??
+		links.find((link) => /^mailto:/i.test(link)) ??
+		null;
+	const newsletter =
+		links.length > 0 ||
+		headerField(headers, 'list-id') !== '' ||
+		/^(bulk|list|junk)$/i.test(headerField(headers, 'precedence'));
+	return { newsletter, unsubscribe };
 }
 
 /**
@@ -322,6 +388,7 @@ export function toRow(
 		date: date && !Number.isNaN(date.getTime()) ? date : (internal ?? new Date()),
 		size: message.size ?? null,
 		hasAttachments: hasAttachment(message.bodyStructure as Part | undefined),
+		...newsletterInfo(message.headers),
 		...toFlags(message.flags)
 	};
 }

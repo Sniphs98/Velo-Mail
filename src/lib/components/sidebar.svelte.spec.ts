@@ -6,7 +6,14 @@ import { sidebar } from '#lib/sidebar.svelte.ts';
 import { fakeVelo } from '#lib/testing/fake-velo.ts';
 import Sidebar from './sidebar.svelte';
 
-const account = { id: 7, name: 'Arbeit', email: 'du@firma.de', color: '#ea580c', signature: '' };
+const account = {
+	id: 7,
+	name: 'Arbeit',
+	email: 'du@firma.de',
+	color: '#ea580c',
+	signature: '',
+	notify: 'all' as const
+};
 
 describe('Sidebar', () => {
 	afterEach(() => {

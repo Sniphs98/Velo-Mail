@@ -49,6 +49,8 @@ export interface NewMail {
 	fromName: string | null;
 	fromAddress: string | null;
 	subject: string;
+	/** Sent in bulk; muted for accounts that notify only of important mail. */
+	newsletter: boolean;
 }
 
 interface Session {

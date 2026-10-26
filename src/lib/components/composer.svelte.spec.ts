@@ -63,13 +63,21 @@ describe('Composer', () => {
 	it("adds the account's signature and swaps it with the sender", async () => {
 		fakeVelo();
 		accounts.list = [
-			{ id: 1, name: 'Privat', email: 'du@beispiel.de', color: '#2563eb', signature: 'Lukas' },
+			{
+				id: 1,
+				name: 'Privat',
+				email: 'du@beispiel.de',
+				color: '#2563eb',
+				signature: 'Lukas',
+				notify: 'all' as const
+			},
 			{
 				id: 2,
 				name: 'Arbeit',
 				email: 'du@firma.de',
 				color: '#ea580c',
-				signature: 'Lukas\nFirma GmbH'
+				signature: 'Lukas\nFirma GmbH',
+				notify: 'all' as const
 			}
 		];
 		render(Composer);

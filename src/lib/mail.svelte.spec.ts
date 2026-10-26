@@ -16,7 +16,9 @@ const message = (id: number, snippet = ''): MessageSummary => ({
 	seen: true,
 	flagged: false,
 	hasAttachments: false,
-	threadSize: 1
+	threadSize: 1,
+	newsletter: false,
+	unsubscribe: null
 });
 
 describe('mail', () => {

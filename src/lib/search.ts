@@ -8,7 +8,8 @@ export const noFilters: SearchFilters = {
 	since: null,
 	until: null,
 	attachments: false,
-	unread: false
+	unread: false,
+	newsletters: null
 };
 
 /** How many filters are set (not counting the words). */
@@ -18,7 +19,8 @@ export function activeFilters(filters: SearchFilters): number {
 		(filters.from.trim() ? 1 : 0) +
 		(filters.since !== null || filters.until !== null ? 1 : 0) +
 		(filters.attachments ? 1 : 0) +
-		(filters.unread ? 1 : 0)
+		(filters.unread ? 1 : 0) +
+		(filters.newsletters ? 1 : 0)
 	);
 }
 

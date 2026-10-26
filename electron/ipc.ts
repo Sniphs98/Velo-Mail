@@ -21,7 +21,7 @@ import { testConnection } from './accounts/connection';
 import { AccountService, serverSettingsSchema, type SecretBox } from './accounts/service';
 import { Avatars, type Fetched } from './avatars';
 import type { Database } from './db';
-import type { Desktop } from './desktop';
+import { notifiable, type Desktop } from './desktop';
 import { useLanguage } from './i18n';
 import { readSettings, writeSettings } from './settings';
 import { Updater } from './update/updater';
@@ -136,7 +136,8 @@ const searchSchema = z.object({
 	since: z.number().int().nullable(),
 	until: z.number().int().nullable(),
 	attachments: z.boolean(),
-	unread: z.boolean()
+	unread: z.boolean(),
+	newsletters: z.enum(['only', 'hide']).nullable()
 });
 
 const messageQuerySchema = z.union([
@@ -175,7 +176,7 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 		onStatus: (status) => broadcast(IPC.mailStatus, status),
 		onNewMail: async (accountId, mails) => {
 			const account = (await accounts.list()).find((a) => a.id === accountId);
-			if (account) desktop.notify(account.name, mails);
+			if (account) desktop.notify(account.name, notifiable(account.notify, mails));
 		}
 	});
 
