@@ -132,4 +132,38 @@ describe('MessageList search', () => {
 		await vi.waitFor(() => expect(onsearch).toHaveBeenLastCalledWith(''));
 		await expect.element(field).toHaveValue('');
 	});
+
+	it('switches between the inbox tabs and offers tidying up newsletters', async () => {
+		const ontab = vi.fn();
+		const ontidy = vi.fn();
+		const { rerender } = render(MessageList, {
+			title: 'Posteingang',
+			messages: [message({ id: 1 })],
+			accounts,
+			selectedId: null,
+			showAccount: false,
+			onselect: () => {},
+			tab: 'primary',
+			tabUnread: { primary: 2, newsletters: 14 },
+			ontab,
+			ontidy
+		});
+		await expect
+			.element(page.getByRole('tab', { name: /Allgemein/ }))
+			.toHaveAttribute('aria-selected', 'true');
+		await expect.element(page.getByRole('tab', { name: /Newsletter/ })).toHaveTextContent('14');
+		await expect
+			.element(page.getByRole('button', { name: 'Newsletter aufräumen' }))
+			.not.toBeInTheDocument();
+		await page.getByRole('tab', { name: /Newsletter/ }).click();
+		expect(ontab).toHaveBeenCalledWith('newsletters');
+
+		await rerender({ tab: 'newsletters' });
+		await page.getByRole('button', { name: 'Newsletter aufräumen' }).click();
+		expect(ontidy).toHaveBeenCalledOnce();
+
+		// No tabs outside the inboxes.
+		await rerender({ tab: undefined });
+		await expect.element(page.getByRole('tablist')).not.toBeInTheDocument();
+	});
 });

@@ -226,8 +226,16 @@ Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
       `List-Id`, `Precedence: bulk`), auch in schon gecachten Mails (je Runde
       1000 nachgeprüft); Filter „Newsletter“ / „Ohne Newsletter“; Knopf
       „Abbestellen“ öffnet den https-Link oder schreibt die Abmelde-Mail
-- [ ] Absender-Regeln (immer stumm / immer wichtig), Aufräumen alter Konten
-      nach Absendern
+- [x] Tabs „Allgemein“ und „Newsletter“ im Posteingang (wie bei Gmail), mit
+      Ungelesen-Zahl je Tab
+- [x] Absender-Regeln: immer oder nie als Newsletter einordnen (Menü „Mehr“ im
+      Lesebereich, Tabelle `sender_rules`); gelten für Tabs, Filter und
+      Benachrichtigungen
+- [x] „Newsletter aufräumen“: Absender nach Menge, abbestellen, alle
+      archivieren, alle in den Papierkorb oder behalten
+- [x] Ein-Klick-Abmeldung (RFC 8058, `List-Unsubscribe-Post`): ein POST ohne
+      Cookies, sonst Abmeldeseite oder Abmelde-Mail
+- [ ] Tags (eigene Schlagwörter, als IMAP-Keywords auf dem Server)
 - [x] Ungelesen-Zähler am App-Symbol (macOS-Dock, Linux-Launcher)
 - [x] Tray-Symbol (optional): Fenster schließen lässt die App weiterlaufen
 - [x] App-Icon (`resources/icon.svg`, PNGs per `node scripts/icons.mjs`)

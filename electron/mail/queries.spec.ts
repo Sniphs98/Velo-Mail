@@ -11,8 +11,11 @@ import {
 	listMailboxes,
 	listMessages,
 	listThread,
+	messagesFromSender,
 	newestUid,
+	newsletterSenders,
 	searchMessages,
+	setSenderRule,
 	suggestAddresses,
 	trustSender,
 	unreadInInboxes,
@@ -126,6 +129,105 @@ describe('listMessages', () => {
 		expect((await listMessages(db, { mailboxId: sentA })).map((m) => m.subject)).toEqual([
 			'gesendet'
 		]);
+	});
+});
+
+describe('newsletters', () => {
+	/** A message from `from`, a newsletter by its headers or not. */
+	async function mail(
+		box: number,
+		uid: number,
+		from: string,
+		newsletter: boolean | null,
+		seen = false
+	) {
+		const id = await message(box, uid, `${from} ${uid}`, seen);
+		await db
+			.update(messages)
+			.set({
+				fromAddress: from,
+				newsletter,
+				unsubscribe: newsletter ? `https://${from.split('@')[1]}/stop` : null
+			})
+			.where(eq(messages.id, id));
+		return id;
+	}
+
+	it('splits the inbox into tabs and counts their unread mail', async () => {
+		const a = await account('a@beispiel.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		await mail(inbox, 1, 'anna@firma.de', false);
+		await mail(inbox, 2, 'news@shop.de', true);
+		await mail(inbox, 3, 'jonas@verein.de', null);
+		await mail(inbox, 4, 'news@shop.de', true, true);
+		const subjects = async (tab?: 'primary' | 'newsletters') =>
+			(await listMessages(db, { inboxes: true, tab })).map((m) => m.subject);
+
+		expect(await subjects('primary')).toEqual(['jonas@verein.de 3', 'anna@firma.de 1']);
+		expect(await subjects('newsletters')).toEqual(['news@shop.de 4', 'news@shop.de 2']);
+		expect(await subjects()).toHaveLength(4);
+		expect(await listMailboxes(db)).toMatchObject([{ unread: 3, unreadNewsletters: 1 }]);
+	});
+
+	it("files a sender's mail by its rule, whatever the headers say", async () => {
+		const a = await account('a@beispiel.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		await mail(inbox, 1, 'rechnung@shop.de', true);
+		await mail(inbox, 2, 'info@verein.de', false);
+		const tab = async (name: 'primary' | 'newsletters') =>
+			(await listMessages(db, { inboxes: true, tab: name })).map((m) => m.fromAddress);
+
+		await setSenderRule(db, 'Rechnung@Shop.de', 'primary');
+		await setSenderRule(db, 'info@verein.de', 'newsletter');
+		expect(await tab('primary')).toEqual(['rechnung@shop.de']);
+		expect(await tab('newsletters')).toEqual(['info@verein.de']);
+		expect((await unseenAbove(db, inbox, 0)).map((m) => [m.fromAddress, m.newsletter])).toEqual([
+			['info@verein.de', true],
+			['rechnung@shop.de', false]
+		]);
+
+		// Back to the headers.
+		await setSenderRule(db, 'rechnung@shop.de', null);
+		await setSenderRule(db, 'info@verein.de', 'primary');
+		expect(await tab('newsletters')).toEqual(['rechnung@shop.de']);
+	});
+
+	it('lists newsletter senders by amount, and their mail to tidy up', async () => {
+		const a = await account('a@beispiel.de');
+		const b = await account('b@beispiel.de');
+		const inbox = await mailbox(a, 'INBOX', 'inbox');
+		const archive = await mailbox(a, 'Archiv', 'archive');
+		const trash = await mailbox(a, 'Papierkorb', 'trash');
+		const inboxB = await mailbox(b, 'INBOX', 'inbox');
+		await mail(inbox, 1, 'news@shop.de', true);
+		await mail(inbox, 2, 'news@shop.de', true, true);
+		const archived = await mail(archive, 3, 'news@shop.de', true, true);
+		await mail(trash, 4, 'news@shop.de', true);
+		const club = await mail(inbox, 5, 'club@verein.de', true);
+		await mail(inbox, 6, 'anna@firma.de', false);
+		await mail(inboxB, 7, 'deals@markt.de', true);
+
+		const senders = await newsletterSenders(db, [a]);
+		expect(senders).toEqual([
+			{
+				address: 'news@shop.de',
+				name: null,
+				count: 3,
+				unread: 1,
+				latest: Date.UTC(2026, 9, 3),
+				messageId: archived,
+				accountId: a,
+				unsubscribe: 'https://shop.de/stop',
+				rule: null
+			},
+			expect.objectContaining({ address: 'club@verein.de', count: 1, messageId: club })
+		]);
+		expect((await newsletterSenders(db, [])).map((s) => s.address)).toContain('deals@markt.de');
+
+		// Archiving takes them from the inbox; the trash also from the archive.
+		expect(await messagesFromSender(db, 'news@shop.de', [a], 'archive')).toHaveLength(2);
+		expect(await messagesFromSender(db, 'News@Shop.de', [a], 'trash')).toHaveLength(3);
+		expect(await messagesFromSender(db, 'news@shop.de', [b], 'trash')).toEqual([]);
 	});
 });
 
@@ -379,22 +481,37 @@ describe('threading', () => {
 		const info = (headers: string) => newsletterInfo(Buffer.from(headers + '\r\n\r\n'));
 		expect(
 			info('List-Unsubscribe: <mailto:weg@shop.de?subject=stop>,\r\n <https://shop.de/stop?id=1>')
-		).toEqual({ newsletter: true, unsubscribe: 'https://shop.de/stop?id=1' });
-		// No https: link, then the address; plain http: is not offered.
-		expect(info('List-Unsubscribe: <http://shop.de/stop>, <mailto:weg@shop.de>')).toEqual({
+		).toEqual({
 			newsletter: true,
-			unsubscribe: 'mailto:weg@shop.de'
+			unsubscribe: 'https://shop.de/stop?id=1',
+			unsubscribeOneClick: false
 		});
-		expect(info('List-Id: Vereinsnews <news.verein.de>')).toEqual({
+		// One POST unsubscribes (RFC 8058).
+		expect(
+			info(
+				'List-Unsubscribe: <https://shop.de/stop?id=1>\r\nList-Unsubscribe-Post: List-Unsubscribe=One-Click'
+			)
+		).toMatchObject({ unsubscribe: 'https://shop.de/stop?id=1', unsubscribeOneClick: true });
+		// No https: link, then the address; plain http: is not offered.
+		expect(
+			info(
+				'List-Unsubscribe: <http://shop.de/stop>, <mailto:weg@shop.de>\r\nList-Unsubscribe-Post: List-Unsubscribe=One-Click'
+			)
+		).toEqual({ newsletter: true, unsubscribe: 'mailto:weg@shop.de', unsubscribeOneClick: false });
+		expect(info('List-Id: Vereinsnews <news.verein.de>')).toMatchObject({
 			newsletter: true,
 			unsubscribe: null
 		});
-		expect(info('Precedence: bulk')).toEqual({ newsletter: true, unsubscribe: null });
-		expect(info('Precedence: first-class\r\nReferences: <a@b>')).toEqual({
+		expect(info('Precedence: bulk')).toMatchObject({ newsletter: true, unsubscribe: null });
+		expect(info('Precedence: first-class\r\nReferences: <a@b>')).toMatchObject({
 			newsletter: false,
 			unsubscribe: null
 		});
-		expect(newsletterInfo(undefined)).toEqual({ newsletter: false, unsubscribe: null });
+		expect(newsletterInfo(undefined)).toEqual({
+			newsletter: false,
+			unsubscribe: null,
+			unsubscribeOneClick: false
+		});
 	});
 
 	it('keys a conversation by its first message', () => {

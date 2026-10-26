@@ -35,11 +35,15 @@ import {
 	listMailboxes,
 	listMessages,
 	listThread,
+	messagesFromSender,
+	newsletterSenders,
 	searchMessages,
+	setSenderRule,
 	suggestAddresses,
 	trustSender,
 	unreadInInboxes
 } from './mail/queries';
+import { oneClickPost, unsubscribe } from './mail/unsubscribe';
 
 // Keychain on macOS, DPAPI on Windows, the desktop's keyring on Linux. Without
 // a keyring Linux falls back to a fixed key (see AppInfo.keyring).
@@ -129,6 +133,9 @@ const outgoingSchema = z.object({
 	draftUid: z.number().int().optional()
 });
 
+const senderSchema = z.string().trim().min(1).max(320);
+const accountIdsSchema = z.array(z.number().int()).max(100);
+
 const searchSchema = z.object({
 	text: z.string().max(1000),
 	accounts: z.array(z.number().int()).max(100),
@@ -140,9 +147,10 @@ const searchSchema = z.object({
 	newsletters: z.enum(['only', 'hide']).nullable()
 });
 
+const tab = z.enum(['primary', 'newsletters']).optional();
 const messageQuerySchema = z.union([
-	z.object({ mailboxId: z.number().int() }),
-	z.object({ inboxes: z.literal(true) })
+	z.object({ mailboxId: z.number().int(), tab }),
+	z.object({ inboxes: z.literal(true), tab })
 ]);
 
 /**
@@ -325,6 +333,34 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 		sync.setSeen(z.number().int().parse(id), z.boolean().parse(seen))
 	);
 	handle(IPC.mailThread, (_event, id: unknown) => listThread(db, z.number().int().parse(id)));
+	handle(IPC.mailSetSenderRule, async (_event, address: unknown, rule: unknown) => {
+		await setSenderRule(
+			db,
+			senderSchema.parse(address),
+			z.enum(['newsletter', 'primary']).nullable().parse(rule)
+		);
+		changed();
+	});
+	handle(IPC.mailNewsletterSenders, (_event, accountIds: unknown) =>
+		newsletterSenders(db, accountIdsSchema.parse(accountIds))
+	);
+	handle(IPC.mailMoveFromSender, async (_event, address: unknown, accountIds: unknown, to) => {
+		const ids = await messagesFromSender(
+			db,
+			senderSchema.parse(address),
+			accountIdsSchema.parse(accountIds),
+			z.enum(['archive', 'trash']).parse(to)
+		);
+		await sync.move(ids, z.enum(['archive', 'trash']).parse(to));
+		return ids.length;
+	});
+	handle(IPC.mailUnsubscribe, (_event, id: unknown) =>
+		unsubscribe(
+			db,
+			z.number().int().parse(id),
+			oneClickPost((url, init) => net.fetch(String(url), init))
+		)
+	);
 	handle(IPC.mailTrustSender, (_event, address: unknown) =>
 		trustSender(db, z.email().parse(address))
 	);

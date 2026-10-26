@@ -5,12 +5,30 @@ import type {
 	MessageBody,
 	MessageQuery,
 	MessageSummary,
-	SearchQuery
+	NewsletterSender,
+	SearchQuery,
+	SenderRule
 } from '../../src/lib/api';
 import { hasRemoteContent } from './body';
 import { toFtsQuery } from './search';
 import type { Database } from '../db';
-import { attachments, mailboxes, messageBodies, messages, trustedSenders } from '../db/schema';
+import {
+	attachments,
+	mailboxes,
+	messageBodies,
+	messages,
+	senderRules,
+	trustedSenders
+} from '../db/schema';
+
+/**
+ * Whether a message counts as a newsletter: by its sender's rule, else by its
+ * headers; not yet looked at counts as none.
+ */
+export const isNewsletter = sql<boolean>`coalesce(
+	(select ${senderRules.kind} = 'newsletter' from ${senderRules}
+		where ${senderRules.address} = ${messages.fromAddress}),
+	${messages.newsletter}, 0)`.mapWith(Boolean);
 
 /** Folder order in the sidebar; others follow alphabetically. */
 const roleOrder = ['inbox', 'drafts', 'sent', 'archive', 'all', 'junk', 'trash'];
@@ -22,7 +40,8 @@ export async function listMailboxes(db: Database): Promise<Mailbox[]> {
 			accountId: mailboxes.accountId,
 			name: mailboxes.name,
 			role: mailboxes.role,
-			unread: sql<number>`count(${messages.id}) filter (where ${messages.seen} = 0)`
+			unread: sql<number>`count(${messages.id}) filter (where ${messages.seen} = 0)`,
+			unreadNewsletters: sql<number>`count(${messages.id}) filter (where ${messages.seen} = 0 and ${isNewsletter})`
 		})
 		.from(mailboxes)
 		.leftJoin(messages, eq(messages.mailboxId, mailboxes.id))
@@ -49,7 +68,7 @@ const summary = {
 	seen: messages.seen,
 	flagged: messages.flagged,
 	hasAttachments: messages.hasAttachments,
-	newsletter: sql`coalesce(${messages.newsletter}, 0)`.mapWith(Boolean),
+	newsletter: isNewsletter,
 	unsubscribe: messages.unsubscribe
 };
 
@@ -66,13 +85,17 @@ export async function listMessages(
 	query: MessageQuery,
 	limit = 500
 ): Promise<MessageSummary[]> {
-	const where =
+	const folder =
 		'mailboxId' in query
 			? eq(messages.mailboxId, query.mailboxId)
 			: inArray(
 					messages.mailboxId,
 					db.select({ id: mailboxes.id }).from(mailboxes).where(eq(mailboxes.role, 'inbox'))
 				);
+	const where =
+		query.tab === undefined
+			? folder
+			: and(folder, query.tab === 'newsletters' ? sql`${isNewsletter}` : sql`not ${isNewsletter}`);
 	const partition = sql`partition by ${mailboxes.accountId}, ${threadOf}`;
 	const heads = await db.all<{ id: number; size: number; unseen: number }>(sql`
 		select id, size, unseen from (
@@ -226,6 +249,88 @@ export async function trustSender(db: Database, address: string) {
 	await db.insert(trustedSenders).values({ address: address.toLowerCase() }).onConflictDoNothing();
 }
 
+/** Files a sender's mail always as newsletter, never, or (null) by its headers again. */
+export async function setSenderRule(db: Database, address: string, rule: SenderRule | null) {
+	const key = address.toLowerCase();
+	if (rule === null) await db.delete(senderRules).where(eq(senderRules.address, key));
+	else
+		await db
+			.insert(senderRules)
+			.values({ address: key, kind: rule })
+			.onConflictDoUpdate({ target: senderRules.address, set: { kind: rule } });
+}
+
+/** Folders tidying up looks in: the inboxes, and for the trash also the archives. */
+function tidyFolders(db: Database, accountIds: number[], to: 'archive' | 'trash' = 'trash') {
+	const roles: ('inbox' | 'archive')[] = to === 'archive' ? ['inbox'] : ['inbox', 'archive'];
+	return db
+		.select({ id: mailboxes.id })
+		.from(mailboxes)
+		.where(
+			and(
+				inArray(mailboxes.role, roles),
+				accountIds.length > 0 ? inArray(mailboxes.accountId, accountIds) : undefined
+			)
+		);
+}
+
+/** Senders of newsletters in these accounts' inboxes and archives, most mail first. */
+export async function newsletterSenders(
+	db: Database,
+	accountIds: number[],
+	limit = 300
+): Promise<NewsletterSender[]> {
+	const rows = await db.all<{
+		address: string;
+		name: string | null;
+		count: number;
+		unread: number;
+		latest: number;
+		messageId: number;
+		accountId: number;
+		unsubscribe: string | null;
+		rule: SenderRule | null;
+	}>(sql`
+		select address, name, count, unread, latest * 1000 as latest, messageId, accountId,
+			unsubscribe, rule
+		from (
+			select ${messages.fromAddress} as address, ${messages.fromName} as name,
+				${messages.id} as messageId, ${messages.date} as latest,
+				(select ${mailboxes.accountId} from ${mailboxes}
+					where ${mailboxes.id} = ${messages.mailboxId}) as accountId,
+				${messages.unsubscribe} as unsubscribe,
+				(select ${senderRules.kind} from ${senderRules}
+					where ${senderRules.address} = ${messages.fromAddress}) as rule,
+				count(*) over sender as count,
+				sum(case when ${messages.seen} then 0 else 1 end) over sender as unread,
+				row_number() over (sender order by ${messages.date} desc, ${messages.id} desc) as rn
+			from ${messages}
+			where ${inArray(messages.mailboxId, tidyFolders(db, accountIds))}
+				and ${messages.fromAddress} is not null and ${isNewsletter}
+			window sender as (partition by ${messages.fromAddress})
+		) where rn = 1 order by count desc, latest desc limit ${limit}`);
+	return rows;
+}
+
+/** A sender's messages to archive (from the inboxes) or to trash (also from the archives). */
+export async function messagesFromSender(
+	db: Database,
+	address: string,
+	accountIds: number[],
+	to: 'archive' | 'trash'
+) {
+	const rows = await db
+		.select({ id: messages.id })
+		.from(messages)
+		.where(
+			and(
+				eq(messages.fromAddress, address.toLowerCase()),
+				inArray(messages.mailboxId, tidyFolders(db, accountIds, to))
+			)
+		);
+	return rows.map((row) => row.id);
+}
+
 /** Messages matching the search, newest first, across all accounts and folders. */
 /**
  * Messages matching the words (subject, sender, content, attachments) and the
@@ -253,8 +358,8 @@ export async function searchMessages(
 	if (query.until !== null) where.push(lt(messages.date, new Date(query.until)));
 	if (query.attachments) where.push(eq(messages.hasAttachments, true));
 	if (query.unread) where.push(eq(messages.seen, false));
-	if (query.newsletters === 'only') where.push(eq(messages.newsletter, true));
-	if (query.newsletters === 'hide') where.push(sql`coalesce(${messages.newsletter}, 0) = 0`);
+	if (query.newsletters === 'only') where.push(sql`${isNewsletter}`);
+	if (query.newsletters === 'hide') where.push(sql`not ${isNewsletter}`);
 	// An empty search lists nothing rather than everything.
 	if (where.length === 0) return [];
 	const rows = await db
@@ -284,7 +389,7 @@ export async function unseenAbove(db: Database, mailboxId: number, uid: number) 
 			fromName: messages.fromName,
 			fromAddress: messages.fromAddress,
 			subject: messages.subject,
-			newsletter: sql`coalesce(${messages.newsletter}, 0)`.mapWith(Boolean)
+			newsletter: isNewsletter
 		})
 		.from(messages)
 		.where(and(eq(messages.mailboxId, mailboxId), gt(messages.uid, uid), eq(messages.seen, false)))

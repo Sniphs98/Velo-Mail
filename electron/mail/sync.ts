@@ -118,7 +118,7 @@ export async function syncMailbox(
 }
 
 /** Headers that mass mailings carry (RFC 2369, RFC 2919, Precedence). */
-const newsletterHeaders = ['list-unsubscribe', 'list-id', 'precedence'];
+const newsletterHeaders = ['list-unsubscribe', 'list-unsubscribe-post', 'list-id', 'precedence'];
 
 const fetchQuery = {
 	uid: true,
@@ -333,7 +333,8 @@ export function parseReferences(headers: Buffer | undefined): string[] {
 
 /**
  * Whether a message was sent in bulk, and where to unsubscribe: the https:
- * link of List-Unsubscribe, else its mailto: address.
+ * link of List-Unsubscribe, else its mailto: address; and whether the link
+ * unsubscribes with a single POST (RFC 8058).
  */
 export function newsletterInfo(headers: Buffer | undefined) {
 	const links = (headerField(headers, 'list-unsubscribe').match(/<[^<>]+>/g) ?? []).map((link) =>
@@ -347,7 +348,10 @@ export function newsletterInfo(headers: Buffer | undefined) {
 		links.length > 0 ||
 		headerField(headers, 'list-id') !== '' ||
 		/^(bulk|list|junk)$/i.test(headerField(headers, 'precedence'));
-	return { newsletter, unsubscribe };
+	const unsubscribeOneClick =
+		/^https:/i.test(unsubscribe ?? '') &&
+		/^list-unsubscribe=one-click$/i.test(headerField(headers, 'list-unsubscribe-post'));
+	return { newsletter, unsubscribe, unsubscribeOneClick };
 }
 
 /**

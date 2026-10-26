@@ -84,4 +84,32 @@ describe('mail', () => {
 		expect(mail.thread).toBe(open);
 		stop();
 	});
+
+	it('lists the inboxes by tab, other folders whole', async () => {
+		const inbox = { id: 1, accountId: 1, name: 'Posteingang', role: 'inbox' as const };
+		const sent = { id: 2, accountId: 1, name: 'Gesendet', role: 'sent' as const };
+		const messages = vi.fn(async () => [message(1)]);
+		fakeVelo({
+			mail: {
+				mailboxes: vi.fn(async () => [
+					{ ...inbox, unread: 5, unreadNewsletters: 3 },
+					{ ...sent, unread: 0, unreadNewsletters: 0 }
+				]),
+				messages
+			}
+		});
+		await mail.show({ inboxes: true });
+		expect(messages).toHaveBeenLastCalledWith({ inboxes: true, tab: 'primary' });
+		expect(mail.tabbed).toBe(true);
+		expect(mail.tabUnread).toEqual({ primary: 2, newsletters: 3 });
+
+		await mail.showTab('newsletters');
+		expect(messages).toHaveBeenLastCalledWith({ inboxes: true, tab: 'newsletters' });
+		await mail.show({ mailboxId: 1 });
+		expect(messages).toHaveBeenLastCalledWith({ mailboxId: 1, tab: 'primary' });
+		await mail.show({ mailboxId: 2 });
+		expect(messages).toHaveBeenLastCalledWith({ mailboxId: 2 });
+		expect(mail.tabbed).toBe(false);
+		await mail.show({ inboxes: true });
+	});
 });

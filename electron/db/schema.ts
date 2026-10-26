@@ -100,7 +100,9 @@ export const messages = sqliteTable(
 		 */
 		newsletter: integer({ mode: 'boolean' }),
 		/** Where to unsubscribe: an https: or mailto: URL from List-Unsubscribe. */
-		unsubscribe: text()
+		unsubscribe: text(),
+		/** The https: link takes a POST to unsubscribe at once (RFC 8058). */
+		unsubscribeOneClick: integer({ mode: 'boolean' }).notNull().default(false)
 	},
 	(t) => [
 		uniqueIndex('messages_mailbox_uid').on(t.mailboxId, t.uid),
@@ -169,6 +171,16 @@ export const senderAvatars = sqliteTable(
 /** Senders whose remote images load without asking. */
 export const trustedSenders = sqliteTable('trusted_senders', {
 	address: text().primaryKey(),
+	createdAt: createdAt()
+});
+
+/**
+ * What a sender's mail is, whatever its headers say: always a newsletter, or
+ * never one (it stays in the main inbox tab and notifies).
+ */
+export const senderRules = sqliteTable('sender_rules', {
+	address: text().primaryKey(),
+	kind: text({ enum: ['newsletter', 'primary'] }).notNull(),
 	createdAt: createdAt()
 });
 

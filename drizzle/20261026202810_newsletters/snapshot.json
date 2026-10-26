@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "8a0fecae-2b21-4d55-8b4f-1e9a15875a70",
+  "id": "665bb70e-5898-4a8a-8b7e-014d3273dc25",
   "prevIds": [
     "c7491688-4b20-46cf-bb65-cb2f80b32161"
   ],
@@ -40,6 +40,10 @@
     },
     {
       "name": "sender_avatars",
+      "entityType": "tables"
+    },
+    {
+      "name": "sender_rules",
       "entityType": "tables"
     },
     {
@@ -951,6 +955,16 @@
       "entityType": "columns"
     },
     {
+      "table": "messages",
+      "name": "unsubscribeOneClick",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "sender_avatars",
       "name": "key",
       "type": "text",
@@ -1017,6 +1031,36 @@
       "notNull": true,
       "autoincrement": false,
       "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sender_rules",
+      "name": "address",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sender_rules",
+      "name": "kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sender_rules",
+      "name": "createdAt",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "(unixepoch())",
       "generated": null,
       "entityType": "columns"
     },
@@ -1392,6 +1436,15 @@
       "name": "messages_pk",
       "columns": [
         "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "sender_rules",
+      "name": "sender_rules_pk",
+      "columns": [
+        "address"
       ],
       "nameExplicit": false,
       "entityType": "pks"

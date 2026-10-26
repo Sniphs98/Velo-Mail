@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
-	import { Archive, Forward, MailMinus, Reply, ReplyAll, Trash2 } from '@lucide/svelte';
+	import { Archive, Ellipsis, Forward, MailMinus, Reply, ReplyAll, Trash2 } from '@lucide/svelte';
 	import type { Account, MessageSummary } from '#lib/api.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
-	import { compose } from '#lib/compose.svelte.ts';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.ts';
+	import { velo } from '#lib/api.ts';
+	import { unsubscribeFrom, type UnsubscribeOutcome } from '#lib/unsubscribe.ts';
 	import { fullDate, listDate } from '#lib/format.ts';
 	import InvitationCard from './invitation-card.svelte';
 	import MailBody from './mail-body.svelte';
@@ -24,6 +26,16 @@
 	/** Messages opened or closed by hand; otherwise only the newest is open. */
 	let toggled = $state<Record<number, boolean>>({});
 	const open = (message: MessageSummary) => toggled[message.id] ?? message.id === thread.at(-1)?.id;
+
+	/** How unsubscribing went, per message. */
+	let unsubscribed = $state<Record<number, UnsubscribeOutcome>>({});
+
+	async function unsubscribe(message: MessageSummary) {
+		unsubscribed[message.id] = await unsubscribeFrom(message);
+	}
+
+	/** The newest message's sender, whose mail the menu files. */
+	const latest = $derived(thread.at(-1));
 
 	const recipients = (message: MessageSummary) =>
 		message.to.map((r) => r.name || r.address).join(', ');
@@ -48,6 +60,29 @@
 			<Trash2 />
 		</Button>
 		<div class="flex-1"></div>
+		{#if latest?.fromAddress}
+			{@const address = latest.fromAddress}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="ghost" size="icon-sm" aria-label={m.reading_more()}>
+							<Ellipsis />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					{#if latest.newsletter}
+						<DropdownMenu.Item onclick={() => velo()?.mail.setSenderRule(address, 'primary')}>
+							{m.sender_rule_primary()}
+						</DropdownMenu.Item>
+					{:else}
+						<DropdownMenu.Item onclick={() => velo()?.mail.setSenderRule(address, 'newsletter')}>
+							{m.sender_rule_newsletter()}
+						</DropdownMenu.Item>
+					{/if}
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{/if}
 		<Button
 			variant="ghost"
 			size="icon-sm"
@@ -119,30 +154,24 @@
 					</span>
 				</button>
 				{#if message.unsubscribe}
-					{@const link = message.unsubscribe}
-					<div class="-mt-1 flex">
-						{#if link.toLowerCase().startsWith('mailto:')}
-							<Button
-								variant="outline"
-								size="xs"
-								title={m.reading_unsubscribe_hint()}
-								onclick={() => compose.startMailto(message.accountId, link)}
+					<div class="-mt-1 flex items-center gap-2">
+						<Button
+							variant="outline"
+							size="xs"
+							title={m.reading_unsubscribe_hint()}
+							disabled={unsubscribed[message.id] === 'done'}
+							onclick={() => unsubscribe(message)}
+						>
+							<MailMinus />
+							{m.reading_unsubscribe()}
+						</Button>
+						{#if unsubscribed[message.id] === 'done'}
+							<span role="status" class="text-xs text-muted-foreground">{m.unsubscribe_done()}</span
 							>
-								<MailMinus />
-								{m.reading_unsubscribe()}
-							</Button>
-						{:else}
-							<Button
-								variant="outline"
-								size="xs"
-								href={link}
-								target="_blank"
-								rel="noreferrer"
-								title={m.reading_unsubscribe_hint()}
+						{:else if unsubscribed[message.id] === 'opened'}
+							<span role="status" class="text-xs text-muted-foreground"
+								>{m.unsubscribe_opened()}</span
 							>
-								<MailMinus />
-								{m.reading_unsubscribe()}
-							</Button>
 						{/if}
 					</div>
 				{/if}

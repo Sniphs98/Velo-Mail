@@ -59,9 +59,30 @@ describe('Sidebar', () => {
 			mail: {
 				messages,
 				mailboxes: vi.fn(async () => [
-					{ id: 1, accountId: 7, name: 'Posteingang', role: 'inbox' as const, unread: 3 },
-					{ id: 2, accountId: 7, name: 'Gesendet', role: 'sent' as const, unread: 0 },
-					{ id: 3, accountId: 7, name: 'Spam', role: 'junk' as const, unread: 9 }
+					{
+						id: 1,
+						accountId: 7,
+						name: 'Posteingang',
+						role: 'inbox' as const,
+						unread: 3,
+						unreadNewsletters: 0
+					},
+					{
+						id: 2,
+						accountId: 7,
+						name: 'Gesendet',
+						role: 'sent' as const,
+						unread: 0,
+						unreadNewsletters: 0
+					},
+					{
+						id: 3,
+						accountId: 7,
+						name: 'Spam',
+						role: 'junk' as const,
+						unread: 9,
+						unreadNewsletters: 0
+					}
 				])
 			}
 		});
@@ -87,9 +108,30 @@ describe('Sidebar', () => {
 			accounts: { list: vi.fn(async () => [account]) },
 			mail: {
 				mailboxes: vi.fn(async () => [
-					{ id: 1, accountId: 7, name: 'Posteingang', role: 'inbox' as const, unread: 0 },
-					{ id: 2, accountId: 7, name: 'Gesendet', role: 'sent' as const, unread: 0 },
-					{ id: 3, accountId: 7, name: 'Spam', role: 'junk' as const, unread: 0 }
+					{
+						id: 1,
+						accountId: 7,
+						name: 'Posteingang',
+						role: 'inbox' as const,
+						unread: 0,
+						unreadNewsletters: 0
+					},
+					{
+						id: 2,
+						accountId: 7,
+						name: 'Gesendet',
+						role: 'sent' as const,
+						unread: 0,
+						unreadNewsletters: 0
+					},
+					{
+						id: 3,
+						accountId: 7,
+						name: 'Spam',
+						role: 'junk' as const,
+						unread: 0,
+						unreadNewsletters: 0
+					}
 				])
 			}
 		});
