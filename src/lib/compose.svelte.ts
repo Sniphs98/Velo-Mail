@@ -2,7 +2,7 @@ import { ipcErrorMessage } from '#lib/account-messages.ts';
 import { velo, type PickedFile } from '#lib/api.ts';
 import { accounts } from '#lib/accounts.svelte.ts';
 import DOMPurify from 'dompurify';
-import { replyDraft, type Draft } from '#lib/compose.ts';
+import { parseMailto, replyDraft, type Draft } from '#lib/compose.ts';
 import { htmlToText, swapSignature, textToHtml, withSignature } from '#lib/mail-text.ts';
 
 const signatureOf = (accountId: number) =>
@@ -31,6 +31,14 @@ class Compose {
 			if (source) draft = replyDraft(source, from.kind, from.messageId);
 		}
 		draft.html = withSignature(draft.html, signatureOf(draft.accountId));
+		this.show(draft);
+	}
+
+	/** Starts a message from a mailto: link, e.g. to unsubscribe from a newsletter. */
+	startMailto(accountId: number, url: string) {
+		const draft = empty(accountId);
+		Object.assign(draft, parseMailto(url));
+		draft.html = withSignature(draft.html, signatureOf(accountId));
 		this.show(draft);
 	}
 

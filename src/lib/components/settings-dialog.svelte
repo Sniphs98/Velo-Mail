@@ -4,7 +4,7 @@
 	import { Monitor, Moon, Sun } from '@lucide/svelte';
 	import { ipcErrorMessage } from '#lib/account-messages.ts';
 	import { accounts } from '#lib/accounts.svelte.ts';
-	import type { Account, Language, Theme } from '#lib/api.ts';
+	import type { Account, Language, NotifyMode, Theme } from '#lib/api.ts';
 	import { applyLanguage } from '#lib/language.ts';
 	import { pictures } from '#lib/pictures.svelte.ts';
 	import { settings } from '#lib/settings.svelte.ts';
@@ -74,6 +74,15 @@
 		error = undefined;
 		try {
 			await accounts.update(account.id, { color });
+		} catch (cause) {
+			error = ipcErrorMessage(cause);
+		}
+	}
+
+	async function setNotify(account: Account, notify: NotifyMode) {
+		error = undefined;
+		try {
+			await accounts.update(account.id, { notify });
 		} catch (cause) {
 			error = ipcErrorMessage(cause);
 		}
@@ -252,6 +261,21 @@
 									{m.account_color_hint()}
 								</Field.Description>
 							</div>
+							<Field.Field>
+								<Field.Label for="account-{account.id}-notify">{m.account_notify()}</Field.Label>
+								<NativeSelect.Root
+									id="account-{account.id}-notify"
+									value={account.notify}
+									onchange={(event) => setNotify(account, event.currentTarget.value as NotifyMode)}
+								>
+									<NativeSelect.Option value="all">{m.account_notify_all()}</NativeSelect.Option>
+									<NativeSelect.Option value="important"
+										>{m.account_notify_important()}</NativeSelect.Option
+									>
+									<NativeSelect.Option value="none">{m.account_notify_none()}</NativeSelect.Option>
+								</NativeSelect.Root>
+								<Field.Description>{m.account_notify_hint()}</Field.Description>
+							</Field.Field>
 							<Field.Field>
 								<Field.Label for="account-{account.id}-name">{m.account_name()}</Field.Label>
 								<Input

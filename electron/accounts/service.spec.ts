@@ -53,7 +53,8 @@ describe('AccountService', () => {
 				name: 'Persönlich',
 				email: 'du@beispiel.de',
 				color: accountColors[0],
-				signature: ''
+				signature: '',
+				notify: 'all'
 			}
 		});
 		expect(tested).toHaveLength(1);
@@ -112,10 +113,12 @@ describe('AccountService', () => {
 		expect(await service.credentials(99)).toBeNull();
 	});
 
-	it('changes the color, only to a real one', async () => {
+	it('changes the color and the notifications, only to real values', async () => {
 		await service.add(input('du@beispiel.de'));
 		expect(await service.update(1, { color: '#16a34a' })).toMatchObject({ color: '#16a34a' });
 		await expect(service.update(1, { color: 'red; background: url(x)' })).rejects.toThrow();
+		expect(await service.update(1, { notify: 'important' })).toMatchObject({ notify: 'important' });
+		await expect(service.update(1, { notify: 'sometimes' as 'all' })).rejects.toThrow();
 	});
 
 	it('changes the name and the signature', async () => {

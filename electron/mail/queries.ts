@@ -48,7 +48,9 @@ const summary = {
 	date: messages.date,
 	seen: messages.seen,
 	flagged: messages.flagged,
-	hasAttachments: messages.hasAttachments
+	hasAttachments: messages.hasAttachments,
+	newsletter: sql`coalesce(${messages.newsletter}, 0)`.mapWith(Boolean),
+	unsubscribe: messages.unsubscribe
 };
 
 /** Messages without a Message-ID form a conversation of their own. */
@@ -251,6 +253,8 @@ export async function searchMessages(
 	if (query.until !== null) where.push(lt(messages.date, new Date(query.until)));
 	if (query.attachments) where.push(eq(messages.hasAttachments, true));
 	if (query.unread) where.push(eq(messages.seen, false));
+	if (query.newsletters === 'only') where.push(eq(messages.newsletter, true));
+	if (query.newsletters === 'hide') where.push(sql`coalesce(${messages.newsletter}, 0) = 0`);
 	// An empty search lists nothing rather than everything.
 	if (where.length === 0) return [];
 	const rows = await db
@@ -279,7 +283,8 @@ export async function unseenAbove(db: Database, mailboxId: number, uid: number) 
 			id: messages.id,
 			fromName: messages.fromName,
 			fromAddress: messages.fromAddress,
-			subject: messages.subject
+			subject: messages.subject,
+			newsletter: sql`coalesce(${messages.newsletter}, 0)`.mapWith(Boolean)
 		})
 		.from(messages)
 		.where(and(eq(messages.mailboxId, mailboxId), gt(messages.uid, uid), eq(messages.seen, false)))

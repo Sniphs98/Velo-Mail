@@ -39,7 +39,8 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 					name: 'Persönlich',
 					email: 'du@beispiel.de',
 					color: '#2563eb',
-					signature: ''
+					signature: '',
+					notify: 'all' as const
 				}
 			})),
 			update: vi.fn(async (id: number, changes: AccountChanges) => ({
@@ -47,7 +48,8 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 				name: changes.name ?? 'Persönlich',
 				email: 'du@beispiel.de',
 				color: changes.color ?? '#2563eb',
-				signature: changes.signature ?? ''
+				signature: changes.signature ?? '',
+				notify: changes.notify ?? ('all' as const)
 			})),
 			remove: vi.fn(async () => {}),
 			...overrides.accounts

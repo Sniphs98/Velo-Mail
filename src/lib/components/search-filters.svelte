@@ -171,6 +171,22 @@
 		>
 			{m.unread()}
 		</button>
+		<button
+			type="button"
+			class={chip}
+			aria-pressed={filters.newsletters === 'only'}
+			onclick={() => set({ newsletters: filters.newsletters === 'only' ? null : 'only' })}
+		>
+			{m.filter_newsletters()}
+		</button>
+		<button
+			type="button"
+			class={chip}
+			aria-pressed={filters.newsletters === 'hide'}
+			onclick={() => set({ newsletters: filters.newsletters === 'hide' ? null : 'hide' })}
+		>
+			{m.filter_no_newsletters()}
+		</button>
 		<span class="flex-1"></span>
 		{#if activeFilters(filters) > 0}
 			<button

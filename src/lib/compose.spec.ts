@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReplySource } from '#lib/api.ts';
 import { inLocale } from '#lib/testing/german.ts';
-import { formatAddress, prefixSubject, replyDraft } from './compose';
+import { formatAddress, parseMailto, prefixSubject, replyDraft } from './compose';
 
 const source = (over: Partial<ReplySource> = {}): ReplySource => ({
 	messageId: '<p2@firma.de>',
@@ -37,6 +37,21 @@ describe('formatAddress', () => {
 			'"Becker, Team" <t@f.de>'
 		);
 		expect(formatAddress({ address: 't@f.de' })).toBe('t@f.de');
+	});
+});
+
+describe('parseMailto', () => {
+	it('takes the address, subject and text of a mailto: link', () => {
+		expect(parseMailto('mailto:weg+123@shop.de?subject=Abmelden%20bitte&body=Liste%20A')).toEqual({
+			to: 'weg+123@shop.de',
+			subject: 'Abmelden bitte',
+			html: '<p>Liste A</p>'
+		});
+		expect(parseMailto('MAILTO:liste@verein.de')).toEqual({
+			to: 'liste@verein.de',
+			subject: '',
+			html: ''
+		});
 	});
 });
 

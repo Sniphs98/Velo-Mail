@@ -93,7 +93,8 @@ export async function startGreenMail() {
  * @param {{ subject: string, from?: string, to?: string, text?: string, html?: string,
  *   attachments?: import('nodemailer/lib/mailer').Attachment[],
  *   icalEvent?: { method: string, content: string },
- *   messageId?: string, inReplyTo?: string, references?: string[] }} mail
+ *   messageId?: string, inReplyTo?: string, references?: string[],
+ *   headers?: Record<string, string> }} mail
  */
 export async function sendTestMail({
 	subject,
@@ -105,7 +106,8 @@ export async function sendTestMail({
 	attachments,
 	messageId,
 	inReplyTo,
-	references
+	references,
+	headers
 }) {
 	const { default: nodemailer } = await import('nodemailer');
 	const transport = nodemailer.createTransport({
@@ -126,7 +128,8 @@ export async function sendTestMail({
 			attachments,
 			messageId,
 			inReplyTo,
-			references
+			references,
+			headers
 		});
 	} finally {
 		transport.close();

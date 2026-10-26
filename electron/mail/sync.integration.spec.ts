@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 import { ImapFlow } from 'imapflow';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -93,6 +93,42 @@ describe('syncMailbox against GreenMail', () => {
 			to: [{ address: greenMail.user.email }],
 			seen: false
 		});
+	});
+
+	it('recognizes newsletters by their headers, also in messages cached before', async () => {
+		await sendTestMail({
+			subject: 'Angebote der Woche',
+			headers: {
+				'List-Unsubscribe': '<mailto:weg@shop.test?subject=abmelden>, <https://shop.test/abmelden>'
+			}
+		});
+		await sendTestMail({ subject: 'Vereinsnews', headers: { 'List-Id': '<news.verein.test>' } });
+		await sendTestMail({ subject: 'Hallo' });
+
+		await syncInbox(client);
+		const flagged = async () =>
+			Object.fromEntries(
+				(await listMessages(db, { inboxes: true })).map((m) => [
+					m.subject,
+					[m.newsletter, m.unsubscribe]
+				])
+			);
+		expect(await flagged()).toEqual({
+			'Angebote der Woche': [true, 'https://shop.test/abmelden'],
+			Vereinsnews: [true, null],
+			Hallo: [false, null]
+		});
+
+		// Cached before newsletters were recognized: the next round looks again.
+		await db.update(messages).set({ newsletter: null, unsubscribe: null });
+		const { changes } = await syncInbox(client);
+		expect(changes.updated).toBe(2);
+		expect(await flagged()).toEqual({
+			'Angebote der Woche': [true, 'https://shop.test/abmelden'],
+			Vereinsnews: [true, null],
+			Hallo: [false, null]
+		});
+		expect(await db.select().from(messages).where(isNull(messages.newsletter))).toEqual([]);
 	});
 
 	it('fetches only what is new on the next round', async () => {

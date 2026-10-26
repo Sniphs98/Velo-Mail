@@ -1,13 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({}));
-const { notificationsFor, reminderText } = await import('./desktop');
+const { notifiable, notificationsFor, reminderText } = await import('./desktop');
 
-const mail = (id: number, fromName: string | null, subject = 'Hallo') => ({
+const mail = (id: number, fromName: string | null, subject = 'Hallo', newsletter = false) => ({
 	id,
 	fromName,
 	fromAddress: `${id}@beispiel.de`,
-	subject
+	subject,
+	newsletter
+});
+
+describe('notifiable', () => {
+	const mails = [mail(1, 'Anna'), mail(2, 'Shop', 'Angebote', true)];
+
+	it('announces all mail, all but newsletters, or none, as the account says', () => {
+		expect(notifiable('all', mails)).toEqual(mails);
+		expect(notifiable('important', mails)).toEqual([mails[0]]);
+		expect(notifiable('none', mails)).toEqual([]);
+	});
 });
 
 describe('notificationsFor', () => {

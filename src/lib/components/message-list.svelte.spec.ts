@@ -18,12 +18,28 @@ const message = (over: Partial<MessageSummary>): MessageSummary => ({
 	flagged: false,
 	hasAttachments: false,
 	threadSize: 1,
+	newsletter: false,
+	unsubscribe: null,
 	...over
 });
 
 const accounts = [
-	{ id: 1, name: 'Persönlich', email: 'du@beispiel.de', color: '#2563eb', signature: '' },
-	{ id: 2, name: 'Arbeit', email: 'du@firma.de', color: '#ea580c', signature: '' }
+	{
+		id: 1,
+		name: 'Persönlich',
+		email: 'du@beispiel.de',
+		color: '#2563eb',
+		signature: '',
+		notify: 'all' as const
+	},
+	{
+		id: 2,
+		name: 'Arbeit',
+		email: 'du@firma.de',
+		color: '#ea580c',
+		signature: '',
+		notify: 'all' as const
+	}
 ];
 
 describe('MessageList', () => {

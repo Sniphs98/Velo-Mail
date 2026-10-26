@@ -221,6 +221,13 @@ Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
 - [x] Benachrichtigung bei neuer ungelesener Mail im Posteingang, solange das
       Fenster im Hintergrund ist; ab vier Mails eine Zusammenfassung; Klick
       öffnet die Mail
+- [x] Benachrichtigungen pro Konto: alle, alle außer Newsletter, keine
+- [x] Newsletter und Werbung an ihren Kopfzeilen erkennen (`List-Unsubscribe`,
+      `List-Id`, `Precedence: bulk`), auch in schon gecachten Mails (je Runde
+      1000 nachgeprüft); Filter „Newsletter“ / „Ohne Newsletter“; Knopf
+      „Abbestellen“ öffnet den https-Link oder schreibt die Abmelde-Mail
+- [ ] Absender-Regeln (immer stumm / immer wichtig), Aufräumen alter Konten
+      nach Absendern
 - [x] Ungelesen-Zähler am App-Symbol (macOS-Dock, Linux-Launcher)
 - [x] Tray-Symbol (optional): Fenster schließen lässt die App weiterlaufen
 - [x] App-Icon (`resources/icon.svg`, PNGs per `node scripts/icons.mjs`)

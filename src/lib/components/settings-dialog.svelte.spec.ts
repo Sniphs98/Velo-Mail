@@ -42,7 +42,14 @@ describe('SettingsDialog', () => {
 	it('saves the name and signature of an account', async () => {
 		const api = fakeVelo();
 		accounts.list = [
-			{ id: 3, name: 'Privat', email: 'du@beispiel.de', color: '#2563eb', signature: '' }
+			{
+				id: 3,
+				name: 'Privat',
+				email: 'du@beispiel.de',
+				color: '#2563eb',
+				signature: '',
+				notify: 'all' as const
+			}
 		];
 		render(SettingsDialog, { open: true });
 		await page.getByRole('tab', { name: 'Konten' }).click();
@@ -67,7 +74,14 @@ describe('SettingsDialog', () => {
 	it('changes the color of an account at once', async () => {
 		const api = fakeVelo();
 		accounts.list = [
-			{ id: 3, name: 'Privat', email: 'du@beispiel.de', color: '#2563eb', signature: '' }
+			{
+				id: 3,
+				name: 'Privat',
+				email: 'du@beispiel.de',
+				color: '#2563eb',
+				signature: '',
+				notify: 'all' as const
+			}
 		];
 		render(SettingsDialog, { open: true });
 		await page.getByRole('tab', { name: 'Konten' }).click();
@@ -75,6 +89,27 @@ describe('SettingsDialog', () => {
 		await page.getByRole('radio', { name: 'Grün' }).click();
 		expect(api.accounts.update).toHaveBeenCalledWith(3, { color: '#16a34a' });
 		await expect.element(page.getByRole('radio', { name: 'Grün' })).toBeChecked();
+	});
+
+	it('mutes the notifications of an account, or its newsletters', async () => {
+		const api = fakeVelo();
+		accounts.list = [
+			{
+				id: 3,
+				name: 'Privat',
+				email: 'du@beispiel.de',
+				color: '#2563eb',
+				signature: '',
+				notify: 'all' as const
+			}
+		];
+		render(SettingsDialog, { open: true });
+		await page.getByRole('tab', { name: 'Konten' }).click();
+		await page
+			.getByRole('combobox', { name: 'Benachrichtigungen' })
+			.selectOptions('Alle außer Newsletter');
+		expect(api.accounts.update).toHaveBeenCalledWith(3, { notify: 'important' });
+		await vi.waitFor(() => expect(accounts.list[0].notify).toBe('important'));
 	});
 
 	it('switches the language and reloads the page', async () => {

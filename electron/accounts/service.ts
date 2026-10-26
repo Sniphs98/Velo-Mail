@@ -47,7 +47,8 @@ export const accountChangesSchema = z
 	.object({
 		name: z.string().trim().min(1).max(100),
 		signature: z.string().max(10_000),
-		color: z.string().regex(/^#[0-9a-f]{6}$/i)
+		color: z.string().regex(/^#[0-9a-f]{6}$/i),
+		notify: z.enum(['all', 'important', 'none'])
 	})
 	.partial()
 	.strict();
@@ -64,7 +65,8 @@ const accountFields = {
 	name: accounts.name,
 	email: accounts.email,
 	color: accounts.color,
-	signature: accounts.signature
+	signature: accounts.signature,
+	notify: accounts.notify
 };
 
 export class AccountService {
@@ -115,7 +117,7 @@ export class AccountService {
 		return { ok: true, account };
 	}
 
-	/** Changes the name (shown as the sender) or the signature. */
+	/** Changes the name (shown as the sender), the signature, color or notifications. */
 	async update(id: number, input: AccountChanges): Promise<Account> {
 		const changes = accountChangesSchema.parse(input);
 		const [account] = await this.db

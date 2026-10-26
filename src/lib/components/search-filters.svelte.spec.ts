@@ -6,9 +6,30 @@ import { noFilters } from '#lib/search.ts';
 import SearchFiltersPanel, { rangeStart } from './search-filters.svelte';
 
 const accounts = [
-	{ id: 1, name: 'Privat', email: 'du@beispiel.de', color: '#ea580c', signature: '' },
-	{ id: 2, name: 'Arbeit', email: 'du@firma.de', color: '#16a34a', signature: '' },
-	{ id: 3, name: 'Verein', email: 'du@verein.de', color: '#7c3aed', signature: '' }
+	{
+		id: 1,
+		name: 'Privat',
+		email: 'du@beispiel.de',
+		color: '#ea580c',
+		signature: '',
+		notify: 'all' as const
+	},
+	{
+		id: 2,
+		name: 'Arbeit',
+		email: 'du@firma.de',
+		color: '#16a34a',
+		signature: '',
+		notify: 'all' as const
+	},
+	{
+		id: 3,
+		name: 'Verein',
+		email: 'du@verein.de',
+		color: '#7c3aed',
+		signature: '',
+		notify: 'all' as const
+	}
 ];
 
 /** Renders the panel and keeps its filters like the page does. */
@@ -70,5 +91,15 @@ describe('SearchFilters', () => {
 		await page.getByRole('button', { name: 'Zurücksetzen' }).click();
 		expect(current()).toEqual(noFilters);
 		await expect.element(page.getByLabelText('Absender')).toHaveValue('');
+	});
+
+	it('shows only newsletters or none of them', async () => {
+		const { current } = setup();
+		await page.getByRole('button', { name: 'Newsletter', exact: true }).click();
+		expect(current().newsletters).toBe('only');
+		await page.getByRole('button', { name: 'Ohne Newsletter' }).click();
+		expect(current().newsletters).toBe('hide');
+		await page.getByRole('button', { name: 'Ohne Newsletter' }).click();
+		expect(current().newsletters).toBeNull();
 	});
 });

@@ -50,7 +50,11 @@ export interface Account {
 	color: string;
 	/** Plain text added below new messages and replies; empty for none. */
 	signature: string;
+	notify: NotifyMode;
 }
+
+/** Which new mail of an account gets a notification; "important" leaves out newsletters. */
+export type NotifyMode = 'all' | 'important' | 'none';
 
 /** What can be changed on an account after adding it. */
 export interface AccountChanges {
@@ -58,6 +62,7 @@ export interface AccountChanges {
 	signature?: string;
 	/** "#RRGGBB", e.g. one of accountColors. */
 	color?: string;
+	notify?: NotifyMode;
 }
 
 export type Theme = 'system' | 'light' | 'dark';
@@ -129,6 +134,10 @@ export interface MessageSummary {
 	hasAttachments: boolean;
 	/** Messages in the conversation (in lists: those in the listed folder). */
 	threadSize: number;
+	/** Sent in bulk: a newsletter, advertising or a mailing list. */
+	newsletter: boolean;
+	/** Where to unsubscribe: an https: link or a mailto: address; null if none. */
+	unsubscribe: string | null;
 }
 
 export interface AttachmentInfo {
@@ -314,6 +323,8 @@ export interface SearchFilters {
 	until: number | null;
 	attachments: boolean;
 	unread: boolean;
+	/** Only newsletters, none of them, or null for both. */
+	newsletters: 'only' | 'hide' | null;
 }
 
 export interface SearchQuery extends SearchFilters {

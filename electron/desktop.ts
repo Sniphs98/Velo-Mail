@@ -3,7 +3,7 @@
 import { m } from '../src/lib/paraglide/messages.js';
 import { app, BrowserWindow, Menu, nativeImage, nativeTheme, Notification, Tray } from 'electron';
 import path from 'node:path';
-import type { Settings } from '../src/lib/api';
+import type { NotifyMode, Settings } from '../src/lib/api';
 import { dateFormat, timeFormat } from '../src/lib/language';
 import type { Reminder } from './calendar/reminders';
 import type { NewMail } from './mail/manager';
@@ -23,6 +23,12 @@ export interface DesktopDeps {
 /** "Anna Becker" or the address; the text a notification starts with. */
 export function senderOf(mail: NewMail) {
 	return mail.fromName || mail.fromAddress || m.sender_unknown();
+}
+
+/** The new mail an account announces: all of it, all but newsletters, or none. */
+export function notifiable(mode: NotifyMode, mails: NewMail[]) {
+	if (mode === 'none') return [];
+	return mode === 'important' ? mails.filter((mail) => !mail.newsletter) : mails;
 }
 
 /** One notification per message, or a summary when many arrive at once. */
