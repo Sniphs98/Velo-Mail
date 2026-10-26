@@ -9,11 +9,13 @@ test('keeps theme, signature and background mode', async () => {
 
 	await page.getByRole('button', { name: 'Einstellungen' }).click();
 	const dialog = page.getByRole('dialog', { name: 'Einstellungen' });
+	const nav = dialog.getByRole('navigation', { name: 'Bereiche' });
+	await nav.getByRole('button', { name: 'Darstellung' }).click();
 	await dialog.getByRole('radio', { name: 'Dunkel' }).click();
 	await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 
-	await dialog.getByRole('tab', { name: 'Konten' }).click();
-	await dialog.getByLabel('Signatur').fill('Viele Grüße\nAnna');
+	await nav.getByRole('button', { name: 'Konten' }).click();
+	await dialog.getByRole('textbox', { name: 'Signatur' }).fill('Viele Grüße\nAnna');
 	await dialog.getByRole('button', { name: 'Speichern' }).click();
 	await expect(dialog.getByRole('status')).toHaveText('Gespeichert');
 	await page.keyboard.press('Escape');
