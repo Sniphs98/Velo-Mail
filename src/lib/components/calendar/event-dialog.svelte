@@ -193,7 +193,7 @@
 							placeholder={m.untitled()}
 						/>
 					</Field.Field>
-					<div class="grid grid-cols-2 gap-x-3 gap-y-2" class:sm:grid-cols-4={!form.allDay}>
+					<div class="grid gap-x-3 gap-y-2 {form.allDay ? 'grid-cols-2' : 'grid-cols-[1fr_9rem]'}">
 						<Field.Field>
 							<Field.Label for="event-start-date">{m.event_start()}</Field.Label>
 							<Input id="event-start-date" type="date" bind:value={form.startDate} required />

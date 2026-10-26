@@ -298,6 +298,7 @@
 	"settings_reminders_hint": "Reminds you of events in your calendars, as set there.",
 	"settings_search": "Search settings",
 	"settings_search_none": "Nothing found.",
+	"settings_search_placeholder": "Search …",
 	"settings_section_basics": "Basics",
 	"settings_section_desktop": "On the desktop",
 	"settings_section_images": "Images",

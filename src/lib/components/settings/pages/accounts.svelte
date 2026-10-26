@@ -139,7 +139,7 @@
 								{m.settings_account_preview()}
 							</figcaption>
 							<div
-								class="min-h-full rounded-lg bg-muted/50 p-3 text-sm whitespace-pre-wrap text-muted-foreground"
+								class="flex-1 rounded-lg bg-muted/50 p-3 text-sm whitespace-pre-wrap text-muted-foreground"
 							>
 								{#if signature.trim()}-- <br />{signature}{:else}<i
 										>{m.settings_account_preview_empty()}</i

@@ -38,7 +38,7 @@
 					<Input
 						type="search"
 						class="h-8 pl-8"
-						placeholder={m.settings_search()}
+						placeholder={m.settings_search_placeholder()}
 						aria-label={m.settings_search()}
 						bind:value={query}
 					/>
