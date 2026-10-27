@@ -262,6 +262,30 @@ export async function trustSender(db: Database, address: string) {
 	await db.insert(trustedSenders).values({ address: address.toLowerCase() }).onConflictDoNothing();
 }
 
+/** Senders whose remote images load without asking, by address. */
+export async function listTrustedSenders(db: Database): Promise<string[]> {
+	const rows = await db
+		.select({ address: trustedSenders.address })
+		.from(trustedSenders)
+		.orderBy(asc(trustedSenders.address));
+	return rows.map((row) => row.address);
+}
+
+/** Remote images of this sender are asked for again. */
+export async function untrustSender(db: Database, address: string) {
+	await db.delete(trustedSenders).where(eq(trustedSenders.address, address.toLowerCase()));
+}
+
+/** All sender rules, by address. */
+export async function listSenderRules(
+	db: Database
+): Promise<{ address: string; rule: SenderRule }[]> {
+	return db
+		.select({ address: senderRules.address, rule: senderRules.kind })
+		.from(senderRules)
+		.orderBy(asc(senderRules.address));
+}
+
 /** Files a sender's mail always as newsletter, never, or (null) by its headers again. */
 export async function setSenderRule(db: Database, address: string, rule: SenderRule | null) {
 	const key = address.toLowerCase();

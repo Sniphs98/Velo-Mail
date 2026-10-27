@@ -213,6 +213,11 @@ Dunkelmodus, Desktop-Benachrichtigungen, Tray-Icon, Ungelesen-Zähler im Dock,
 Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
 
 - [x] Einstellungen (Allgemein, Konten), gespeichert in der Tabelle `settings`
+- [x] Einstellungen als großes Fenster mit Navigation (Allgemein, Darstellung,
+      Benachrichtigungen, Datenschutz, Konten, Posteingang & Newsletter,
+      Kalender, Updates & Info); neue Seiten = Komponente + Eintrag in
+      `settings/pages.ts`. Modals in drei Größen (sm/md/lg), Formulare in zwei
+      Spalten, „Newsletter aufräumen“ als sortierbare Tabelle
 - [x] Dunkelmodus: System, Hell oder Dunkel; HTML-Mails behalten ihren hellen
       Hintergrund
 - [x] Signatur pro Konto, unter dem eigenen Text und über dem Zitat, mit „-- “

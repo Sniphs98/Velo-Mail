@@ -95,7 +95,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+	<Dialog.Content size="md">
 		<Dialog.Header>
 			<Dialog.Title class="font-heading">{m.account_add()}</Dialog.Title>
 			<Dialog.Description>
@@ -108,46 +108,63 @@
 		</Dialog.Header>
 
 		<form
-			class="grid gap-4"
+			class="flex min-h-0 flex-1 flex-col gap-4"
 			onsubmit={(event) => {
 				event.preventDefault();
 				save();
 			}}
 		>
-			<Field.Group class="gap-3">
-				<Field.Field>
-					<Field.Label for="account-name">{m.account_name()}</Field.Label>
-					<Input id="account-name" bind:value={name} placeholder={m.account_name_placeholder()} />
-				</Field.Field>
-				<Field.Field>
-					<Field.Label for="account-email">{m.account_email()}</Field.Label>
-					<Input id="account-email" type="email" required autocomplete="email" bind:value={email} />
-				</Field.Field>
-				<Field.Field>
-					<Field.Label for="account-password">{m.account_password()}</Field.Label>
-					<Input
-						id="account-password"
-						type="password"
-						required
-						autocomplete="current-password"
-						bind:value={password}
-					/>
-					{#if !keyring}
-						<Field.Description>
-							{m.account_no_keyring()}
-						</Field.Description>
+			<div class="-mx-4 grid min-h-0 flex-1 gap-6 overflow-y-auto px-4 sm:grid-cols-2">
+				<Field.Group class="gap-3">
+					<Field.Field>
+						<Field.Label for="account-name">{m.account_name()}</Field.Label>
+						<Input id="account-name" bind:value={name} placeholder={m.account_name_placeholder()} />
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="account-email">{m.account_email()}</Field.Label>
+						<Input
+							id="account-email"
+							type="email"
+							required
+							autocomplete="email"
+							bind:value={email}
+						/>
+					</Field.Field>
+					<Field.Field>
+						<Field.Label for="account-password">{m.account_password()}</Field.Label>
+						<Input
+							id="account-password"
+							type="password"
+							required
+							autocomplete="current-password"
+							bind:value={password}
+						/>
+						{#if !keyring}
+							<Field.Description>
+								{m.account_no_keyring()}
+							</Field.Description>
+						{/if}
+					</Field.Field>
+					{#if step === 'servers'}
+						<Field.Field>
+							<Field.Label for="account-username">{m.account_username()}</Field.Label>
+							<Input id="account-username" required bind:value={settings.username} />
+						</Field.Field>
 					{/if}
-				</Field.Field>
+				</Field.Group>
 
 				{#if step === 'servers'}
-					<Field.Field>
-						<Field.Label for="account-username">{m.account_username()}</Field.Label>
-						<Input id="account-username" required bind:value={settings.username} />
-					</Field.Field>
-					{@render server('imap', m.server_incoming())}
-					{@render server('smtp', m.server_outgoing())}
+					<Field.Group class="gap-3">
+						{@render server('imap', m.server_incoming())}
+						{@render server('smtp', m.server_outgoing())}
+					</Field.Group>
+				{:else}
+					<aside class="flex flex-col gap-2 rounded-xl bg-muted/50 p-4 text-sm">
+						<h3 class="font-medium">{m.account_tip()}</h3>
+						<p class="text-muted-foreground">{m.account_app_password()}</p>
+					</aside>
 				{/if}
-			</Field.Group>
+			</div>
 
 			{#if errors.length > 0}
 				<Alert.Root variant="destructive">
@@ -190,7 +207,7 @@
 {#snippet server(kind: 'imap' | 'smtp', label: string)}
 	<Field.Set class="gap-2">
 		<Field.Legend variant="label">{label}</Field.Legend>
-		<div class="grid grid-cols-[1fr_5rem_8rem] gap-2">
+		<div class="grid grid-cols-[1fr_5rem_7.5rem] gap-2">
 			<Input
 				aria-label={m.server_host({ label })}
 				placeholder={m.server_host_placeholder({ kind })}
