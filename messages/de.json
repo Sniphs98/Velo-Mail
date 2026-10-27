@@ -212,6 +212,8 @@
 	"list_label": "Nachrichtenliste",
 	"list_messages": "Nachrichten",
 	"list_width": "Breite der Nachrichtenliste",
+	"mark_all_read": "Alle als gelesen markieren",
+	"mark_all_read_shortcut": "Alle als gelesen markieren (Umschalt+I)",
 	"next": "Weiter",
 	"no_message_selected": "Keine Nachricht ausgewählt",
 	"no_subject": "(Kein Betreff)",

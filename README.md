@@ -11,6 +11,7 @@ built in. Built with SvelteKit, shadcn-svelte, Drizzle, SQLite and Electron.
   New mail arrives right away through IDLE, and mail is cached locally.
 - **All inboxes in one list**, or one folder at a time. Conversations are
   grouped, and keyboard shortcuts move through them (j/k, r, a, f, e, #, c).
+  A folder or inbox tab can be marked read at once (Shift+I).
 - **Search** across subject, sender and content. Filters narrow it by time,
   sender, account, attachments and unread mail, and the server is searched too.
 - **Writing in the reading pane**, with formatting, attachments, signatures,

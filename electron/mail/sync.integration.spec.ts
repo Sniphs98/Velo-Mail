@@ -253,6 +253,19 @@ describe('SyncManager against GreenMail', () => {
 		});
 		expect(seenOnServer).toHaveLength(1);
 		expect((await listMessages(db, { inboxes: true }))[0].seen).toBe(true);
+
+		// "Alle als gelesen markieren" sets the rest at once.
+		await manager.markAllSeen({ inboxes: true });
+		const unseenOnServer = await withImap(async (other) => {
+			const lock = await other.getMailboxLock('INBOX');
+			try {
+				return (await other.search({ seen: false }, { uid: true })) || [];
+			} finally {
+				lock.release();
+			}
+		});
+		expect(unseenOnServer).toEqual([]);
+		expect((await listMessages(db, { inboxes: true })).every((m) => m.seen)).toBe(true);
 	});
 
 	it('fetches contents ahead for the preview, and attachments on demand', async () => {
