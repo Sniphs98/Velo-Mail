@@ -53,6 +53,7 @@ const api: VeloApi = {
 		mailboxes: () => ipcRenderer.invoke(IPC.mailMailboxes),
 		messages: (query) => ipcRenderer.invoke(IPC.mailMessages, query),
 		setSeen: (id, seen) => ipcRenderer.invoke(IPC.mailSetSeen, id, seen),
+		markAllSeen: (query) => ipcRenderer.invoke(IPC.mailMarkAllSeen, query),
 		thread: (id) => ipcRenderer.invoke(IPC.mailThread, id),
 		trustSender: (address) => ipcRenderer.invoke(IPC.mailTrustSender, address),
 		setSenderRule: (address, rule) => ipcRenderer.invoke(IPC.mailSetSenderRule, address, rule),

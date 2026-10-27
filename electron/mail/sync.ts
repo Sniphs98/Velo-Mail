@@ -397,23 +397,29 @@ export function toRow(
 	};
 }
 
-/** Sets or clears \Seen on the server and locally. */
+/** Sets or clears \Seen on the server and locally, for one message or many in a folder. */
 export async function setSeen(
 	db: Database,
 	client: ImapFlow,
 	mailbox: typeof mailboxes.$inferSelect,
-	uid: number,
+	uids: number | number[],
 	seen: boolean
 ) {
-	const lock = await client.getMailboxLock(mailbox.path);
-	try {
-		if (seen) await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });
-		else await client.messageFlagsRemove(String(uid), ['\\Seen'], { uid: true });
-	} finally {
-		lock.release();
+	const all = [uids].flat();
+	// In chunks: servers limit the command length, SQLite the parameters.
+	for (let i = 0; i < all.length; i += 500) {
+		const chunk = all.slice(i, i + 500);
+		const lock = await client.getMailboxLock(mailbox.path);
+		try {
+			const range = chunk.join(',');
+			if (seen) await client.messageFlagsAdd(range, ['\\Seen'], { uid: true });
+			else await client.messageFlagsRemove(range, ['\\Seen'], { uid: true });
+		} finally {
+			lock.release();
+		}
+		await db
+			.update(messages)
+			.set({ seen })
+			.where(and(eq(messages.mailboxId, mailbox.id), inArray(messages.uid, chunk)));
 	}
-	await db
-		.update(messages)
-		.set({ seen })
-		.where(and(eq(messages.mailboxId, mailbox.id), eq(messages.uid, uid)));
 }

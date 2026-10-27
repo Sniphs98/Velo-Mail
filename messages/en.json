@@ -212,6 +212,8 @@
 	"list_label": "Message list",
 	"list_messages": "messages",
 	"list_width": "Width of the message list",
+	"mark_all_read": "Mark all as read",
+	"mark_all_read_shortcut": "Mark all as read (Shift+I)",
 	"next": "Next",
 	"no_message_selected": "No message selected",
 	"no_subject": "(No subject)",

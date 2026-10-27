@@ -332,6 +332,9 @@ export function registerIpc(db: Database, desktop: Desktop, isAppUrl: (url: stri
 	handle(IPC.mailSetSeen, (_event, id: unknown, seen: unknown) =>
 		sync.setSeen(z.number().int().parse(id), z.boolean().parse(seen))
 	);
+	handle(IPC.mailMarkAllSeen, (_event, query: unknown) =>
+		sync.markAllSeen(messageQuerySchema.parse(query))
+	);
 	handle(IPC.mailThread, (_event, id: unknown) => listThread(db, z.number().int().parse(id)));
 	handle(IPC.mailSetSenderRule, async (_event, address: unknown, rule: unknown) => {
 		await setSenderRule(

@@ -166,4 +166,30 @@ describe('MessageList search', () => {
 		await rerender({ tab: undefined });
 		await expect.element(page.getByRole('tablist')).not.toBeInTheDocument();
 	});
+
+	it('marks all read, only while something is unread and not searching', async () => {
+		const onmarkallread = vi.fn();
+		const { rerender } = render(MessageList, {
+			title: 'Posteingang',
+			messages: [message({ id: 1 })],
+			accounts,
+			selectedId: null,
+			showAccount: false,
+			onselect: () => {},
+			unread: 3,
+			onmarkallread
+		});
+		await page.getByRole('button', { name: 'Alle als gelesen markieren' }).click();
+		expect(onmarkallread).toHaveBeenCalledOnce();
+
+		await rerender({ unread: 0 });
+		await expect
+			.element(page.getByRole('button', { name: 'Alle als gelesen markieren' }))
+			.not.toBeInTheDocument();
+
+		await rerender({ unread: 3, query: 'rechnung' });
+		await expect
+			.element(page.getByRole('button', { name: 'Alle als gelesen markieren' }))
+			.not.toBeInTheDocument();
+	});
 });
