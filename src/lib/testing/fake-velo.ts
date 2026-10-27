@@ -98,6 +98,7 @@ export function fakeVelo(overrides: { [K in keyof VeloApi]?: Partial<VeloApi[K]>
 			mailboxes: vi.fn(async () => []),
 			messages: vi.fn(async () => []),
 			setSeen: vi.fn(async () => {}),
+			markAllSeen: vi.fn(async () => {}),
 			thread: vi.fn(async () => []),
 			replySource: vi.fn(async (id: number) => ({
 				messageId: '<p@firma.de>',

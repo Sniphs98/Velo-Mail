@@ -2,7 +2,7 @@
 // tests of the calendar, like GreenMail is for mail. Installed with pip into a
 // virtual environment in .cache/ on first use; each start gets empty storage.
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -17,7 +17,15 @@ export const radicale = {
 };
 
 function install() {
-	if (existsSync(python)) return;
+	if (existsSync(python)) {
+		try {
+			execFileSync(python, ['-c', 'import radicale'], { stdio: 'ignore' });
+			return;
+		} catch {
+			// A venv cached under another Python version finds no packages: start over.
+			rmSync(venv, { recursive: true, force: true });
+		}
+	}
 	execFileSync('python3', ['-m', 'venv', venv], { stdio: 'inherit' });
 	execFileSync(python, ['-m', 'pip', 'install', '--quiet', `radicale==${version}`], {
 		stdio: 'inherit'

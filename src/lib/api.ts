@@ -425,6 +425,8 @@ export interface VeloApi {
 		mailboxes(): Promise<Mailbox[]>;
 		messages(query: MessageQuery): Promise<MessageSummary[]>;
 		setSeen(messageId: number, seen: boolean): Promise<void>;
+		/** Marks every unread message a query lists read, not only the first page. */
+		markAllSeen(query: MessageQuery): Promise<void>;
 		/** The conversation of a message, oldest first, across the account's folders. */
 		thread(messageId: number): Promise<MessageSummary[]>;
 		/** Files a sender's mail always as newsletter, never, or (null) by its headers. */
@@ -534,6 +536,7 @@ export const IPC = {
 	mailMailboxes: 'mail:mailboxes',
 	mailMessages: 'mail:messages',
 	mailSetSeen: 'mail:set-seen',
+	mailMarkAllSeen: 'mail:mark-all-seen',
 	mailSync: 'mail:sync',
 	mailBody: 'mail:body',
 	mailThread: 'mail:thread',

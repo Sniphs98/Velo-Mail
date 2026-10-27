@@ -1,6 +1,14 @@
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
-	import { Paperclip, PenLine, Search, SlidersHorizontal, Sparkles, X } from '@lucide/svelte';
+	import {
+		CheckCheck,
+		Paperclip,
+		PenLine,
+		Search,
+		SlidersHorizontal,
+		Sparkles,
+		X
+	} from '@lucide/svelte';
 	import type { Account, InboxTab, MessageSummary, SearchFilters } from '#lib/api.ts';
 	import { activeFilters, noFilters } from '#lib/search.ts';
 	import { listDate } from '#lib/format.ts';
@@ -28,7 +36,9 @@
 		tab,
 		tabUnread,
 		ontab,
-		ontidy
+		ontidy,
+		unread = 0,
+		onmarkallread
 	}: {
 		/** In pixels; set by the divider next to it. */
 		width?: number;
@@ -56,6 +66,10 @@
 		ontab?: (tab: InboxTab) => void;
 		/** Opens tidying up newsletters by sender; offered in the newsletter tab. */
 		ontidy?: () => void;
+		/** Unread messages in the folder or tab shown; the button shows only with some. */
+		unread?: number;
+		/** Marks everything in the folder or tab shown read. */
+		onmarkallread?: () => void;
 	} = $props();
 
 	const tabs: { value: InboxTab; label: () => string }[] = [
@@ -115,6 +129,17 @@
 				<span class="truncate text-xs text-muted-foreground">{subtitle}</span>
 			{/if}
 		</div>
+		{#if onmarkallread && unread > 0 && !searching}
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				aria-label={m.mark_all_read()}
+				title={m.mark_all_read_shortcut()}
+				onclick={onmarkallread}
+			>
+				<CheckCheck />
+			</Button>
+		{/if}
 		{#if oncompose}
 			<Button
 				size="icon-sm"

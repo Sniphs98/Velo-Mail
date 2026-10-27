@@ -22,7 +22,8 @@ import {
 	trustSender,
 	untrustSender,
 	unreadInInboxes,
-	unseenAbove
+	unseenAbove,
+	unseenListed
 } from './queries';
 import { newsletterInfo, parseReferences, threadKey, toRow } from './sync';
 
@@ -170,6 +171,30 @@ describe('newsletters', () => {
 		expect(await subjects('newsletters')).toEqual(['news@shop.de 4', 'news@shop.de 2']);
 		expect(await subjects()).toHaveLength(4);
 		expect(await listMailboxes(db)).toMatchObject([{ unread: 3, unreadNewsletters: 1 }]);
+	});
+
+	it('finds the unread mail of a tab or folder to mark all read', async () => {
+		const a = await account('a@beispiel.de');
+		const b = await account('b@beispiel.de');
+		const inboxA = await mailbox(a, 'INBOX', 'inbox');
+		const inboxB = await mailbox(b, 'INBOX', 'inbox');
+		const archive = await mailbox(a, 'Archiv', 'archive');
+		const anna = await mail(inboxA, 1, 'anna@firma.de', false);
+		const news = await mail(inboxA, 2, 'news@shop.de', true);
+		await mail(inboxA, 3, 'news@shop.de', true, true);
+		const otherNews = await mail(inboxB, 4, 'news@shop.de', true);
+		const archived = await mail(archive, 5, 'anna@firma.de', false);
+		const ids = async (query: Parameters<typeof unseenListed>[1]) =>
+			(await unseenListed(db, query)).map((row) => row.id).sort();
+
+		expect(await ids({ inboxes: true, tab: 'newsletters' })).toEqual([news, otherNews]);
+		expect(await ids({ inboxes: true, tab: 'primary' })).toEqual([anna]);
+		expect(await ids({ mailboxId: inboxA, tab: 'newsletters' })).toEqual([news]);
+		expect(await ids({ mailboxId: archive })).toEqual([archived]);
+		expect((await unseenListed(db, { mailboxId: inboxB }))[0]).toMatchObject({
+			uid: 4,
+			mailbox: { id: inboxB, accountId: b, path: 'INBOX' }
+		});
 	});
 
 	it("files a sender's mail by its rule, whatever the headers say", async () => {

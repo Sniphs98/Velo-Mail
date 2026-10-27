@@ -120,7 +120,7 @@
 	}
 
 	/**
-	 * j/k or arrows: next/previous, u: unread, r/a/f: reply/all/forward,
+	 * j/k or arrows: next/previous, u: unread, Shift+I: all read, r/a/f: reply/all/forward,
 	 * c: new message, e: archive, Delete/#: trash, Ctrl/Cmd+K: search.
 	 */
 	function shortcut(event: KeyboardEvent) {
@@ -145,6 +145,7 @@
 			k: () => mail.move(-1),
 			ArrowUp: () => mail.move(-1),
 			u: () => mail.markUnread(),
+			I: () => mail.listedUnread > 0 && mail.markAllRead(),
 			r: () => reply('reply'),
 			a: () => reply('replyAll'),
 			f: () => reply('forward'),
@@ -202,6 +203,8 @@
 				tabUnread={mail.tabUnread}
 				ontab={(tab) => mail.showTab(tab)}
 				ontidy={() => dialogs.showTidy(mailbox ? [mailbox.accountId] : [])}
+				unread={mail.listedUnread}
+				onmarkallread={() => mail.markAllRead()}
 			/>
 			<ResizeHandle bind:value={layout.list} {...listWidth} label={m.list_width()} />
 

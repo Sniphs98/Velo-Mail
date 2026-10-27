@@ -75,6 +75,29 @@ const summary = {
 /** Messages without a Message-ID form a conversation of their own. */
 const threadOf = sql`coalesce(${messages.threadId}, 'id:' || ${messages.id})`;
 
+/** The messages a query lists: its folder or the inboxes, and its tab. */
+function listed(db: Database, query: MessageQuery) {
+	const folder =
+		'mailboxId' in query
+			? eq(messages.mailboxId, query.mailboxId)
+			: inArray(
+					messages.mailboxId,
+					db.select({ id: mailboxes.id }).from(mailboxes).where(eq(mailboxes.role, 'inbox'))
+				);
+	return query.tab === undefined
+		? folder
+		: and(folder, query.tab === 'newsletters' ? sql`${isNewsletter}` : sql`not ${isNewsletter}`);
+}
+
+/** The unread messages a query lists, all of them (not one page), with their folder. */
+export async function unseenListed(db: Database, query: MessageQuery) {
+	return db
+		.select({ id: messages.id, uid: messages.uid, mailbox: mailboxes })
+		.from(messages)
+		.innerJoin(mailboxes, eq(mailboxes.id, messages.mailboxId))
+		.where(and(listed(db, query), eq(messages.seen, false)));
+}
+
 /**
  * One row per conversation, newest first: its newest message, how many of the
  * listed messages belong to it, and "seen" only if all of them are. The list
@@ -85,17 +108,7 @@ export async function listMessages(
 	query: MessageQuery,
 	limit = 500
 ): Promise<MessageSummary[]> {
-	const folder =
-		'mailboxId' in query
-			? eq(messages.mailboxId, query.mailboxId)
-			: inArray(
-					messages.mailboxId,
-					db.select({ id: mailboxes.id }).from(mailboxes).where(eq(mailboxes.role, 'inbox'))
-				);
-	const where =
-		query.tab === undefined
-			? folder
-			: and(folder, query.tab === 'newsletters' ? sql`${isNewsletter}` : sql`not ${isNewsletter}`);
+	const where = listed(db, query);
 	const partition = sql`partition by ${mailboxes.accountId}, ${threadOf}`;
 	const heads = await db.all<{ id: number; size: number; unseen: number }>(sql`
 		select id, size, unseen from (

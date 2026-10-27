@@ -112,4 +112,33 @@ describe('mail', () => {
 		expect(mail.tabbed).toBe(false);
 		await mail.show({ inboxes: true });
 	});
+
+	it('marks everything in the tab or folder shown read', async () => {
+		const inbox = { id: 1, accountId: 1, name: 'Posteingang', role: 'inbox' as const };
+		const junk = { id: 2, accountId: 1, name: 'Spam', role: 'junk' as const };
+		const markAllSeen = vi.fn(async () => {});
+		fakeVelo({
+			mail: {
+				mailboxes: vi.fn(async () => [
+					{ ...inbox, unread: 5, unreadNewsletters: 3 },
+					{ ...junk, unread: 4, unreadNewsletters: 0 }
+				]),
+				messages: vi.fn(async () => [{ ...message(1), seen: false }]),
+				markAllSeen
+			}
+		});
+		await mail.show({ inboxes: true });
+		await mail.showTab('newsletters');
+		expect(mail.listedUnread).toBe(3);
+		const done = mail.markAllRead();
+		expect(mail.messages[0].seen).toBe(true);
+		await done;
+		expect(markAllSeen).toHaveBeenLastCalledWith({ inboxes: true, tab: 'newsletters' });
+
+		await mail.show({ mailboxId: 2 });
+		expect(mail.listedUnread).toBe(4);
+		await mail.markAllRead();
+		expect(markAllSeen).toHaveBeenLastCalledWith({ mailboxId: 2 });
+		await mail.show({ inboxes: true });
+	});
 });

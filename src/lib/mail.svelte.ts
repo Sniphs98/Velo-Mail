@@ -66,6 +66,16 @@ class Mail {
 		};
 	}
 
+	/** Unread messages in the folder or tab shown; none while searching. */
+	get listedUnread() {
+		if (this.searching) return 0;
+		if (this.tabbed) return this.tabUnread[this.tab];
+		const view = this.view;
+		return 'mailboxId' in view
+			? (this.mailboxes.find((m) => m.id === view.mailboxId)?.unread ?? 0)
+			: 0;
+	}
+
 	unreadInboxes = $derived(
 		this.mailboxes.filter((m) => m.role === 'inbox').reduce((sum, m) => sum + m.unread, 0)
 	);
@@ -173,6 +183,19 @@ class Mail {
 		latest.seen = false;
 		if (row) row.seen = false;
 		await velo()?.mail.setSeen(latest.id, false);
+	}
+
+	/** Marks everything in the folder or tab shown read, also beyond the listed page. */
+	async markAllRead() {
+		const api = velo();
+		if (!api || this.searching) return;
+		for (const message of this.messages) message.seen = true;
+		for (const message of this.thread) message.seen = true;
+		try {
+			await api.mail.markAllSeen(this.listQuery());
+		} finally {
+			await this.load();
+		}
 	}
 
 	/**

@@ -7,6 +7,7 @@ import nodemailer from 'nodemailer';
 import { and, eq } from 'drizzle-orm';
 import type {
 	MailboxRole,
+	MessageQuery,
 	OutgoingMessage,
 	ReplySource,
 	SavedDraft,
@@ -26,6 +27,7 @@ import {
 	findMessage,
 	newestUid,
 	unseenAbove,
+	unseenListed,
 	withoutBody
 } from './queries';
 import { searchOnServer, serverCriteria, setSeen, syncMailbox, syncMailboxes } from './sync';
@@ -143,6 +145,35 @@ export class SyncManager {
 			setSeen(this.deps.db, session.client, found.mailbox, found.message.uid, seen)
 		);
 		this.deps.onChanged(found.mailbox.accountId);
+	}
+
+	/**
+	 * Marks every unread message a query lists read: a folder, or the inboxes
+	 * of all accounts, in one tab. Accounts that fail don't stop the others.
+	 */
+	async markAllSeen(query: MessageQuery) {
+		const unread = await unseenListed(this.deps.db, query);
+		const failed: unknown[] = [];
+		for (const [accountId, rows] of Map.groupBy(unread, (row) => row.mailbox.accountId)) {
+			try {
+				const session = this.connected(accountId);
+				await this.run(session, async () => {
+					for (const [, inBox] of Map.groupBy(rows, (row) => row.mailbox.id)) {
+						await setSeen(
+							this.deps.db,
+							session.client,
+							inBox[0].mailbox,
+							inBox.map((row) => row.uid),
+							true
+						);
+					}
+				});
+			} catch (error) {
+				failed.push(error);
+			}
+			this.deps.onChanged(accountId);
+		}
+		if (failed.length > 0) throw failed[0];
 	}
 
 	/** The content of a message, downloading it if needed. */
