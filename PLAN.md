@@ -250,6 +250,23 @@ Einstellungen, Signaturen, OAuth2 für Gmail/Outlook.
 - [ ] Auto-Update auf macOS, sobald die Builds signiert sind
 - [ ] OAuth2 für Gmail/Outlook (zum Schluss; braucht registrierte Client-IDs)
 
+### JMAP
+
+Mail über JMAP (RFC 8620/8621) als zweiter Kontotyp neben IMAP/SMTP, etwa für
+Fastmail oder Stalwart.
+
+- [ ] Protokoll-Schicht unter Sync, Manager und Versand, damit sie nicht mehr
+      fest an imapflow und nodemailer hängen
+- [ ] Kontotyp „JMAP“ in Schema, Migration und Konto-Dialog; Server über
+      `/.well-known/jmap` finden, Anmeldung prüfen
+- [ ] Ordner und Mails abgleichen (`Mailbox/get`, `Email/query`,
+      `Email/changes` mit state-Strings)
+- [ ] Push für neue Mails über EventSource statt IDLE
+- [ ] Flags, Verschieben, Löschen und Entwürfe über `Email/set`
+- [ ] Senden über `EmailSubmission/set`
+- [ ] Suche auf dem Server über `Email/query`-Filter
+- [ ] Integrationstests gegen einen JMAP-Server (z. B. Stalwart)
+
 ### Kalender
 
 Eigener Kalender über CalDAV (iCloud, Nextcloud, Posteo, mailbox.org, Yahoo,
