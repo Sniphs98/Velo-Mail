@@ -13,6 +13,7 @@ import {
 import { statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { attachContextMenu, opensExternally } from './context-menu';
 import { openDatabase, type Database } from './db';
 import { Desktop } from './desktop';
 import { useLanguage } from './i18n';
@@ -135,12 +136,17 @@ function whenLoaded(send: (window: BrowserWindow) => void) {
 	else send(window);
 }
 
+function openLink(url: string) {
+	if (opensExternally(url)) shell.openExternal(url);
+}
+
 // Links in the app open in the browser; the window never navigates away.
 app.on('web-contents-created', (_event, contents) => {
 	contents.setWindowOpenHandler(({ url }) => {
-		if (url.startsWith('https://') || url.startsWith('mailto:')) shell.openExternal(url);
+		openLink(url);
 		return { action: 'deny' };
 	});
+	attachContextMenu(contents, openLink);
 	contents.on('will-navigate', (event, url) => {
 		if (!isOwnUrl(url)) event.preventDefault();
 	});
